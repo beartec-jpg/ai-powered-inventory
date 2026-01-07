@@ -25,6 +25,8 @@ model User {
   warehouseAccess WarehouseAccess[]
   activities      Activity[]
   stockTransfers  StockTransfer[]
+  conversations   ChatConversation[]
+  chatPreferences Json?  // Chat settings like theme, notifications
 
   @@map("users")
 }
@@ -276,4 +278,76 @@ model Activity {
   @@index([entityType])
   @@index([createdAt])
   @@map("activities")
+}
+
+// Chat Conversation model
+model ChatConversation {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String?  // Optional conversation title
+  active    Boolean  @default(true)
+  metadata  Json?    // Additional conversation metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages ChatMessage[]
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("chat_conversations")
+}
+
+// Chat Message model
+model ChatMessage {
+  id             String   @id @default(cuid())
+  conversationId String
+  role           MessageRole
+  content        String   @db.Text
+  metadata       Json?    // Token usage, model version, etc.
+  createdAt      DateTime @default(now())
+
+  // Relations
+  conversation ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  toolCalls    ToolCall[]
+
+  @@index([conversationId])
+  @@index([createdAt])
+  @@map("chat_messages")
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+  TOOL
+}
+
+// Tool Call model - tracks function executions
+model ToolCall {
+  id         String   @id @default(cuid())
+  messageId  String
+  toolName   String
+  parameters Json     // Function parameters
+  result     Json?    // Function execution result
+  status     ToolCallStatus @default(PENDING)
+  error      String?  // Error message if failed
+  executedAt DateTime?
+  createdAt  DateTime @default(now())
+
+  // Relations
+  message ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+  @@index([toolName])
+  @@index([status])
+  @@map("tool_calls")
+}
+
+enum ToolCallStatus {
+  PENDING
+  EXECUTING
+  SUCCESS
+  FAILED
 }
