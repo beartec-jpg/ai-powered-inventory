@@ -6,7 +6,7 @@ const router = Router();
  * Health check endpoint
  * Returns the current status of the API
  */
-router.get('/', (req: Request, res: Response) => {
+router.get('/', (_req: Request, res: Response) => {
   const healthStatus = {
     status: 'healthy',
     timestamp: new Date().toISOString(),
@@ -21,7 +21,7 @@ router.get('/', (req: Request, res: Response) => {
  * Detailed health check endpoint
  * Returns more comprehensive health information
  */
-router.get('/detailed', (req: Request, res: Response) => {
+router.get('/detailed', (_req: Request, res: Response) => {
   const detailedHealth = {
     status: 'healthy',
     timestamp: new Date().toISOString(),

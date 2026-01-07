@@ -25,8 +25,6 @@ if (!fs.existsSync(logsDir)) {
   fs.mkdirSync(logsDir, { recursive: true });
 }
 
-const logFilePath = path.join(logsDir, 'requests.log');
-
 /**
  * Format date to ISO string
  */
@@ -131,7 +129,7 @@ export const logger = (req: Request, res: Response, next: NextFunction): void =>
 export const errorLogger = (
   err: Error,
   req: Request,
-  res: Response,
+  _res: Response,
   next: NextFunction
 ): void => {
   const timestamp = formatDate(new Date());
