@@ -1,7 +1,5 @@
-import { eq, desc, sql } from 'drizzle-orm';
-import { db } from '../db/client';
-import { warehouses, stocks, products } from '../db/schema';
-import { v4 as uuidv4 } from 'uuid';
+import { prisma } from '../lib/prisma';
+import { Warehouse } from '@prisma/client';
 
 export interface CreateWarehouseInput {
   name: string;
@@ -16,30 +14,57 @@ export interface UpdateWarehouseInput {
   active?: boolean;
 }
 
+class NotFoundError extends Error {
+  statusCode = 404;
+  constructor(message: string) {
+    super(message);
+    this.name = 'NotFoundError';
+  }
+}
+
+class ConflictError extends Error {
+  statusCode = 409;
+  constructor(message: string) {
+    super(message);
+    this.name = 'ConflictError';
+  }
+}
+
 export class WarehouseService {
   /**
-   * Create a new warehouse
+   * Get warehouses with pagination
    */
-  async createWarehouse(input: CreateWarehouseInput) {
-    const [warehouse] = await db.insert(warehouses).values({
-      id: uuidv4(),
-      name: input.name,
-      location: input.location,
-      capacity: input.capacity,
-      active: true,
-    }).returning();
+  static async getWarehouses(
+    page: number = 1,
+    perPage: number = 30,
+    activeOnly: boolean = false
+  ): Promise<{ warehouses: Warehouse[]; total: number }> {
+    const where = activeOnly ? { active: true } : {};
 
-    return warehouse;
+    const [warehouses, total] = await Promise.all([
+      prisma.warehouse.findMany({
+        where,
+        skip: (page - 1) * perPage,
+        take: perPage,
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.warehouse.count({ where }),
+    ]);
+
+    return { warehouses, total };
   }
 
   /**
    * Get warehouse by ID
    */
-  async getWarehouseById(id: string) {
-    const [warehouse] = await db.select()
-      .from(warehouses)
-      .where(eq(warehouses.id, id))
-      .limit(1);
+  static async getWarehouseById(id: string): Promise<Warehouse> {
+    const warehouse = await prisma.warehouse.findUnique({
+      where: { id },
+    });
+
+    if (!warehouse) {
+      throw new NotFoundError('Warehouse not found');
+    }
 
     return warehouse;
   }
@@ -47,101 +72,166 @@ export class WarehouseService {
   /**
    * Get warehouse by name
    */
-  async getWarehouseByName(name: string) {
-    const [warehouse] = await db.select()
-      .from(warehouses)
-      .where(eq(warehouses.name, name))
-      .limit(1);
-
-    return warehouse;
+  static async getWarehouseByName(name: string): Promise<Warehouse | null> {
+    return prisma.warehouse.findUnique({
+      where: { name },
+    });
   }
 
   /**
    * Get all warehouses
    */
-  async getAllWarehouses() {
-    const allWarehouses = await db.select()
-      .from(warehouses)
-      .where(eq(warehouses.active, true))
-      .orderBy(desc(warehouses.createdAt));
+  static async getAllWarehouses(): Promise<Warehouse[]> {
+    return prisma.warehouse.findMany({
+      where: { active: true },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
 
-    return allWarehouses;
+  /**
+   * Create a new warehouse
+   */
+  static async createWarehouse(data: CreateWarehouseInput): Promise<Warehouse> {
+    // Check if name already exists
+    const existing = await prisma.warehouse.findUnique({
+      where: { name: data.name },
+    });
+
+    if (existing) {
+      throw new ConflictError('Warehouse with this name already exists');
+    }
+
+    const warehouse = await prisma.warehouse.create({
+      data: {
+        name: data.name,
+        location: data.location,
+        capacity: data.capacity,
+        active: true,
+      },
+    });
+
+    return warehouse;
   }
 
   /**
    * Update warehouse
    */
-  async updateWarehouse(id: string, input: UpdateWarehouseInput) {
-    const [updatedWarehouse] = await db.update(warehouses)
-      .set({
-        ...input,
-        updatedAt: new Date(),
-      })
-      .where(eq(warehouses.id, id))
-      .returning();
+  static async updateWarehouse(id: string, data: UpdateWarehouseInput): Promise<Warehouse> {
+    // Check if warehouse exists
+    const existingWarehouse = await prisma.warehouse.findUnique({
+      where: { id },
+    });
 
-    return updatedWarehouse;
+    if (!existingWarehouse) {
+      throw new NotFoundError('Warehouse not found');
+    }
+
+    // If updating name, check if new name is unique
+    if (data.name && data.name !== existingWarehouse.name) {
+      const nameExists = await prisma.warehouse.findUnique({
+        where: { name: data.name },
+      });
+
+      if (nameExists) {
+        throw new ConflictError('Warehouse with this name already exists');
+      }
+    }
+
+    const warehouse = await prisma.warehouse.update({
+      where: { id },
+      data,
+    });
+
+    return warehouse;
   }
 
   /**
    * Delete warehouse (soft delete)
    */
-  async deleteWarehouse(id: string) {
-    const [deletedWarehouse] = await db.update(warehouses)
-      .set({
-        active: false,
-        updatedAt: new Date(),
-      })
-      .where(eq(warehouses.id, id))
-      .returning();
+  static async deleteWarehouse(id: string): Promise<Warehouse> {
+    // Check if warehouse exists
+    const existingWarehouse = await prisma.warehouse.findUnique({
+      where: { id },
+    });
 
-    return deletedWarehouse;
+    if (!existingWarehouse) {
+      throw new NotFoundError('Warehouse not found');
+    }
+
+    const warehouse = await prisma.warehouse.update({
+      where: { id },
+      data: { active: false },
+    });
+
+    return warehouse;
   }
 
   /**
    * Get warehouse capacity utilization
    */
-  async getWarehouseUtilization(warehouseId: string) {
-    const warehouse = await this.getWarehouseById(warehouseId);
+  static async getWarehouseUtilization(warehouseId: string): Promise<any> {
+    const warehouse = await prisma.warehouse.findUnique({
+      where: { id: warehouseId },
+    });
+
     if (!warehouse) {
-      throw new Error('Warehouse not found');
+      throw new NotFoundError('Warehouse not found');
     }
 
     // Get total quantity of items in warehouse
-    const result = await db.select({
-      totalQuantity: sql<number>`COALESCE(SUM(${stocks.quantity}), 0)`,
-    })
-      .from(stocks)
-      .where(eq(stocks.warehouseId, warehouseId));
+    const result = await prisma.stock.aggregate({
+      where: { warehouseId },
+      _sum: {
+        quantity: true,
+      },
+    });
 
-    const totalQuantity = result[0]?.totalQuantity || 0;
-    const utilization = warehouse.capacity > 0 
-      ? (Number(totalQuantity) / warehouse.capacity) * 100 
-      : 0;
+    const totalQuantity = result._sum.quantity || 0;
+    const utilization = warehouse.capacity > 0 ? (totalQuantity / warehouse.capacity) * 100 : 0;
 
     return {
       warehouse,
-      totalQuantity: Number(totalQuantity),
+      totalQuantity,
       capacity: warehouse.capacity,
       utilization: Math.round(utilization * 100) / 100, // Round to 2 decimals
-      availableCapacity: warehouse.capacity - Number(totalQuantity),
+      availableCapacity: warehouse.capacity - totalQuantity,
     };
   }
 
   /**
    * Get warehouse stock summary
    */
-  async getWarehouseStockSummary(warehouseId: string) {
-    const stockItems = await db.select({
-      stock: stocks,
-      product: products,
-    })
-      .from(stocks)
-      .innerJoin(products, eq(stocks.productId, products.id))
-      .where(eq(stocks.warehouseId, warehouseId));
+  static async getWarehouseStockSummary(warehouseId: string): Promise<any> {
+    const warehouse = await prisma.warehouse.findUnique({
+      where: { id: warehouseId },
+    });
 
-    return stockItems;
+    if (!warehouse) {
+      throw new NotFoundError('Warehouse not found');
+    }
+
+    const stocks = await prisma.stock.findMany({
+      where: { warehouseId },
+      include: {
+        product: true,
+      },
+    });
+
+    return {
+      warehouse,
+      stocks,
+      totalItems: stocks.length,
+      totalQuantity: stocks.reduce((sum, stock) => sum + stock.quantity, 0),
+      totalAvailable: stocks.reduce((sum, stock) => sum + stock.available, 0),
+      totalReserved: stocks.reduce((sum, stock) => sum + stock.reserved, 0),
+    };
   }
 }
 
-export const warehouseService = new WarehouseService();
+// Export instance for compatibility with inventoryIntelligence.ts
+export const warehouseService = {
+  getWarehouseByName: (name: string) => WarehouseService.getWarehouseByName(name),
+  getAllWarehouses: () => WarehouseService.getAllWarehouses(),
+  getWarehouseById: (id: string) => WarehouseService.getWarehouseById(id),
+  getWarehouseUtilization: (warehouseId: string) => WarehouseService.getWarehouseUtilization(warehouseId),
+};

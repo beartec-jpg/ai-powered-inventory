@@ -1,19 +1,17 @@
-import { eq, desc } from 'drizzle-orm';
-import { db } from '../db/client';
-import { users, warehouseAccesses } from '../db/schema';
-import { v4 as uuidv4 } from 'uuid';
+import { prisma } from '../lib/prisma';
+import { User, UserRole } from '@prisma/client';
 
 export interface CreateUserInput {
   email: string;
   password: string;
   name: string;
-  role?: 'ADMIN' | 'MANAGER' | 'STAFF' | 'VIEWER';
+  role?: UserRole;
 }
 
 export interface UpdateUserInput {
   email?: string;
   name?: string;
-  role?: 'ADMIN' | 'MANAGER' | 'STAFF' | 'VIEWER';
+  role?: UserRole;
   active?: boolean;
 }
 
@@ -21,15 +19,16 @@ export class UserService {
   /**
    * Create a new user
    */
-  async createUser(input: CreateUserInput) {
-    const [user] = await db.insert(users).values({
-      id: uuidv4(),
-      email: input.email,
-      password: input.password, // Should be hashed before calling
-      name: input.name,
-      role: input.role || 'STAFF',
-      active: true,
-    }).returning();
+  async createUser(input: CreateUserInput): Promise<User> {
+    const user = await prisma.user.create({
+      data: {
+        email: input.email,
+        password: input.password, // Should be hashed before calling
+        name: input.name,
+        role: input.role || UserRole.STAFF,
+        active: true,
+      },
+    });
 
     return user;
   }
@@ -37,91 +36,90 @@ export class UserService {
   /**
    * Get user by ID
    */
-  async getUserById(id: string) {
-    const [user] = await db.select()
-      .from(users)
-      .where(eq(users.id, id))
-      .limit(1);
-
-    return user;
+  async getUserById(id: string): Promise<User | null> {
+    return prisma.user.findUnique({
+      where: { id },
+    });
   }
 
   /**
    * Get user by email
    */
-  async getUserByEmail(email: string) {
-    const [user] = await db.select()
-      .from(users)
-      .where(eq(users.email, email))
-      .limit(1);
-
-    return user;
+  async getUserByEmail(email: string): Promise<User | null> {
+    return prisma.user.findUnique({
+      where: { email },
+    });
   }
 
   /**
-   * Get all users with pagination
+   * Get all users
    */
-  async getAllUsers(limit = 50, offset = 0) {
-    const allUsers = await db.select()
-      .from(users)
-      .orderBy(desc(users.createdAt))
-      .limit(limit)
-      .offset(offset);
-
-    return allUsers;
-  }
-
-  /**
-   * Get users by role
-   */
-  async getUsersByRole(role: 'ADMIN' | 'MANAGER' | 'STAFF' | 'VIEWER') {
-    const roleUsers = await db.select()
-      .from(users)
-      .where(eq(users.role, role))
-      .orderBy(desc(users.createdAt));
-
-    return roleUsers;
+  async getAllUsers(): Promise<User[]> {
+    return prisma.user.findMany({
+      where: { active: true },
+      orderBy: { createdAt: 'desc' },
+    });
   }
 
   /**
    * Update user
    */
-  async updateUser(id: string, input: UpdateUserInput) {
-    const [updatedUser] = await db.update(users)
-      .set({
-        ...input,
-        updatedAt: new Date(),
-      })
-      .where(eq(users.id, id))
-      .returning();
-
-    return updatedUser;
+  async updateUser(id: string, input: UpdateUserInput): Promise<User> {
+    return prisma.user.update({
+      where: { id },
+      data: input,
+    });
   }
 
   /**
-   * Delete user (soft delete by setting active to false)
+   * Delete user (soft delete)
    */
-  async deleteUser(id: string) {
-    const [deletedUser] = await db.update(users)
-      .set({
-        active: false,
-        updatedAt: new Date(),
-      })
-      .where(eq(users.id, id))
-      .returning();
+  async deleteUser(id: string): Promise<User> {
+    return prisma.user.update({
+      where: { id },
+      data: { active: false },
+    });
+  }
 
-    return deletedUser;
+  /**
+   * Grant warehouse access to user
+   */
+  async grantWarehouseAccess(
+    userId: string,
+    warehouseId: string,
+    role: string
+  ): Promise<any> {
+    return prisma.warehouseAccess.create({
+      data: {
+        userId,
+        warehouseId,
+        role,
+      },
+    });
+  }
+
+  /**
+   * Revoke warehouse access
+   */
+  async revokeWarehouseAccess(userId: string, warehouseId: string): Promise<void> {
+    await prisma.warehouseAccess.deleteMany({
+      where: {
+        userId,
+        warehouseId,
+      },
+    });
   }
 
   /**
    * Get user's warehouse accesses
    */
-  async getUserWarehouseAccesses(userId: string) {
-    const accesses = await db.select()
-      .from(warehouseAccesses)
-      .where(eq(warehouseAccesses.userId, userId));
-
-    return accesses;
+  async getUserWarehouseAccesses(userId: string): Promise<any[]> {
+    return prisma.warehouseAccess.findMany({
+      where: { userId },
+      include: {
+        warehouse: true,
+      },
+    });
   }
 }
 

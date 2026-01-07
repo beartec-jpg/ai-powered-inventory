@@ -282,3 +282,55 @@ model Activity {
   @@index([createdAt])
   @@map("activities")
 }
+
+// ============ Chat System Models ============
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+  TOOL
+}
+
+enum ToolCallStatus {
+  PENDING
+  SUCCESS
+  ERROR
+}
+
+model ChatConversation {
+  id        String   @id @default(cuid())
+  userId    String   @db.Text
+  title     String   @default("New Conversation")
+  active    Boolean  @default(true)
+  messages  ChatMessage[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("chat_conversations")
+}
+
+model ChatMessage {
+  id              String   @id @default(cuid())
+  conversationId  String
+  conversation    ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role            MessageRole
+  content         String   @db.Text
+  toolCalls       ToolCall[]
+  createdAt       DateTime @default(now())
+
+  @@map("chat_messages")
+}
+
+model ToolCall {
+  id        String   @id @default(cuid())
+  messageId String
+  message   ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  toolName  String
+  parameters Json
+  result    Json?
+  status    ToolCallStatus @default(PENDING)
+  createdAt DateTime @default(now())
+
+  @@map("tool_calls")
+}
