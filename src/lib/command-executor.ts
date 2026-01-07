@@ -1,5 +1,5 @@
 import type { InventoryItem, Location, Customer, Job, CommandLog } from './types'
-import { generateId, findBestMatch } from './ai-commands'
+import { generateId, findBestMatchItem } from './ai-commands'
 
 interface ExecutionResult {
   success: boolean
@@ -130,7 +130,7 @@ function removeItem(
   }
 
   if (items.length === 0) {
-    const match = findBestMatch(partNumber, inventory)
+    const match = findBestMatchItem(partNumber, inventory)
     if (match) {
       return { success: false, message: `Part ${partNumber} not found. Did you mean ${match.partNumber}?` }
     }

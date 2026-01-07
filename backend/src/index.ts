@@ -8,6 +8,7 @@ import authRoutes from './routes/auth';
 import inventoryRoutes from './routes/inventory';
 import stockRoutes from './routes/stock';
 import warehouseRoutes from './routes/warehouse';
+import aiRoutes from './routes/ai';
 
 // Import middleware
 import { logger, errorLogger } from './middleware/logger';
@@ -36,6 +37,7 @@ app.use((req: Request, _res: Response, next: NextFunction) => {
 
 // API Routes
 app.use('/api/chat', chatRoutes);
+app.use('/api/ai', aiRoutes);
 
 // Health check endpoint
 app.get('/health', (_req: Request, res: Response) => {
