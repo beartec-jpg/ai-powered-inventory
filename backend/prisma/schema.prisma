@@ -51,7 +51,8 @@ model Warehouse {
   // Relations
   stocks    Stock[]
   accesses  WarehouseAccess[]
-  transfers StockTransfer[]
+  transfersFrom StockTransfer[] @relation("FromWarehouse")
+  transfersTo   StockTransfer[] @relation("ToWarehouse")
 
   @@map("warehouses")
 }

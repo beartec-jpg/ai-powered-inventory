@@ -1,9 +1,6 @@
 // Tool Executor - Handles execution of inventory tools called by AI
 import { getInventoryIntelligence } from './inventoryIntelligence';
 import { ToolExecutionResult, UserContext } from '../types/chat';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
 
 export class ToolExecutor {
   private inventoryIntelligence = getInventoryIntelligence();
@@ -141,7 +138,7 @@ export class ToolExecutor {
    */
   private async checkAuthorization(
     toolName: string,
-    parameters: Record<string, any>,
+    _parameters: Record<string, any>,
     userContext: UserContext
   ): Promise<{ authorized: boolean; reason?: string }> {
     // Read-only operations allowed for all roles
@@ -153,9 +150,6 @@ export class ToolExecutor {
       'get_product_details',
       'warehouse_inventory_report',
     ];
-
-    // Modification operations require STAFF, MANAGER, or ADMIN role
-    const modificationTools = ['transfer_stock', 'adjust_stock', 'create_parts_list'];
 
     // VIEWER role can only use read-only tools
     if (userContext.role === 'VIEWER' && !readOnlyTools.includes(toolName)) {

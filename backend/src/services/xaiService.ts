@@ -2,7 +2,6 @@
 import OpenAI from 'openai';
 import { xaiConfig, validateXAIConfig } from '../config/xaiConfig';
 import {
-  GrokChatCompletionRequest,
   GrokChatCompletionResponse,
   GrokMessage,
   GrokTool,

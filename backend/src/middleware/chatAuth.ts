@@ -122,10 +122,9 @@ export const chatRateLimiter = rateLimit({
  */
 export async function validateConversationAccess(
   req: Request,
-  res: Response,
+  _res: Response,
   next: NextFunction
 ): Promise<void> {
-  const userContext = (req as any).userContext as UserContext;
   const conversationId = req.params.conversationId || req.body.conversationId;
 
   if (!conversationId) {
@@ -141,7 +140,7 @@ export async function validateConversationAccess(
 /**
  * Middleware to check xAI service availability
  */
-export function checkXAIAvailability(req: Request, res: Response, next: NextFunction): void {
+export function checkXAIAvailability(_req: Request, res: Response, next: NextFunction): void {
   // This would check if xAI service is configured and available
   // For now, we'll assume it's available if XAI_API_KEY is set
   if (!process.env.XAI_API_KEY) {

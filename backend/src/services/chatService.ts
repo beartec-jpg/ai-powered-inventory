@@ -11,9 +11,6 @@ import {
   UserContext,
   ToolCallStatus,
 } from '../types/chat';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
 
 export class ChatService {
   private xaiService = getXAIService();
@@ -32,11 +29,7 @@ export class ChatService {
       );
 
       // Save user message
-      const userMessageId = await this.chatMemory.addMessage(
-        conversationId,
-        MessageRole.USER,
-        request.message
-      );
+      await this.chatMemory.addMessage(conversationId, MessageRole.USER, request.message);
 
       // Build conversation history
       const history = await this.chatMemory.getConversationHistory(conversationId);
