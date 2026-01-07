@@ -175,6 +175,55 @@ VITE_CLERK_PUBLISHABLE_KEY=pk_test_...
 - Stock operations and transfers
 - AI chat interface
 
+## 🔀 Git Branch Management
+
+### How to Delete a Branch
+
+#### Delete Local Branch
+To delete a local branch that you no longer need:
+
+```bash
+# Make sure you're not on the branch you want to delete
+git checkout main  # or any other branch
+
+# Delete the branch
+git branch -d branch-name    # Safe delete (only if merged)
+git branch -D branch-name    # Force delete (even if not merged)
+```
+
+#### Delete Remote Branch
+To delete a branch from the remote repository (GitHub):
+
+```bash
+# Delete remote branch using git
+git push origin --delete branch-name
+
+# Alternative syntax
+git push origin :branch-name
+```
+
+#### Delete Both Local and Remote
+To delete a branch completely from both local and remote:
+
+```bash
+# Delete local branch
+git branch -d branch-name
+
+# Delete remote branch
+git push origin --delete branch-name
+```
+
+#### Using GitHub Web UI
+You can also delete branches directly on GitHub:
+
+1. Go to your repository on GitHub
+2. Click on the "branches" link (usually shows "X branches")
+3. Find the branch you want to delete
+4. Click the trash/delete icon next to the branch name
+5. Confirm the deletion
+
+**Note**: You cannot delete the default branch (usually `main` or `master`) or a branch that you're currently on.
+
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
