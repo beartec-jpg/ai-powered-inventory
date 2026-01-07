@@ -1,13 +1,1 @@
-{
-  "buildCommand": "npm run build && cd backend && npm install && npm run build",
-  "outputDirectory": "dist",
-  "framework": "vite",
-  "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": "/backend/dist/index.js"
-    }
-  ],
-  "cleanUrls": true,
-  "trailingSlash": false
-}
+{"buildCommand": "npm install && npm run build && cd backend && npm install && npm run build", "outputDirectory": "dist", "framework": "vite", "rewrites": [{"source": "/api/(.*)", "destination": "/backend/dist/index.js"}], "cleanUrls": true, "trailingSlash": false}
