@@ -5,11 +5,13 @@ import tseslint from "typescript-eslint";
 /** @type {import('eslint').Linter.Config[]} */
 export default [
   {
+    ignores: ["**/dist/**", "**/node_modules/**", "**/coverage/**", "**/*.config.js", "**/*.config.mjs"]
+  },
+  {
     files: ["**/*.{js,mjs,cjs,ts}"],
     languageOptions: {
       globals: globals.node
-    },
-    ignores: ["dist/**", "node_modules/**", "coverage/**"]
+    }
   },
   pluginJs.configs.recommended,
   ...tseslint.configs.recommended,
