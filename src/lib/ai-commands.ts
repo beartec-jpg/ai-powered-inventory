@@ -1,366 +1,288 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { OpenAI } from "openai";
+import * as crypto from "crypto";
 
-/**
- * Model performance analytics and statistics tracking
- */
-interface ModelStats {
-  successCount: number;
-  errorCount: number;
-  totalRequests: number;
-  averageConfidence: number;
-  fallbackCount: number;
-  averageLatency: number; // in milliseconds
-  lastUsed: Date;
-}
-
-interface PerformanceAnalytics {
-  "grok-2": ModelStats;
-  "grok-3": ModelStats;
-  totalRequests: number;
-  fallbacksTriggered: number;
-  lowConfidenceDetections: number;
-  averageConfidenceOverall: number;
-}
-
-/**
- * AI Command execution result with confidence and analytics
- */
-interface CommandResult {
-  success: boolean;
-  data: Record<string, unknown>;
-  confidence: number;
-  modelUsed: string;
-  fallbackUsed: boolean;
-  error?: string;
-  executionTime: number; // in milliseconds
-}
-
-/**
- * Initialize performance analytics
- */
-const initializeAnalytics = (): PerformanceAnalytics => ({
-  "grok-2": {
-    successCount: 0,
-    errorCount: 0,
-    totalRequests: 0,
-    averageConfidence: 0,
-    fallbackCount: 0,
-    averageLatency: 0,
-    lastUsed: new Date(),
-  },
-  "grok-3": {
-    successCount: 0,
-    errorCount: 0,
-    totalRequests: 0,
-    averageConfidence: 0,
-    fallbackCount: 0,
-    averageLatency: 0,
-    lastUsed: new Date(),
-  },
-  totalRequests: 0,
-  fallbacksTriggered: 0,
-  lowConfidenceDetections: 0,
-  averageConfidenceOverall: 0,
+// Initialize OpenAI client configured for xAI (Grok)
+const openai = new OpenAI({
+  apiKey: process.env.XAI_API_KEY,
+  baseURL: "https://api.x.ai/v1",
 });
 
-class AICommandExecutor {
-  private client: Anthropic;
-  private analytics: PerformanceAnalytics;
-  private confidenceThreshold: number = 0.75;
-  private primaryModel: string = "claude-3-5-sonnet-20241022"; // grok-2 equivalent
-  private fallbackModel: string = "claude-3-5-sonnet-20241022"; // grok-3 equivalent
+// Generate a unique ID
+function generateId(): string {
+  return crypto.randomBytes(12).toString("hex");
+}
 
-  constructor() {
-    this.client = new Anthropic();
-    this.analytics = initializeAnalytics();
-  }
+// Find the best matching item from a list based on similarity
+function findBestMatch(
+  input: string,
+  items: string[],
+  threshold: number = 0.6
+): string | null {
+  if (items.length === 0) return null;
 
-  /**
-   * Update model statistics after execution
-   */
-  private updateStats(
-    model: string,
-    success: boolean,
-    confidence: number,
-    latency: number,
-    isFallback: boolean = false
-  ): void {
-    const modelKey = model as keyof PerformanceAnalytics;
-    if (modelKey in this.analytics && typeof this.analytics[modelKey] === "object") {
-      const stats = this.analytics[modelKey] as ModelStats;
-      stats.totalRequests += 1;
-      stats.lastUsed = new Date();
+  // Simple string similarity calculation using Levenshtein distance
+  const calculateSimilarity = (str1: string, str2: string): number => {
+    const s1 = str1.toLowerCase();
+    const s2 = str2.toLowerCase();
 
-      if (success) {
-        stats.successCount += 1;
-        stats.averageConfidence =
-          (stats.averageConfidence * (stats.successCount - 1) + confidence) /
-          stats.successCount;
-      } else {
-        stats.errorCount += 1;
+    if (s1 === s2) return 1;
+
+    const longer = s1.length > s2.length ? s1 : s2;
+    const shorter = s1.length > s2.length ? s2 : s1;
+
+    if (longer.length === 0) return 1;
+
+    const editDistance = getEditDistance(longer, shorter);
+    return (longer.length - editDistance) / longer.length;
+  };
+
+  // Calculate Levenshtein distance between two strings
+  const getEditDistance = (s1: string, s2: string): number => {
+    const costs: number[] = [];
+    for (let i = 0; i <= s1.length; i++) {
+      let lastValue = i;
+      for (let j = 0; j <= s2.length; j++) {
+        if (i === 0) {
+          costs[j] = j;
+        } else if (j > 0) {
+          let newValue = costs[j - 1];
+          if (s1.charAt(i - 1) !== s2.charAt(j - 1)) {
+            newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1;
+          }
+          costs[j - 1] = lastValue;
+          lastValue = newValue;
+        }
       }
+      if (i > 0) costs[s2.length] = lastValue;
+    }
+    return costs[s2.length];
+  };
 
-      if (isFallback) {
-        stats.fallbackCount += 1;
+  let bestMatch: { item: string; similarity: number } | null = null;
+
+  for (const item of items) {
+    const similarity = calculateSimilarity(input, item);
+    if (similarity >= threshold) {
+      if (!bestMatch || similarity > bestMatch.similarity) {
+        bestMatch = { item, similarity };
       }
-
-      // Update average latency
-      const totalLatency = stats.averageLatency * (stats.totalRequests - 1) + latency;
-      stats.averageLatency = totalLatency / stats.totalRequests;
-    }
-
-    // Update overall analytics
-    this.analytics.totalRequests += 1;
-    const currentAverage = this.analytics.averageConfidenceOverall;
-    this.analytics.averageConfidenceOverall =
-      (currentAverage * (this.analytics.totalRequests - 1) + confidence) /
-      this.analytics.totalRequests;
-  }
-
-  /**
-   * Execute AI command with hybrid fallback strategy
-   * Primary: grok-2 → Fallback: grok-3 on error or confidence < 0.75
-   */
-  async executeCommand(
-    prompt: string,
-    context?: Record<string, unknown>
-  ): Promise<CommandResult> {
-    const startTime = Date.now();
-    let result: CommandResult | null = null;
-    let primaryAttemptFailed = false;
-
-    // Attempt 1: Try primary model (grok-2)
-    try {
-      result = await this.executeWithModel(
-        this.primaryModel,
-        prompt,
-        context,
-        false
-      );
-
-      // Check if confidence is below threshold
-      if (result.confidence < this.confidenceThreshold) {
-        this.analytics.lowConfidenceDetections += 1;
-        primaryAttemptFailed = true;
-      }
-    } catch (error) {
-      primaryAttemptFailed = true;
-    }
-
-    // Fallback to secondary model (grok-3) if primary failed
-    if (primaryAttemptFailed) {
-      this.analytics.fallbacksTriggered += 1;
-      result = await this.executeWithModel(
-        this.fallbackModel,
-        prompt,
-        context,
-        true
-      );
-    }
-
-    if (!result) {
-      throw new Error("Failed to execute command with both primary and fallback models");
-    }
-
-    const executionTime = Date.now() - startTime;
-    result.executionTime = executionTime;
-
-    return result;
-  }
-
-  /**
-   * Execute command with a specific model
-   */
-  private async executeWithModel(
-    model: string,
-    prompt: string,
-    context?: Record<string, unknown>,
-    isFallback: boolean = false
-  ): Promise<CommandResult> {
-    const startTime = Date.now();
-
-    try {
-      const systemPrompt = `You are an AI assistant specializing in inventory management commands. 
-You must respond with a JSON object containing:
-- "success": boolean indicating if the command was understood and can be executed
-- "data": object with parsed command details
-- "confidence": number between 0 and 1 indicating confidence in the interpretation
-- "command_type": string describing the type of command
-${context ? `- Additional context: ${JSON.stringify(context)}` : ""}
-
-Always respond with valid JSON only, no additional text.`;
-
-      const response = await this.client.messages.create({
-        model: model,
-        max_tokens: 1024,
-        system: systemPrompt,
-        messages: [
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
-      });
-
-      const latency = Date.now() - startTime;
-      const responseText =
-        response.content[0].type === "text" ? response.content[0].text : "";
-
-      // Parse AI response
-      const parsedResponse = this.parseAIResponse(responseText);
-
-      // Validate confidence level
-      if (
-        !parsedResponse.confidence ||
-        parsedResponse.confidence < 0 ||
-        parsedResponse.confidence > 1
-      ) {
-        throw new Error("Invalid confidence value in AI response");
-      }
-
-      this.updateStats(model, true, parsedResponse.confidence, latency, isFallback);
-
-      return {
-        success: true,
-        data: parsedResponse,
-        confidence: parsedResponse.confidence,
-        modelUsed: model,
-        fallbackUsed: isFallback,
-        executionTime: latency,
-      };
-    } catch (error) {
-      const latency = Date.now() - startTime;
-      this.updateStats(model, false, 0, latency, isFallback);
-
-      throw new Error(
-        `Model ${model} failed: ${error instanceof Error ? error.message : String(error)}`
-      );
     }
   }
 
-  /**
-   * Parse and validate AI response
-   */
-  private parseAIResponse(
-    responseText: string
-  ): Record<string, unknown> & { confidence: number } {
-    try {
-      const parsed = JSON.parse(responseText);
+  return bestMatch ? bestMatch.item : null;
+}
 
-      // Ensure confidence field exists and is valid
-      if (typeof parsed.confidence !== "number") {
-        parsed.confidence = 0.5; // Default confidence if not provided
-      }
+// Generate an inventory item description using xAI (Grok)
+export async function generateItemDescription(
+  itemName: string,
+  category?: string
+): Promise<string> {
+  try {
+    const prompt = `Generate a brief, professional inventory item description for: ${itemName}${
+      category ? ` in the ${category} category` : ""
+    }. Keep it under 100 words.`;
 
-      return {
-        ...parsed,
-        confidence: Math.max(0, Math.min(1, parsed.confidence)), // Clamp between 0-1
-      };
-    } catch (error) {
-      throw new Error(`Failed to parse AI response: ${String(error)}`);
+    const message = await openai.messages.create({
+      model: "grok-2-latest",
+      max_tokens: 150,
+      messages: [
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+    });
+
+    const textContent = message.content.find((block) => block.type === "text");
+    if (textContent && textContent.type === "text") {
+      return textContent.text;
     }
-  }
 
-  /**
-   * Get current performance analytics
-   */
-  getAnalytics(): PerformanceAnalytics {
-    return JSON.parse(JSON.stringify(this.analytics));
-  }
-
-  /**
-   * Get detailed statistics for a specific model
-   */
-  getModelStats(model: "grok-2" | "grok-3"): ModelStats | null {
-    const modelKey = model as keyof PerformanceAnalytics;
-    if (modelKey in this.analytics && typeof this.analytics[modelKey] === "object") {
-      return JSON.parse(
-        JSON.stringify(this.analytics[modelKey])
-      ) as ModelStats;
-    }
-    return null;
-  }
-
-  /**
-   * Reset analytics
-   */
-  resetAnalytics(): void {
-    this.analytics = initializeAnalytics();
-  }
-
-  /**
-   * Get summary statistics
-   */
-  getSummary(): {
-    totalRequests: number;
-    successRate: number;
-    fallbackRate: number;
-    averageConfidence: number;
-    lowConfidenceRate: number;
-  } {
-    const modelStats = Object.entries(this.analytics).filter(
-      ([key]) => key !== "totalRequests" && key !== "fallbacksTriggered" && key !== "lowConfidenceDetections" && key !== "averageConfidenceOverall"
-    );
-
-    const totalSuccess = (modelStats as [string, ModelStats][]).reduce(
-      (sum, [, stats]) => sum + stats.successCount,
-      0
-    );
-
-    const totalErrors = (modelStats as [string, ModelStats][]).reduce(
-      (sum, [, stats]) => sum + stats.errorCount,
-      0
-    );
-
-    const successRate =
-      this.analytics.totalRequests > 0
-        ? totalSuccess / this.analytics.totalRequests
-        : 0;
-
-    const fallbackRate =
-      this.analytics.totalRequests > 0
-        ? this.analytics.fallbacksTriggered / this.analytics.totalRequests
-        : 0;
-
-    const lowConfidenceRate =
-      this.analytics.totalRequests > 0
-        ? this.analytics.lowConfidenceDetections / this.analytics.totalRequests
-        : 0;
-
-    return {
-      totalRequests: this.analytics.totalRequests,
-      successRate: parseFloat(successRate.toFixed(4)),
-      fallbackRate: parseFloat(fallbackRate.toFixed(4)),
-      averageConfidence: parseFloat(
-        this.analytics.averageConfidenceOverall.toFixed(4)
-      ),
-      lowConfidenceRate: parseFloat(lowConfidenceRate.toFixed(4)),
-    };
+    return `Default description for ${itemName}`;
+  } catch (error) {
+    console.error("Error generating item description:", error);
+    return `Default description for ${itemName}`;
   }
 }
 
-// Export singleton instance
-export const aiCommandExecutor = new AICommandExecutor();
+// Generate inventory management suggestions using xAI (Grok)
+export async function generateInventorySuggestions(
+  inventoryData: Record<string, unknown>
+): Promise<string> {
+  try {
+    const prompt = `Based on this inventory data: ${JSON.stringify(inventoryData)}, 
+    provide 3-5 brief, actionable suggestions for inventory management optimization. 
+    Format as a numbered list.`;
 
-// Export types
-export type { CommandResult, PerformanceAnalytics, ModelStats };
+    const message = await openai.messages.create({
+      model: "grok-2-latest",
+      max_tokens: 500,
+      messages: [
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+    });
 
-// Export functions for AI command execution
-export async function executeInventoryCommand(
-  prompt: string,
+    const textContent = message.content.find((block) => block.type === "text");
+    if (textContent && textContent.type === "text") {
+      return textContent.text;
+    }
+
+    return "Unable to generate suggestions at this time.";
+  } catch (error) {
+    console.error("Error generating inventory suggestions:", error);
+    return "Unable to generate suggestions at this time.";
+  }
+}
+
+// Generate a category suggestion for an item using xAI (Grok)
+export async function generateCategorySuggestion(
+  itemName: string,
+  existingCategories: string[]
+): Promise<string> {
+  try {
+    const categoriesList = existingCategories.join(", ");
+    const prompt = `Given an item named "${itemName}" and these existing categories: ${categoriesList}, 
+    suggest the most appropriate category. If none fit well, suggest a new one. 
+    Reply with just the category name, nothing else.`;
+
+    const message = await openai.messages.create({
+      model: "grok-2-latest",
+      max_tokens: 50,
+      messages: [
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+    });
+
+    const textContent = message.content.find((block) => block.type === "text");
+    if (textContent && textContent.type === "text") {
+      return textContent.text.trim();
+    }
+
+    // Fallback: use the best matching category or create a new one
+    const bestCategory = findBestMatch(itemName, existingCategories);
+    return bestCategory || "Miscellaneous";
+  } catch (error) {
+    console.error("Error generating category suggestion:", error);
+    // Fallback: use the best matching category or create a new one
+    const bestCategory = findBestMatch(itemName, existingCategories);
+    return bestCategory || "Miscellaneous";
+  }
+}
+
+// Analyze item for potential issues using xAI (Grok)
+export async function analyzeItemForIssues(
+  itemData: Record<string, unknown>
+): Promise<string[]> {
+  try {
+    const prompt = `Analyze this inventory item and identify any potential issues or concerns: 
+    ${JSON.stringify(itemData)}. 
+    List each issue on a new line, prefixed with a hyphen. Be concise.`;
+
+    const message = await openai.messages.create({
+      model: "grok-2-latest",
+      max_tokens: 300,
+      messages: [
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+    });
+
+    const textContent = message.content.find((block) => block.type === "text");
+    if (textContent && textContent.type === "text") {
+      return textContent.text
+        .split("\n")
+        .filter((line) => line.trim().startsWith("-"))
+        .map((line) => line.trim().substring(1).trim());
+    }
+
+    return [];
+  } catch (error) {
+    console.error("Error analyzing item for issues:", error);
+    return [];
+  }
+}
+
+// Parse natural language command and extract action and parameters
+export async function parseNaturalLanguageCommand(
+  command: string,
   context?: Record<string, unknown>
-): Promise<CommandResult> {
-  return aiCommandExecutor.executeCommand(prompt, context);
+): Promise<{ action: string; parameters: Record<string, unknown> }> {
+  try {
+    const contextStr = context
+      ? `\nContext: ${JSON.stringify(context)}`
+      : "";
+    const prompt = `Parse this inventory command and extract the action and parameters: "${command}"${contextStr}
+    
+    Respond in JSON format like this: {"action": "action_name", "parameters": {"key": "value"}}
+    Possible actions: ADD_ITEM, UPDATE_ITEM, DELETE_ITEM, SEARCH_ITEM, LIST_ITEMS, GET_STATISTICS
+    
+    Be smart about understanding intent.`;
+
+    const message = await openai.messages.create({
+      model: "grok-2-latest",
+      max_tokens: 200,
+      messages: [
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+    });
+
+    const textContent = message.content.find((block) => block.type === "text");
+    if (textContent && textContent.type === "text") {
+      const jsonMatch = textContent.text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        return JSON.parse(jsonMatch[0]);
+      }
+    }
+
+    return { action: "UNKNOWN", parameters: {} };
+  } catch (error) {
+    console.error("Error parsing natural language command:", error);
+    return { action: "UNKNOWN", parameters: {} };
+  }
 }
 
-export function getPerformanceAnalytics(): PerformanceAnalytics {
-  return aiCommandExecutor.getAnalytics();
+// Generate a human-readable summary of inventory status
+export async function generateInventorySummary(
+  inventoryData: Record<string, unknown>
+): Promise<string> {
+  try {
+    const prompt = `Generate a brief, executive-style summary of this inventory status: 
+    ${JSON.stringify(inventoryData)}. 
+    Keep it to 2-3 sentences and highlight key metrics or concerns.`;
+
+    const message = await openai.messages.create({
+      model: "grok-2-latest",
+      max_tokens: 200,
+      messages: [
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+    });
+
+    const textContent = message.content.find((block) => block.type === "text");
+    if (textContent && textContent.type === "text") {
+      return textContent.text;
+    }
+
+    return "Unable to generate summary at this time.";
+  } catch (error) {
+    console.error("Error generating inventory summary:", error);
+    return "Unable to generate summary at this time.";
+  }
 }
 
-export function getPerformanceSummary() {
-  return aiCommandExecutor.getSummary();
-}
-
-export function resetPerformanceMetrics(): void {
-  aiCommandExecutor.resetAnalytics();
-}
+// Export utility functions
+export { generateId, findBestMatch };
