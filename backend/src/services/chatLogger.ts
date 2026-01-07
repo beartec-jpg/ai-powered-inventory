@@ -1,8 +1,5 @@
-// Chat Logger - Audit logging for chat interactions using Drizzle ORM
-import { eq, desc, and, gte, lte } from 'drizzle-orm';
-import { db } from '../db/client';
-import { activities } from '../db/schema';
-import { v4 as uuidv4 } from 'uuid';
+// Chat Logger - Audit logging for chat interactions using Prisma
+import { prisma } from '../db/prisma';
 
 export class ChatLogger {
   /**
@@ -15,13 +12,14 @@ export class ChatLogger {
     details?: any;
   }): Promise<void> {
     try {
-      await db.insert(activities).values({
-        id: uuidv4(),
-        userId: data.userId,
-        action: data.action,
-        entityType: 'ChatConversation',
-        entityId: data.conversationId,
-        details: data.details ? JSON.stringify(data.details) : null,
+      await prisma.activity.create({
+        data: {
+          userId: data.userId,
+          action: data.action,
+          entityType: 'ChatConversation',
+          entityId: data.conversationId,
+          details: data.details ? JSON.stringify(data.details) : null,
+        },
       });
     } catch (error) {
       console.error('Failed to log chat interaction:', error);
@@ -39,17 +37,18 @@ export class ChatLogger {
     error?: string;
   }): Promise<void> {
     try {
-      await db.insert(activities).values({
-        id: uuidv4(),
-        userId: data.userId,
-        action: `tool_execution_${data.toolName}`,
-        entityType: 'ToolCall',
-        entityId: data.toolName,
-        details: JSON.stringify({
-          parameters: data.parameters,
-          success: data.success,
-          error: data.error,
-        }),
+      await prisma.activity.create({
+        data: {
+          userId: data.userId,
+          action: `tool_execution_${data.toolName}`,
+          entityType: 'ToolCall',
+          entityId: data.toolName,
+          details: JSON.stringify({
+            parameters: data.parameters,
+            success: data.success,
+            error: data.error,
+          }),
+        },
       });
     } catch (error) {
       console.error('Failed to log tool execution:', error);
@@ -66,16 +65,17 @@ export class ChatLogger {
     reasoning?: string;
   }): Promise<void> {
     try {
-      await db.insert(activities).values({
-        id: uuidv4(),
-        userId: data.userId,
-        action: 'ai_decision',
-        entityType: 'ChatConversation',
-        entityId: data.conversationId,
-        details: JSON.stringify({
-          decision: data.decision,
-          reasoning: data.reasoning,
-        }),
+      await prisma.activity.create({
+        data: {
+          userId: data.userId,
+          action: 'ai_decision',
+          entityType: 'ChatConversation',
+          entityId: data.conversationId,
+          details: JSON.stringify({
+            decision: data.decision,
+            reasoning: data.reasoning,
+          }),
+        },
       });
     } catch (error) {
       console.error('Failed to log AI decision:', error);
@@ -90,19 +90,15 @@ export class ChatLogger {
     entityType?: string,
     limit: number = 100
   ): Promise<any[]> {
-    let query = db.select().from(activities);
+    const where: any = {};
+    if (userId) where.userId = userId;
+    if (entityType) where.entityType = entityType;
 
-    const conditions = [];
-    if (userId) conditions.push(eq(activities.userId, userId));
-    if (entityType) conditions.push(eq(activities.entityType, entityType));
-
-    if (conditions.length > 0) {
-      query = query.where(and(...conditions)) as any;
-    }
-
-    const result = await query
-      .orderBy(desc(activities.createdAt))
-      .limit(limit);
+    const result = await prisma.activity.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    });
 
     return result.map((activity) => ({
       id: activity.id,
@@ -127,14 +123,14 @@ export class ChatLogger {
     successRate: number;
     avgResponseTime?: number;
   }> {
-    const result = await db.select()
-      .from(activities)
-      .where(
-        and(
-          gte(activities.createdAt, startDate),
-          lte(activities.createdAt, endDate)
-        )
-      );
+    const result = await prisma.activity.findMany({
+      where: {
+        createdAt: {
+          gte: startDate,
+          lte: endDate,
+        },
+      },
+    });
 
     const totalInteractions = result.filter(
       (a) => a.entityType === 'ChatConversation'

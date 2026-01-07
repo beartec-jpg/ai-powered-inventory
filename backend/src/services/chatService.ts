@@ -1,7 +1,4 @@
-import { eq, desc } from 'drizzle-orm';
-import { db } from '../db/client';
-import { chatConversations, chatMessages, toolCalls } from '../db/schema';
-import { v4 as uuidv4 } from 'uuid';
+import { prisma } from '../db/prisma';
 import { getXAIService } from './xaiService';
 import { getChatMemory } from './chatMemory';
 import { getToolExecutor } from './toolExecutor';
@@ -387,12 +384,13 @@ export class ChatService {
    * Create a new conversation
    */
   async createConversation(input: CreateConversationInput) {
-    const [conversation] = await db.insert(chatConversations).values({
-      id: uuidv4(),
-      userId: input.userId,
-      title: input.title || 'New Conversation',
-      active: true,
-    }).returning();
+    const conversation = await prisma.chatConversation.create({
+      data: {
+        userId: input.userId,
+        title: input.title || 'New Conversation',
+        active: true,
+      },
+    });
 
     return conversation;
   }
@@ -401,10 +399,9 @@ export class ChatService {
    * Get conversation by ID
    */
   async getConversationById(id: string) {
-    const [conversation] = await db.select()
-      .from(chatConversations)
-      .where(eq(chatConversations.id, id))
-      .limit(1);
+    const conversation = await prisma.chatConversation.findUnique({
+      where: { id },
+    });
 
     return conversation;
   }
@@ -413,11 +410,11 @@ export class ChatService {
    * Get user's conversations
    */
   async getUserConversations(userId: string, limit = 50) {
-    const conversations = await db.select()
-      .from(chatConversations)
-      .where(eq(chatConversations.userId, userId))
-      .orderBy(desc(chatConversations.updatedAt))
-      .limit(limit);
+    const conversations = await prisma.chatConversation.findMany({
+      where: { userId },
+      orderBy: { updatedAt: 'desc' },
+      take: limit,
+    });
 
     return conversations;
   }
@@ -426,18 +423,20 @@ export class ChatService {
    * Add message to conversation
    */
   async addMessage(input: CreateMessageInput) {
-    const [message] = await db.insert(chatMessages).values({
-      id: uuidv4(),
-      conversationId: input.conversationId,
-      role: input.role,
-      content: input.content,
-      toolCalls: input.toolCalls || null,
-    }).returning();
+    const message = await prisma.chatMessage.create({
+      data: {
+        conversationId: input.conversationId,
+        role: input.role,
+        content: input.content,
+        toolCalls: input.toolCalls || null,
+      },
+    });
 
     // Update conversation's updatedAt
-    await db.update(chatConversations)
-      .set({ updatedAt: new Date() })
-      .where(eq(chatConversations.id, input.conversationId));
+    await prisma.chatConversation.update({
+      where: { id: input.conversationId },
+      data: { updatedAt: new Date() },
+    });
 
     return message;
   }
@@ -446,11 +445,11 @@ export class ChatService {
    * Get conversation messages
    */
   async getConversationMessages(conversationId: string, limit = 100) {
-    const messages = await db.select()
-      .from(chatMessages)
-      .where(eq(chatMessages.conversationId, conversationId))
-      .orderBy(chatMessages.createdAt)
-      .limit(limit);
+    const messages = await prisma.chatMessage.findMany({
+      where: { conversationId },
+      orderBy: { createdAt: 'asc' },
+      take: limit,
+    });
 
     return messages;
   }
@@ -459,14 +458,15 @@ export class ChatService {
    * Record tool call
    */
   async recordToolCall(input: CreateToolCallInput) {
-    const [toolCall] = await db.insert(toolCalls).values({
-      id: uuidv4(),
-      messageId: input.messageId,
-      toolName: input.toolName,
-      arguments: input.arguments,
-      result: input.result || null,
-      status: input.status,
-    }).returning();
+    const toolCall = await prisma.toolCall.create({
+      data: {
+        messageId: input.messageId,
+        toolName: input.toolName,
+        arguments: input.arguments,
+        result: input.result || null,
+        status: input.status,
+      },
+    });
 
     return toolCall;
   }
@@ -475,13 +475,13 @@ export class ChatService {
    * Update tool call result
    */
   async updateToolCall(id: string, result: string, status: 'success' | 'error') {
-    const [updated] = await db.update(toolCalls)
-      .set({
+    const updated = await prisma.toolCall.update({
+      where: { id },
+      data: {
         result,
         status,
-      })
-      .where(eq(toolCalls.id, id))
-      .returning();
+      },
+    });
 
     return updated;
   }
@@ -490,10 +490,10 @@ export class ChatService {
    * Get message tool calls
    */
   async getMessageToolCalls(messageId: string) {
-    const calls = await db.select()
-      .from(toolCalls)
-      .where(eq(toolCalls.messageId, messageId))
-      .orderBy(toolCalls.createdAt);
+    const calls = await prisma.toolCall.findMany({
+      where: { messageId },
+      orderBy: { createdAt: 'asc' },
+    });
 
     return calls;
   }
@@ -502,13 +502,13 @@ export class ChatService {
    * Update conversation title
    */
   async updateConversationTitle(id: string, title: string) {
-    const [updated] = await db.update(chatConversations)
-      .set({
+    const updated = await prisma.chatConversation.update({
+      where: { id },
+      data: {
         title,
         updatedAt: new Date(),
-      })
-      .where(eq(chatConversations.id, id))
-      .returning();
+      },
+    });
 
     return updated;
   }
@@ -518,13 +518,13 @@ export class ChatService {
    */
   async deleteConversationById(id: string) {
     // Messages and tool calls will be cascade deleted
-    const [deleted] = await db.update(chatConversations)
-      .set({
+    const deleted = await prisma.chatConversation.update({
+      where: { id },
+      data: {
         active: false,
         updatedAt: new Date(),
-      })
-      .where(eq(chatConversations.id, id))
-      .returning();
+      },
+    });
 
     return deleted;
   }

@@ -1,7 +1,4 @@
-import { eq, desc, sql } from 'drizzle-orm';
-import { db } from '../db/client';
-import { warehouses, stocks, products } from '../db/schema';
-import { v4 as uuidv4 } from 'uuid';
+import { prisma } from '../db/prisma';
 
 export interface CreateWarehouseInput {
   name: string;
@@ -21,13 +18,14 @@ export class WarehouseService {
    * Create a new warehouse
    */
   async createWarehouse(input: CreateWarehouseInput) {
-    const [warehouse] = await db.insert(warehouses).values({
-      id: uuidv4(),
-      name: input.name,
-      location: input.location,
-      capacity: input.capacity,
-      active: true,
-    }).returning();
+    const warehouse = await prisma.warehouse.create({
+      data: {
+        name: input.name,
+        location: input.location,
+        capacity: input.capacity,
+        active: true,
+      },
+    });
 
     return warehouse;
   }
@@ -36,10 +34,9 @@ export class WarehouseService {
    * Get warehouse by ID
    */
   async getWarehouseById(id: string) {
-    const [warehouse] = await db.select()
-      .from(warehouses)
-      .where(eq(warehouses.id, id))
-      .limit(1);
+    const warehouse = await prisma.warehouse.findUnique({
+      where: { id },
+    });
 
     return warehouse;
   }
@@ -48,10 +45,9 @@ export class WarehouseService {
    * Get warehouse by name
    */
   async getWarehouseByName(name: string) {
-    const [warehouse] = await db.select()
-      .from(warehouses)
-      .where(eq(warehouses.name, name))
-      .limit(1);
+    const warehouse = await prisma.warehouse.findUnique({
+      where: { name },
+    });
 
     return warehouse;
   }
@@ -60,42 +56,36 @@ export class WarehouseService {
    * Get all warehouses
    */
   async getAllWarehouses() {
-    const allWarehouses = await db.select()
-      .from(warehouses)
-      .where(eq(warehouses.active, true))
-      .orderBy(desc(warehouses.createdAt));
+    const warehouses = await prisma.warehouse.findMany({
+      where: { active: true },
+      orderBy: { createdAt: 'desc' },
+    });
 
-    return allWarehouses;
+    return warehouses;
   }
 
   /**
    * Update warehouse
    */
   async updateWarehouse(id: string, input: UpdateWarehouseInput) {
-    const [updatedWarehouse] = await db.update(warehouses)
-      .set({
-        ...input,
-        updatedAt: new Date(),
-      })
-      .where(eq(warehouses.id, id))
-      .returning();
+    const warehouse = await prisma.warehouse.update({
+      where: { id },
+      data: input,
+    });
 
-    return updatedWarehouse;
+    return warehouse;
   }
 
   /**
    * Delete warehouse (soft delete)
    */
   async deleteWarehouse(id: string) {
-    const [deletedWarehouse] = await db.update(warehouses)
-      .set({
-        active: false,
-        updatedAt: new Date(),
-      })
-      .where(eq(warehouses.id, id))
-      .returning();
+    const warehouse = await prisma.warehouse.update({
+      where: { id },
+      data: { active: false },
+    });
 
-    return deletedWarehouse;
+    return warehouse;
   }
 
   /**
@@ -108,13 +98,14 @@ export class WarehouseService {
     }
 
     // Get total quantity of items in warehouse
-    const result = await db.select({
-      totalQuantity: sql<number>`COALESCE(SUM(${stocks.quantity}), 0)`,
-    })
-      .from(stocks)
-      .where(eq(stocks.warehouseId, warehouseId));
+    const result = await prisma.stock.aggregate({
+      where: { warehouseId },
+      _sum: {
+        quantity: true,
+      },
+    });
 
-    const totalQuantity = result[0]?.totalQuantity || 0;
+    const totalQuantity = result._sum.quantity || 0;
     const utilization = warehouse.capacity > 0 
       ? (Number(totalQuantity) / warehouse.capacity) * 100 
       : 0;
@@ -132,15 +123,28 @@ export class WarehouseService {
    * Get warehouse stock summary
    */
   async getWarehouseStockSummary(warehouseId: string) {
-    const stockItems = await db.select({
-      stock: stocks,
-      product: products,
-    })
-      .from(stocks)
-      .innerJoin(products, eq(stocks.productId, products.id))
-      .where(eq(stocks.warehouseId, warehouseId));
+    const stockItems = await prisma.stock.findMany({
+      where: { warehouseId },
+      include: {
+        product: true,
+      },
+    });
 
-    return stockItems;
+    return stockItems.map(s => ({
+      stock: {
+        id: s.id,
+        productId: s.productId,
+        warehouseId: s.warehouseId,
+        quantity: s.quantity,
+        reserved: s.reserved,
+        available: s.available,
+        reorderLevel: s.reorderLevel,
+        lastCounted: s.lastCounted,
+        createdAt: s.createdAt,
+        updatedAt: s.updatedAt,
+      },
+      product: s.product,
+    }));
   }
 }
 

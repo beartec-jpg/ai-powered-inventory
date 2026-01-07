@@ -22,9 +22,10 @@ model User {
   updatedAt DateTime   @updatedAt
 
   // Relations
-  warehouseAccess WarehouseAccess[]
-  activities      Activity[]
-  stockTransfers  StockTransfer[]
+  warehouseAccess   WarehouseAccess[]
+  activities        Activity[]
+  stockTransfers    StockTransfer[]
+  chatConversations ChatConversation[]
 
   @@map("users")
 }
@@ -281,4 +282,60 @@ model Activity {
   @@index([entityType])
   @@index([createdAt])
   @@map("activities")
+}
+
+// Chat Conversation model for AI chat feature
+model ChatConversation {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String?  @default("New Conversation")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages ChatMessage[]
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("chat_conversations")
+}
+
+// Chat Message model
+model ChatMessage {
+  id             String   @id @default(cuid())
+  conversationId String
+  role           String   // 'user', 'assistant', 'system', 'tool'
+  content        String   @db.Text
+  toolCalls      String?  @db.Text // JSON string of tool calls
+  metadata       String?  @db.Text // JSON string for additional metadata
+  createdAt      DateTime @default(now())
+
+  // Relations
+  conversation ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  toolCallLogs ToolCall[]
+
+  @@index([conversationId])
+  @@index([createdAt])
+  @@map("chat_messages")
+}
+
+// Tool Call tracking model
+model ToolCall {
+  id        String   @id @default(cuid())
+  messageId String
+  toolName  String
+  arguments String   @db.Text // JSON string
+  result    String?  @db.Text // JSON string
+  status    String   // 'pending', 'success', 'error'
+  error     String?  @db.Text
+  createdAt DateTime @default(now())
+
+  // Relations
+  message ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+  @@index([status])
+  @@map("tool_calls")
 }

@@ -1,7 +1,5 @@
-import { eq, and, sql } from 'drizzle-orm';
-import { db } from '../db/client';
-import { stocks, products, warehouses, stockMovements } from '../db/schema';
-import { v4 as uuidv4 } from 'uuid';
+import { prisma } from '../db/prisma';
+import { StockMovementType } from '@prisma/client';
 
 export interface CreateStockInput {
   productId: string;
@@ -30,15 +28,14 @@ export class StockService {
    * Get stock by product and warehouse
    */
   async getStock(productId: string, warehouseId: string) {
-    const [stock] = await db.select()
-      .from(stocks)
-      .where(
-        and(
-          eq(stocks.productId, productId),
-          eq(stocks.warehouseId, warehouseId)
-        )
-      )
-      .limit(1);
+    const stock = await prisma.stock.findUnique({
+      where: {
+        productId_warehouseId: {
+          productId,
+          warehouseId,
+        },
+      },
+    });
 
     return stock;
   }
@@ -47,30 +44,42 @@ export class StockService {
    * Get all stock for a product across warehouses
    */
   async getProductStock(productId: string) {
-    const stockList = await db.select({
-      stock: stocks,
-      warehouse: warehouses,
-      product: products,
-    })
-      .from(stocks)
-      .innerJoin(warehouses, eq(stocks.warehouseId, warehouses.id))
-      .innerJoin(products, eq(stocks.productId, products.id))
-      .where(eq(stocks.productId, productId));
+    const stockList = await prisma.stock.findMany({
+      where: { productId },
+      include: {
+        warehouse: true,
+        product: true,
+      },
+    });
 
-    return stockList;
+    return stockList.map(s => ({
+      stock: {
+        id: s.id,
+        productId: s.productId,
+        warehouseId: s.warehouseId,
+        quantity: s.quantity,
+        reserved: s.reserved,
+        available: s.available,
+        reorderLevel: s.reorderLevel,
+        lastCounted: s.lastCounted,
+        createdAt: s.createdAt,
+        updatedAt: s.updatedAt,
+      },
+      warehouse: s.warehouse,
+      product: s.product,
+    }));
   }
 
   /**
    * Get all stock in a warehouse
    */
   async getWarehouseStock(warehouseId: string) {
-    const stockList = await db.select({
-      stock: stocks,
-      product: products,
-    })
-      .from(stocks)
-      .innerJoin(products, eq(stocks.productId, products.id))
-      .where(eq(stocks.warehouseId, warehouseId));
+    const stockList = await prisma.stock.findMany({
+      where: { warehouseId },
+      include: {
+        product: true,
+      },
+    });
 
     return stockList;
   }
@@ -79,34 +88,31 @@ export class StockService {
    * Create or update stock entry
    */
   async upsertStock(input: CreateStockInput) {
-    const existing = await this.getStock(input.productId, input.warehouseId);
+    const available = input.quantity; // Initially no reservations
+    
+    const stock = await prisma.stock.upsert({
+      where: {
+        productId_warehouseId: {
+          productId: input.productId,
+          warehouseId: input.warehouseId,
+        },
+      },
+      update: {
+        quantity: input.quantity,
+        available,
+        reorderLevel: input.reorderLevel,
+      },
+      create: {
+        productId: input.productId,
+        warehouseId: input.warehouseId,
+        quantity: input.quantity,
+        reserved: 0,
+        available,
+        reorderLevel: input.reorderLevel || 10,
+      },
+    });
 
-    if (existing) {
-      const available = input.quantity - (existing.reserved || 0);
-      const [updated] = await db.update(stocks)
-        .set({
-          quantity: input.quantity,
-          available,
-          reorderLevel: input.reorderLevel || existing.reorderLevel,
-          updatedAt: new Date(),
-        })
-        .where(eq(stocks.id, existing.id))
-        .returning();
-
-      return updated;
-    }
-
-    const [created] = await db.insert(stocks).values({
-      id: uuidv4(),
-      productId: input.productId,
-      warehouseId: input.warehouseId,
-      quantity: input.quantity,
-      reserved: 0,
-      available: input.quantity,
-      reorderLevel: input.reorderLevel || 10,
-    }).returning();
-
-    return created;
+    return stock;
   }
 
   /**
@@ -116,7 +122,7 @@ export class StockService {
     productId: string,
     warehouseId: string,
     quantityChange: number,
-    movementType: 'INBOUND' | 'OUTBOUND' | 'ADJUSTMENT' | 'RETURN' | 'TRANSFER' | 'DAMAGE' | 'LOSS',
+    movementType: StockMovementType,
     reference?: string,
     notes?: string
   ) {
@@ -133,25 +139,30 @@ export class StockService {
       throw new Error('Insufficient stock quantity');
     }
 
-    // Update stock
-    const [updatedStock] = await db.update(stocks)
-      .set({
-        quantity: newQuantity,
-        available: newAvailable,
-        updatedAt: new Date(),
-      })
-      .where(eq(stocks.id, stock.id))
-      .returning();
-
-    // Record movement
-    await db.insert(stockMovements).values({
-      id: uuidv4(),
-      productId,
-      quantity: quantityChange,
-      movementType,
-      reference: reference || null,
-      notes: notes || null,
-    });
+    // Update stock and create movement in a transaction
+    const [updatedStock] = await prisma.$transaction([
+      prisma.stock.update({
+        where: {
+          productId_warehouseId: {
+            productId,
+            warehouseId,
+          },
+        },
+        data: {
+          quantity: newQuantity,
+          available: newAvailable,
+        },
+      }),
+      prisma.stockMovement.create({
+        data: {
+          productId,
+          quantity: quantityChange,
+          movementType,
+          reference: reference || null,
+          notes: notes || null,
+        },
+      }),
+    ]);
 
     return updatedStock;
   }
@@ -171,7 +182,7 @@ export class StockService {
       input.productId,
       input.fromWarehouseId,
       -input.quantity,
-      'TRANSFER',
+      StockMovementType.TRANSFER,
       `Transfer to ${input.toWarehouseId}`,
       input.notes
     );
@@ -181,7 +192,7 @@ export class StockService {
       input.productId,
       input.toWarehouseId,
       input.quantity,
-      'TRANSFER',
+      StockMovementType.TRANSFER,
       `Transfer from ${input.fromWarehouseId}`,
       input.notes
     );
@@ -193,28 +204,88 @@ export class StockService {
    * Get low stock items (below reorder level)
    */
   async getLowStockItems() {
-    const lowStock = await db.select({
-      stock: stocks,
-      product: products,
-      warehouse: warehouses,
-    })
-      .from(stocks)
-      .innerJoin(products, eq(stocks.productId, products.id))
-      .innerJoin(warehouses, eq(stocks.warehouseId, warehouses.id))
-      .where(sql`${stocks.available} <= ${stocks.reorderLevel}`);
+    // Use raw SQL to compare available <= reorderLevel
+    const lowStock = await prisma.$queryRaw<any[]>`
+      SELECT 
+        s.id as stock_id,
+        s.product_id,
+        s.warehouse_id,
+        s.quantity,
+        s.reserved,
+        s.available,
+        s.reorder_level,
+        s.last_counted,
+        s.created_at as stock_created_at,
+        s.updated_at as stock_updated_at,
+        p.id as product_id_full,
+        p.sku,
+        p.name as product_name,
+        p.description,
+        p.category,
+        p.unit_price,
+        p.unit,
+        p.active as product_active,
+        p.created_at as product_created_at,
+        p.updated_at as product_updated_at,
+        w.id as warehouse_id_full,
+        w.name as warehouse_name,
+        w.location,
+        w.capacity,
+        w.active as warehouse_active,
+        w.created_at as warehouse_created_at,
+        w.updated_at as warehouse_updated_at
+      FROM "stocks" s
+      INNER JOIN "products" p ON s."product_id" = p."id"
+      INNER JOIN "warehouses" w ON s."warehouse_id" = w."id"
+      WHERE s."available" <= s."reorder_level"
+    `;
 
-    return lowStock;
+    return lowStock.map(s => ({
+      stock: {
+        id: s.stock_id,
+        productId: s.product_id,
+        warehouseId: s.warehouse_id,
+        quantity: s.quantity,
+        reserved: s.reserved,
+        available: s.available,
+        reorderLevel: s.reorder_level,
+        lastCounted: s.last_counted,
+        createdAt: s.stock_created_at,
+        updatedAt: s.stock_updated_at,
+      },
+      product: {
+        id: s.product_id_full,
+        sku: s.sku,
+        name: s.product_name,
+        description: s.description,
+        category: s.category,
+        unitPrice: s.unit_price,
+        unit: s.unit,
+        active: s.product_active,
+        createdAt: s.product_created_at,
+        updatedAt: s.product_updated_at,
+      },
+      warehouse: {
+        id: s.warehouse_id_full,
+        name: s.warehouse_name,
+        location: s.location,
+        capacity: s.capacity,
+        active: s.warehouse_active,
+        createdAt: s.warehouse_created_at,
+        updatedAt: s.warehouse_updated_at,
+      },
+    }));
   }
 
   /**
    * Get stock movements for a product
    */
   async getStockMovements(productId: string, limit = 50) {
-    const movements = await db.select()
-      .from(stockMovements)
-      .where(eq(stockMovements.productId, productId))
-      .orderBy(sql`${stockMovements.createdAt} DESC`)
-      .limit(limit);
+    const movements = await prisma.stockMovement.findMany({
+      where: { productId },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    });
 
     return movements;
   }
