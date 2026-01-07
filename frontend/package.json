@@ -11,12 +11,12 @@
   },
   "dependencies": {
     "@clerk/clerk-react": "^5.58.0",
-    "@types/marked": "^5.0.2",
     "marked": "^11.1.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
   "devDependencies": {
+    "@types/marked": "^5.0.2",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "@vitejs/plugin-react": "^4.2.1",

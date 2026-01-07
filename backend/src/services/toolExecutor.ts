@@ -42,11 +42,12 @@ export class ToolExecutor {
               message: 'You do not have access to one or both warehouses',
             };
           }
-          return {
-            success: true,
-            message: 'Transfer operation would be executed here (placeholder)',
-            data: { from: parameters.from_warehouse_id, to: parameters.to_warehouse_id, quantity: parameters.quantity },
-          };
+          return await inventoryIntelligence.transferStock(
+            parameters.product_id,
+            parameters.from_warehouse_id,
+            parameters.to_warehouse_id,
+            parameters.quantity
+          );
 
         case 'adjust_stock':
           // Validate warehouse access

@@ -136,7 +136,7 @@ Get items below reorder threshold
 Comprehensive warehouse reports
 
 ### 8. supplier_availability
-Get supplier information
+Get supplier information (NOTE: Currently returns placeholder data - supplier relationships require additional implementation)
 
 ### 9. get_product_details
 Full product details with stock

@@ -49,7 +49,7 @@ router.get(
         products,
         page || 1,
         perPage || 30,
-        products.length, // Simplified - in production, get actual total
+        products.length, // NOTE: Using page size as total. For production, implement proper count query
         'Products retrieved successfully'
       );
     } catch (error) {

@@ -265,7 +265,7 @@ export class ChatService {
           { role: 'system', content: systemContext },
           ...history,
           { role: 'user', content: request.message },
-          { role: 'assistant', content: fullContent || 'Executing tools...', tool_calls: toolCalls },
+          { role: 'assistant', content: fullContent || 'Processing your request with inventory tools...', tool_calls: toolCalls },
           ...toolMessages,
         ];
 
