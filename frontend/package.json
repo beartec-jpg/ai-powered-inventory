@@ -12,7 +12,8 @@
   "dependencies": {
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "@clerk/clerk-react": "^5.58.0"
+    "@clerk/clerk-react": "^5.58.0",
+    "marked": "^11.1.0"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.2.1",
@@ -23,6 +24,9 @@
     "eslint": "^8.56.0",
     "eslint-plugin-react": "^7.33.2",
     "eslint-plugin-react-hooks": "^4.6.0",
-    "prettier": "^3.1.1"
+    "prettier": "^3.1.1",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "typescript": "^5.3.3"
   }
 }
