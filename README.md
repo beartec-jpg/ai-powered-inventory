@@ -222,7 +222,9 @@ You can also delete branches directly on GitHub:
 4. Click the trash/delete icon next to the branch name
 5. Confirm the deletion
 
-**Note**: You cannot delete a branch that you're currently checked out to locally (switch to another branch first). You also cannot delete the default branch (usually `main` or `master`) without changing the default branch setting in your repository.
+**Important Notes**: 
+- You cannot delete a branch that you're currently checked out to locally - switch to another branch first
+- You cannot delete the default branch (usually `main` or `master`) without changing the default branch setting in your repository settings
 
 ## 🤝 Contributing
 
