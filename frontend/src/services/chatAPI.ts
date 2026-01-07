@@ -38,13 +38,14 @@ export interface ChatHistoryResponse {
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
 
-// Mock user headers for development
-// In production, these would come from authentication context
+// DEVELOPMENT ONLY: Mock user headers
+// TODO: Replace with proper JWT token authentication in production
+// In production, these headers should be dynamically generated from authenticated user session
 const getHeaders = () => ({
   'Content-Type': 'application/json',
-  'x-user-id': 'user_123',
-  'x-user-role': 'STAFF',
-  'x-warehouse-access': 'warehouse_1,warehouse_2',
+  'x-user-id': 'user_123', // Replace with actual user ID from auth context
+  'x-user-role': 'STAFF',  // Replace with actual user role from auth context
+  'x-warehouse-access': 'warehouse_1,warehouse_2', // Replace with user's accessible warehouses
 });
 
 /**

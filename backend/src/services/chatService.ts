@@ -282,7 +282,9 @@ export class ChatService {
       // If tool calls exist, execute them
       if (toolCalls.length > 0) {
         yield `data: ${JSON.stringify({ type: 'tool_calls', data: toolCalls })}\n\n`;
-        // Tool execution would happen here similar to non-streaming
+        // NOTE: Streaming tool execution is simplified for initial release
+        // Full tool execution in streaming mode will be implemented in a future update
+        // For now, clients should use non-streaming mode for tool-based operations
       }
 
       yield `data: ${JSON.stringify({ type: 'done', data: { conversationId } })}\n\n`;
