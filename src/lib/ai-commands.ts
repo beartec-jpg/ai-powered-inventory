@@ -111,15 +111,8 @@ export async function interpretCommand(
 
 export { fuzzyMatch };
 
-// Type for InventoryItem (simplified interface for this module)
-interface InventoryItem {
-  id: string;
-  partNumber: string;
-  name: string;
-  quantity: number;
-  location: string;
-  lastUpdated: number;
-}
+// Import InventoryItem type from types module
+import type { InventoryItem } from './types';
 
 // Find the best matching inventory item based on part number or name
 export function findBestMatchItem(
