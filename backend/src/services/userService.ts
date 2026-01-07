@@ -1,19 +1,17 @@
-import { eq, desc } from 'drizzle-orm';
-import { db } from '../db/client';
-import { users, warehouseAccesses } from '../db/schema';
-import { v4 as uuidv4 } from 'uuid';
+import { prisma } from '../db/prisma';
+import { UserRole } from '@prisma/client';
 
 export interface CreateUserInput {
   email: string;
   password: string;
   name: string;
-  role?: 'ADMIN' | 'MANAGER' | 'STAFF' | 'VIEWER';
+  role?: UserRole;
 }
 
 export interface UpdateUserInput {
   email?: string;
   name?: string;
-  role?: 'ADMIN' | 'MANAGER' | 'STAFF' | 'VIEWER';
+  role?: UserRole;
   active?: boolean;
 }
 
@@ -22,14 +20,15 @@ export class UserService {
    * Create a new user
    */
   async createUser(input: CreateUserInput) {
-    const [user] = await db.insert(users).values({
-      id: uuidv4(),
-      email: input.email,
-      password: input.password, // Should be hashed before calling
-      name: input.name,
-      role: input.role || 'STAFF',
-      active: true,
-    }).returning();
+    const user = await prisma.user.create({
+      data: {
+        email: input.email,
+        password: input.password, // Should be hashed before calling
+        name: input.name,
+        role: input.role || UserRole.STAFF,
+        active: true,
+      },
+    });
 
     return user;
   }
@@ -38,10 +37,9 @@ export class UserService {
    * Get user by ID
    */
   async getUserById(id: string) {
-    const [user] = await db.select()
-      .from(users)
-      .where(eq(users.id, id))
-      .limit(1);
+    const user = await prisma.user.findUnique({
+      where: { id },
+    });
 
     return user;
   }
@@ -50,10 +48,9 @@ export class UserService {
    * Get user by email
    */
   async getUserByEmail(email: string) {
-    const [user] = await db.select()
-      .from(users)
-      .where(eq(users.email, email))
-      .limit(1);
+    const user = await prisma.user.findUnique({
+      where: { email },
+    });
 
     return user;
   }
@@ -62,64 +59,58 @@ export class UserService {
    * Get all users with pagination
    */
   async getAllUsers(limit = 50, offset = 0) {
-    const allUsers = await db.select()
-      .from(users)
-      .orderBy(desc(users.createdAt))
-      .limit(limit)
-      .offset(offset);
+    const users = await prisma.user.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      skip: offset,
+    });
 
-    return allUsers;
+    return users;
   }
 
   /**
    * Get users by role
    */
-  async getUsersByRole(role: 'ADMIN' | 'MANAGER' | 'STAFF' | 'VIEWER') {
-    const roleUsers = await db.select()
-      .from(users)
-      .where(eq(users.role, role))
-      .orderBy(desc(users.createdAt));
+  async getUsersByRole(role: UserRole) {
+    const users = await prisma.user.findMany({
+      where: { role },
+      orderBy: { createdAt: 'desc' },
+    });
 
-    return roleUsers;
+    return users;
   }
 
   /**
    * Update user
    */
   async updateUser(id: string, input: UpdateUserInput) {
-    const [updatedUser] = await db.update(users)
-      .set({
-        ...input,
-        updatedAt: new Date(),
-      })
-      .where(eq(users.id, id))
-      .returning();
+    const user = await prisma.user.update({
+      where: { id },
+      data: input,
+    });
 
-    return updatedUser;
+    return user;
   }
 
   /**
    * Delete user (soft delete by setting active to false)
    */
   async deleteUser(id: string) {
-    const [deletedUser] = await db.update(users)
-      .set({
-        active: false,
-        updatedAt: new Date(),
-      })
-      .where(eq(users.id, id))
-      .returning();
+    const user = await prisma.user.update({
+      where: { id },
+      data: { active: false },
+    });
 
-    return deletedUser;
+    return user;
   }
 
   /**
    * Get user's warehouse accesses
    */
   async getUserWarehouseAccesses(userId: string) {
-    const accesses = await db.select()
-      .from(warehouseAccesses)
-      .where(eq(warehouseAccesses.userId, userId));
+    const accesses = await prisma.warehouseAccess.findMany({
+      where: { userId },
+    });
 
     return accesses;
   }

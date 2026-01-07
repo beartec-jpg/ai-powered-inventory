@@ -204,33 +204,49 @@ export class StockService {
    * Get low stock items (below reorder level)
    */
   async getLowStockItems() {
-    const lowStock = await prisma.stock.findMany({
-      where: {
-        available: {
-          lte: prisma.stock.fields.reorderLevel,
-        },
-      },
-      include: {
-        product: true,
-        warehouse: true,
-      },
-    });
+    // Use raw SQL to compare available <= reorderLevel
+    const lowStock = await prisma.$queryRaw<any[]>`
+      SELECT s.*, p.*, w.*
+      FROM "stocks" s
+      INNER JOIN "products" p ON s."product_id" = p."id"
+      INNER JOIN "warehouses" w ON s."warehouse_id" = w."id"
+      WHERE s."available" <= s."reorder_level"
+    `;
 
     return lowStock.map(s => ({
       stock: {
         id: s.id,
-        productId: s.productId,
-        warehouseId: s.warehouseId,
+        productId: s.product_id,
+        warehouseId: s.warehouse_id,
         quantity: s.quantity,
         reserved: s.reserved,
         available: s.available,
-        reorderLevel: s.reorderLevel,
-        lastCounted: s.lastCounted,
-        createdAt: s.createdAt,
-        updatedAt: s.updatedAt,
+        reorderLevel: s.reorder_level,
+        lastCounted: s.last_counted,
+        createdAt: s.created_at,
+        updatedAt: s.updated_at,
       },
-      product: s.product,
-      warehouse: s.warehouse,
+      product: {
+        id: s.id,
+        sku: s.sku,
+        name: s.name,
+        description: s.description,
+        category: s.category,
+        unitPrice: s.unit_price,
+        unit: s.unit,
+        active: s.active,
+        createdAt: s.created_at,
+        updatedAt: s.updated_at,
+      },
+      warehouse: {
+        id: s.id,
+        name: s.name,
+        location: s.location,
+        capacity: s.capacity,
+        active: s.active,
+        createdAt: s.created_at,
+        updatedAt: s.updated_at,
+      },
     }));
   }
 
