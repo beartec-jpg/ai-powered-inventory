@@ -26,12 +26,26 @@ export class StockService {
       where.productId = productId;
     }
 
+    // If lowStock filter is requested, we need to fetch all matching records
+    // and filter in JavaScript since Prisma can't compare two columns
     if (lowStock) {
-      where.available = {
-        lte: prisma.stock.fields.reorderLevel,
-      };
+      const allStocks = await prisma.stock.findMany({
+        where,
+        include: {
+          product: true,
+          warehouse: true,
+        },
+        orderBy: [{ available: 'asc' }],
+      });
+
+      const filteredStocks = allStocks.filter((stock) => stock.available <= stock.reorderLevel);
+      const total = filteredStocks.length;
+      const paginatedStocks = filteredStocks.slice((page - 1) * perPage, page * perPage);
+
+      return { stocks: paginatedStocks, total };
     }
 
+    // Normal pagination without lowStock filter
     const [stocks, total] = await Promise.all([
       prisma.stock.findMany({
         where,

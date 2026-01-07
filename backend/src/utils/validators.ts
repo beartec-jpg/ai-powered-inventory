@@ -1,4 +1,5 @@
 import Joi from 'joi';
+import { Request, Response, NextFunction } from 'express';
 import { UserRole } from '@prisma/client';
 
 // Pagination validation
@@ -166,8 +167,6 @@ export const idParamSchema = Joi.object({
     'any.required': 'ID parameter is required',
   }),
 });
-
-import { Request, Response, NextFunction } from 'express';
 
 /**
  * Validation middleware factory
