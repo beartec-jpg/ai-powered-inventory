@@ -1,24 +1,46 @@
 {
-  "buildCommand": "npm run build:all",
+  "buildCommand": "npm run build",
+  "installCommand": "npm install",
   "outputDirectory": "dist",
-  "framework": "vite",
-  "routes": [
+  "framework": "react",
+  "serverlessFunctionRegion": "us-east-1",
+  "env": {
+    "NODE_ENV": "production"
+  },
+  "rewrites": [
     {
-      "src": "/api/(.*)",
-      "dest": "/backend/$1",
-      "methods": ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
+      "source": "/api/:path*",
+      "destination": "/backend/dist/index.js"
     },
     {
-      "src": "/(.*)",
-      "dest": "/frontend/$1"
+      "source": "/:path*",
+      "destination": "/dist/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/api/:path*",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/dist/:path*",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
     }
   ],
   "functions": {
-    "backend/api/**/*.js": {
-      "runtime": "nodejs20.x"
+    "backend/dist/index.js": {
+      "memory": 1024,
+      "maxDuration": 60
     }
-  },
-  "env": {
-    "VITE_API_URL": "@vite_api_url"
   }
 }
