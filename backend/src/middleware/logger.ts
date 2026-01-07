@@ -25,8 +25,6 @@ if (!fs.existsSync(logsDir)) {
   fs.mkdirSync(logsDir, { recursive: true });
 }
 
-const logFilePath = path.join(logsDir, 'requests.log');
-
 /**
  * Format date to ISO string
  */
