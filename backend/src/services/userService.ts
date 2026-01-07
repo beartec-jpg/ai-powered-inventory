@@ -1,4 +1,4 @@
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, desc } from 'drizzle-orm';
 import { db } from '../db/client';
 import { users, warehouseAccesses } from '../db/schema';
 import { v4 as uuidv4 } from 'uuid';

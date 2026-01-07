@@ -10,7 +10,6 @@ import {
   uniqueIndex,
   index
 } from 'drizzle-orm/pg-core';
-import { relations } from 'drizzle-orm';
 
 // Enums
 export const userRoleEnum = pgEnum('user_role', ['ADMIN', 'MANAGER', 'STAFF', 'VIEWER']);

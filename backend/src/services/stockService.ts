@@ -1,4 +1,4 @@
-import { eq, and, lt, sql } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import { db } from '../db/client';
 import { stocks, products, warehouses, stockMovements } from '../db/schema';
 import { v4 as uuidv4 } from 'uuid';

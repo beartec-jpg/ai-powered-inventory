@@ -17,7 +17,7 @@ async function seed() {
   try {
     // Create users with different roles
     console.log('Creating users...');
-    const [adminUser, managerUser, staffUser] = await db.insert(users).values([
+    await db.insert(users).values([
       {
         id: uuidv4(),
         email: 'admin@inventory.com',
@@ -148,7 +148,14 @@ async function seed() {
 
     // Create product-supplier relationships
     console.log('Creating product-supplier relationships...');
-    const productSupplierData = [];
+    const productSupplierData: Array<{
+      id: string;
+      productId: string;
+      supplierId: string;
+      supplierSku: string;
+      leadTime: number;
+      minOrder: number;
+    }> = [];
     createdProducts.forEach((product, idx) => {
       const supplier = [supplier1, supplier2, supplier3][idx % 3];
       productSupplierData.push({
@@ -166,7 +173,16 @@ async function seed() {
 
     // Create stock entries
     console.log('Creating stock entries...');
-    const stockData = [];
+    const stockData: Array<{
+      id: string;
+      productId: string;
+      warehouseId: string;
+      quantity: number;
+      reserved: number;
+      available: number;
+      reorderLevel: number;
+      lastCounted: Date;
+    }> = [];
     createdProducts.forEach((product, idx) => {
       [warehouse1, warehouse2, warehouse3].forEach((warehouse, wIdx) => {
         const quantity = 50 + (idx * 10) + (wIdx * 20);

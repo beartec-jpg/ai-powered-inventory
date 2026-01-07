@@ -1,16 +1,16 @@
 import { Request, Response, NextFunction } from 'express';
-import { ClerkExpressRequireAuth } from '@clerk/express';
+import { clerkMiddleware, requireAuth } from '@clerk/express';
 
 /**
  * Clerk authentication middleware
  * Verifies Clerk tokens and attaches user info to request
  */
-export const clerkAuth = ClerkExpressRequireAuth({
-  // Add any Clerk configuration options here
-  onError: (error) => {
-    console.error('Clerk authentication error:', error);
-  },
-});
+export const clerkAuth = clerkMiddleware();
+
+/**
+ * Require authentication middleware
+ */
+export const requireClerkAuth = requireAuth();
 
 /**
  * Extract Clerk user information from request
@@ -41,20 +41,22 @@ export function getClerkUser(req: Request): ClerkUser | null {
  * Middleware to check if user has specific role
  */
 export function requireRole(...roles: string[]) {
-  return (req: Request, res: Response, next: NextFunction) => {
+  return (req: Request, res: Response, next: NextFunction): void => {
     const auth = (req as any).auth;
     
     if (!auth || !auth.sessionClaims) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
     const userRole = auth.sessionClaims.metadata?.role || 'STAFF';
     
     if (!roles.includes(userRole)) {
-      return res.status(403).json({ 
+      res.status(403).json({ 
         error: 'Forbidden',
         message: `Required role: ${roles.join(' or ')}. Your role: ${userRole}`,
       });
+      return;
     }
 
     next();
@@ -64,7 +66,7 @@ export function requireRole(...roles: string[]) {
 /**
  * Optional authentication - doesn't fail if no auth token
  */
-export function optionalClerkAuth(req: Request, res: Response, next: NextFunction) {
+export function optionalClerkAuth(req: Request, _res: Response, next: NextFunction) {
   const auth = (req as any).auth;
   
   if (!auth || !auth.userId) {

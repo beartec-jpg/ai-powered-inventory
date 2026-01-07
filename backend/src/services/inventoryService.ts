@@ -1,4 +1,4 @@
-import { eq, like, desc, and } from 'drizzle-orm';
+import { eq, desc, and } from 'drizzle-orm';
 import { db } from '../db/client';
 import { products } from '../db/schema';
 import { v4 as uuidv4 } from 'uuid';
@@ -100,8 +100,6 @@ export class InventoryService {
    * Search products by name or SKU
    */
   async searchProducts(searchTerm: string, limit = 50, offset = 0) {
-    const searchPattern = `%${searchTerm}%`;
-    
     // Simple search - in production, consider full-text search
     const results = await db.select()
       .from(products)
