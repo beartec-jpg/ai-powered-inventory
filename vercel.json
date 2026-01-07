@@ -1,46 +1,13 @@
 {
-  "buildCommand": "npm run build",
-  "installCommand": "npm install",
+  "buildCommand": "npm run build && cd backend && npm install && npm run build",
   "outputDirectory": "dist",
-  "framework": "react",
-  "serverlessFunctionRegion": "us-east-1",
-  "env": {
-    "NODE_ENV": "production"
-  },
+  "framework": "vite",
   "rewrites": [
     {
-      "source": "/api/:path*",
+      "source": "/api/(.*)",
       "destination": "/backend/dist/index.js"
-    },
-    {
-      "source": "/:path*",
-      "destination": "/dist/index.html"
     }
   ],
-  "headers": [
-    {
-      "source": "/api/:path*",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=0, must-revalidate"
-        }
-      ]
-    },
-    {
-      "source": "/dist/:path*",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=31536000, immutable"
-        }
-      ]
-    }
-  ],
-  "functions": {
-    "backend/dist/index.js": {
-      "memory": 1024,
-      "maxDuration": 60
-    }
-  }
+  "cleanUrls": true,
+  "trailingSlash": false
 }
