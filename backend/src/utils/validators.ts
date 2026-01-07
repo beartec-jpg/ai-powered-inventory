@@ -167,11 +167,13 @@ export const idParamSchema = Joi.object({
   }),
 });
 
+import { Request, Response, NextFunction } from 'express';
+
 /**
  * Validation middleware factory
  */
 export function validate(schema: Joi.Schema, property: 'body' | 'query' | 'params' = 'body') {
-  return (req: any, res: any, next: any) => {
+  return (req: Request, res: Response, next: NextFunction): void => {
     const { error, value } = schema.validate(req[property], {
       abortEarly: false,
       stripUnknown: true,
@@ -179,12 +181,13 @@ export function validate(schema: Joi.Schema, property: 'body' | 'query' | 'param
 
     if (error) {
       const errorMessage = error.details.map((detail) => detail.message).join(', ');
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: 'Validation Error',
         message: errorMessage,
         timestamp: new Date().toISOString(),
       });
+      return;
     }
 
     // Replace request property with validated value

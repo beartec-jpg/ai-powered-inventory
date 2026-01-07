@@ -44,6 +44,7 @@ export async function authenticate(
     if (error instanceof UnauthorizedError) {
       return unauthorizedResponse(res, error.message);
     }
+    console.error('Authentication error:', error);
     return unauthorizedResponse(res, 'Authentication failed');
   }
 }

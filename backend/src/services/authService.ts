@@ -17,7 +17,13 @@ interface AuthTokens {
 }
 
 export class AuthService {
-  private static readonly JWT_SECRET = process.env.JWT_SECRET || 'default-secret-key-change-in-production';
+  private static readonly JWT_SECRET = (() => {
+    const secret = process.env.JWT_SECRET;
+    if (!secret && process.env.NODE_ENV === 'production') {
+      throw new Error('JWT_SECRET environment variable is required in production');
+    }
+    return secret || 'default-secret-key-change-in-production';
+  })();
   private static readonly JWT_EXPIRY = process.env.JWT_EXPIRY || '24h';
   private static readonly JWT_REFRESH_EXPIRY = process.env.JWT_REFRESH_EXPIRY || '7d';
 
