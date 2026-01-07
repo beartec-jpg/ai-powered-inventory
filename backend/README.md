@@ -1,6 +1,6 @@
 # AI-Powered Inventory Backend
 
-Backend service for AI-powered inventory management system using Drizzle ORM.
+Backend service for AI-powered inventory management system using Prisma ORM.
 
 ## Tech Stack
 
@@ -8,8 +8,9 @@ Backend service for AI-powered inventory management system using Drizzle ORM.
 - **Framework**: Express.js
 - **Language**: TypeScript
 - **Database**: PostgreSQL (Neon)
-- **ORM**: Drizzle ORM
-- **Authentication**: Clerk
+- **ORM**: Prisma ORM
+- **AI**: xAI Grok API
+- **Authentication**: JWT-based
 - **Deployment**: Vercel Serverless
 
 ## Setup
@@ -25,14 +26,19 @@ Backend service for AI-powered inventory management system using Drizzle ORM.
    # Edit .env with your actual values
    ```
 
-3. Generate Drizzle migrations:
+3. Generate Prisma Client:
    ```bash
    npm run db:generate
    ```
 
-4. Run migrations:
+4. Run database migrations:
    ```bash
    npm run db:migrate
+   ```
+   
+   Or for production deployment:
+   ```bash
+   npm run db:migrate:deploy
    ```
 
 5. Seed database (optional):
@@ -57,10 +63,12 @@ The server will run on http://localhost:3000
 - `npm test` - Run tests
 - `npm run lint` - Lint code
 - `npm run format` - Format code with Prettier
-- `npm run prisma:generate` - Generate Prisma Client
-- `npm run prisma:migrate` - Run database migrations
-- `npm run prisma:seed` - Seed database with sample data
-- `npm run prisma:studio` - Open Prisma Studio (GUI for database)
+- `npm run db:generate` - Generate Prisma Client
+- `npm run db:migrate` - Run database migrations (development)
+- `npm run db:migrate:deploy` - Run database migrations (production)
+- `npm run db:push` - Push schema changes to database (without migrations)
+- `npm run db:studio` - Open Prisma Studio (GUI for database)
+- `npm run db:seed` - Seed database with sample data
 
 ## Environment Variables
 
@@ -71,33 +79,62 @@ Key variables:
 - `JWT_SECRET` - Secret key for JWT token signing
 - `JWT_EXPIRY` - Access token expiration (e.g., "24h")
 - `JWT_REFRESH_EXPIRY` - Refresh token expiration (e.g., "7d")
+- `XAI_API_KEY` - xAI API key for chat functionality
 - `PORT` - Server port (default: 3000)
 - `NODE_ENV` - Environment (development/production)
 
-## Phase 2 Completion
+## Database Management
 
-This backend implements Phase 2 requirements:
+### Migrations
 
-✅ Database migrations and schema  
-✅ Comprehensive seed script with realistic data  
-✅ JWT-based authentication with RBAC  
-✅ Inventory CRUD endpoints  
-✅ Stock management (adjust, transfer, low stock alerts)  
-✅ Warehouse management endpoints  
-✅ Input validation on all endpoints  
-✅ Standardized error handling and responses  
-✅ TypeScript strict typing throughout  
-✅ Activity logging for audit trail  
+Create a new migration after schema changes:
+```bash
+npm run db:migrate
+```
 
-## Next Steps (Phase 3)
+This will:
+1. Create a new migration file in `prisma/migrations/`
+2. Apply the migration to your database
+3. Regenerate Prisma Client
 
-Phase 3 will integrate xAI for:
-- Intelligent inventory forecasting
-- Automated reorder recommendations
-- Natural language queries
-- Demand prediction
-- Stock optimization
+### Schema Updates
+
+After modifying `prisma/schema.prisma`:
+1. Generate a migration: `npm run db:migrate`
+2. Or push directly (dev only): `npm run db:push`
+
+### Reset Database
+
+To reset your database and re-run all migrations:
+```bash
+npx prisma migrate reset
+```
+
+**Warning**: This will delete all data!
+
+## Features
+
+### Phase 2 Complete ✅
+- Database schema with Prisma ORM
+- Comprehensive seed script with realistic data
+- JWT-based authentication with RBAC
+- Inventory CRUD endpoints
+- Stock management (adjust, transfer, low stock alerts)
+- Warehouse management endpoints
+- Input validation on all endpoints
+- Standardized error handling and responses
+- TypeScript strict typing throughout
+- Activity logging for audit trail
+
+### Phase 3 Complete ✅
+- xAI Grok integration for intelligent chat
+- Natural language inventory queries
+- Tool-based inventory operations
+- Chat conversation history
+- Real-time AI responses
+- Comprehensive audit logging
 
 ## License
 
 MIT
+
