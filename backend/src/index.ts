@@ -1,6 +1,7 @@
 import express, { Express, Request, Response, NextFunction } from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
+import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 
 // Load environment variables
 dotenv.config();
@@ -39,23 +40,10 @@ app.get('/', (req: Request, res: Response) => {
 });
 
 // 404 handler
-app.use((req: Request, res: Response) => {
-  res.status(404).json({
-    error: 'Not Found',
-    message: `The requested endpoint ${req.method} ${req.path} does not exist`,
-    timestamp: new Date().toISOString(),
-  });
-});
+app.use(notFoundHandler);
 
 // Error handling middleware
-app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
-  console.error('Error:', err.message);
-  res.status(500).json({
-    error: 'Internal Server Error',
-    message: NODE_ENV === 'development' ? err.message : 'An unexpected error occurred',
-    timestamp: new Date().toISOString(),
-  });
-});
+app.use(errorHandler);
 
 // Start server
 const server = app.listen(PORT, () => {
