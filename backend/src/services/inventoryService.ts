@@ -167,7 +167,8 @@ export class InventoryService {
       },
     });
   }
-}
+
+  /**
    * Get all products with pagination
    */
   async getAllProducts(limit = 50, offset = 0) {
