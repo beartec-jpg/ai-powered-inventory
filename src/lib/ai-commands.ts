@@ -1,6 +1,8 @@
 // Frontend AI Commands - Utility functions only
 // All AI processing is done on the backend
 
+import type { InventoryItem } from './types';
+
 // Generate a unique ID (browser-compatible version)
 export function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
@@ -110,9 +112,6 @@ export async function interpretCommand(
 }
 
 export { fuzzyMatch };
-
-// Import InventoryItem type from types module
-import type { InventoryItem } from './types';
 
 // Find the best matching inventory item based on part number or name
 export function findBestMatchItem(
