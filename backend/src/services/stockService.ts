@@ -1,5 +1,5 @@
 import { PrismaClient, Stock, StockMovementType, TransferStatus, Prisma } from '@prisma/client';
-import { NotFoundError, ValidationError, ConflictError } from '../types';
+import { NotFoundError, ValidationError } from '../types';
 
 const prisma = new PrismaClient();
 
@@ -349,16 +349,6 @@ export class StockService {
    * Get low stock items
    */
   static async getLowStockItems(page: number = 1, perPage: number = 30): Promise<{ stocks: Stock[]; total: number }> {
-    const where: Prisma.StockWhereInput = {
-      OR: [
-        {
-          available: {
-            lte: prisma.stock.fields.reorderLevel,
-          },
-        },
-      ],
-    };
-
     // Since we can't directly compare fields in Prisma, we'll fetch all and filter
     const allStocks = await prisma.stock.findMany({
       include: {

@@ -1,7 +1,7 @@
 import { Response, NextFunction } from 'express';
 import { UserRole } from '@prisma/client';
 import { AuthService } from '../services/authService';
-import { AuthRequest, UnauthorizedError, ForbiddenError } from '../types';
+import { AuthRequest, UnauthorizedError } from '../types';
 import { unauthorizedResponse, forbiddenResponse } from '../utils/responses';
 
 /**

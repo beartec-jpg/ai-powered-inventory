@@ -175,15 +175,24 @@ export class WarehouseService {
    * Get warehouse capacity utilization
    */
   static async getWarehouseUtilization(id: string): Promise<{
-    warehouse: Warehouse;
+    warehouse: any;
     totalStock: number;
     capacity: number;
     utilizationPercent: number;
     availableCapacity: number;
   }> {
-    const warehouse = await this.getWarehouseById(id);
+    const warehouse = await prisma.warehouse.findUnique({
+      where: { id },
+      include: {
+        stocks: true,
+      },
+    });
 
-    const totalStock = warehouse.stocks.reduce((sum, stock) => sum + stock.quantity, 0);
+    if (!warehouse) {
+      throw new NotFoundError('Warehouse not found');
+    }
+
+    const totalStock = warehouse.stocks.reduce((sum: number, stock: any) => sum + stock.quantity, 0);
     const utilizationPercent = (totalStock / warehouse.capacity) * 100;
     const availableCapacity = warehouse.capacity - totalStock;
 

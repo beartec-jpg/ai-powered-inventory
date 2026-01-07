@@ -1,7 +1,7 @@
 import { PrismaClient, User, UserRole } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import * as jwt from 'jsonwebtoken';
-import { UnauthorizedError, ConflictError, ValidationError } from '../types';
+import { UnauthorizedError, ConflictError } from '../types';
 
 const prisma = new PrismaClient();
 
@@ -42,7 +42,7 @@ export class AuthService {
   static generateToken(payload: TokenPayload, expiresIn?: string): string {
     return jwt.sign(payload, this.JWT_SECRET, {
       expiresIn: expiresIn || this.JWT_EXPIRY,
-    });
+    } as jwt.SignOptions);
   }
 
   /**
