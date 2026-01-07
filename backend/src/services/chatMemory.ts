@@ -1,6 +1,6 @@
 // Chat Memory Service - Manages conversation history and context using Prisma
 import { prisma } from '../lib/prisma';
-import { MessageRole } from '@prisma/client';
+import { MessageRole as PrismaMessageRole, ToolCallStatus as PrismaToolCallStatus } from '@prisma/client';
 import { GrokMessage, UserContext } from '../types/chat';
 import { chatConfig } from '../config/xaiConfig';
 
@@ -41,9 +41,9 @@ export class ChatMemory {
    */
   async addMessage(
     conversationId: string,
-    role: MessageRole,
+    role: PrismaMessageRole,
     content: string,
-    metadata?: Record<string, any>
+    _metadata?: Record<string, any>
   ): Promise<string> {
     const message = await prisma.chatMessage.create({
       data: {
@@ -228,7 +228,7 @@ Available Operations:
         toolName,
         parameters,
         result,
-        status,
+        status: status as PrismaToolCallStatus,
       },
     });
 
@@ -301,8 +301,8 @@ Available Operations:
       },
     });
 
-    const userMessages = messages.filter(m => m.role === MessageRole.USER).length;
-    const assistantMessages = messages.filter(m => m.role === MessageRole.ASSISTANT).length;
+    const userMessages = messages.filter(m => m.role === PrismaMessageRole.USER).length;
+    const assistantMessages = messages.filter(m => m.role === PrismaMessageRole.ASSISTANT).length;
 
     return {
       totalMessages: messageCount,

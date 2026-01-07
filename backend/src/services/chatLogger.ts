@@ -153,6 +153,47 @@ export class ChatLogger {
       count: item._count,
     }));
   }
+
+  /**
+   * Get performance metrics for a date range
+   */
+  async getPerformanceMetrics(startDate: Date, endDate: Date): Promise<any> {
+    const activities = await prisma.activity.findMany({
+      where: {
+        createdAt: {
+          gte: startDate,
+          lte: endDate,
+        },
+        action: {
+          startsWith: 'tool_execution_',
+        },
+      },
+    });
+
+    const totalExecutions = activities.length;
+    const successfulExecutions = activities.filter(a => {
+      try {
+        const details = a.details ? JSON.parse(a.details as string) : {};
+        return details.success === true;
+      } catch {
+        return false;
+      }
+    }).length;
+
+    const executionsByTool: Record<string, number> = {};
+    activities.forEach(a => {
+      const toolName = a.action.replace('tool_execution_', '');
+      executionsByTool[toolName] = (executionsByTool[toolName] || 0) + 1;
+    });
+
+    return {
+      totalExecutions,
+      successfulExecutions,
+      failedExecutions: totalExecutions - successfulExecutions,
+      successRate: totalExecutions > 0 ? (successfulExecutions / totalExecutions) * 100 : 0,
+      executionsByTool,
+    };
+  }
 }
 
 // Singleton instance

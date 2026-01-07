@@ -56,7 +56,7 @@ router.get(
  * GET /api/inventory/categories
  * Get all product categories
  */
-router.get('/categories', authenticate, async (req: AuthRequest, res: Response) => {
+router.get('/categories', authenticate, async (_req: AuthRequest, res: Response) => {
   try {
     const categories = await InventoryService.getCategories();
     return successResponse(res, categories, 'Categories retrieved successfully');

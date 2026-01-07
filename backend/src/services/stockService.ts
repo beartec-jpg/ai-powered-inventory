@@ -1,5 +1,5 @@
 import { prisma } from '../lib/prisma';
-import { Stock, StockMovement, StockTransfer, StockMovementType, TransferStatus } from '@prisma/client';
+import { Stock, StockTransfer, StockMovementType, TransferStatus } from '@prisma/client';
 
 export interface StockQueryParams {
   warehouseId?: string;

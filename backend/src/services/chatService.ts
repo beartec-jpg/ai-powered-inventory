@@ -1,5 +1,5 @@
 import { prisma } from '../lib/prisma';
-import { MessageRole, ToolCallStatus } from '@prisma/client';
+import { MessageRole as PrismaMessageRole, ToolCallStatus as PrismaToolCallStatus } from '@prisma/client';
 import { getXAIService } from './xaiService';
 import { getChatMemory } from './chatMemory';
 import { getToolExecutor } from './toolExecutor';
@@ -20,7 +20,7 @@ export interface CreateConversationInput {
 
 export interface CreateMessageInput {
   conversationId: string;
-  role: MessageRole;
+  role: PrismaMessageRole;
   content: string;
 }
 
@@ -29,7 +29,7 @@ export interface CreateToolCallInput {
   toolName: string;
   parameters: any;
   result?: any;
-  status: ToolCallStatus;
+  status: PrismaToolCallStatus;
 }
 
 export class ChatService {
@@ -99,7 +99,7 @@ export class ChatService {
             toolCall.function.name,
             JSON.parse(toolCall.function.arguments),
             result?.result,
-            result?.success ? 'success' : 'error'
+            result?.success ? 'SUCCESS' : 'ERROR'
           );
         }
 
@@ -126,7 +126,7 @@ export class ChatService {
         // Save final assistant response
         const finalMessageId = await this.chatMemory.addMessage(
           conversationId,
-          MessageRole.ASSISTANT,
+          PrismaMessageRole.ASSISTANT,
           finalMessage.content,
           {
             model: finalResponse.model,
@@ -158,7 +158,7 @@ export class ChatService {
         // No tool calls, just save and return the response
         const messageId = await this.chatMemory.addMessage(
           conversationId,
-          MessageRole.ASSISTANT,
+          PrismaMessageRole.ASSISTANT,
           assistantMessage.content,
           {
             model: response.model,
@@ -351,12 +351,12 @@ export class ChatService {
   /**
    * Update tool call result
    */
-  async updateToolCall(id: string, result: any, status: ToolCallStatus) {
+  async updateToolCall(id: string, result: any, status: PrismaToolCallStatus) {
     const updated = await prisma.toolCall.update({
       where: { id },
       data: {
         result,
-        status,
+        status: status as PrismaToolCallStatus,
       },
     });
 
