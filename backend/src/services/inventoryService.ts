@@ -1,145 +1,66 @@
-import { PrismaClient, Product, Prisma } from '@prisma/client';
-import { NotFoundError, ConflictError } from '../types';
+import { eq, desc, and } from 'drizzle-orm';
+import { db } from '../db/client';
+import { products } from '../db/schema';
+import { v4 as uuidv4 } from 'uuid';
 
-const prisma = new PrismaClient();
-
-export interface ProductFilters {
-  category?: string;
-  active?: boolean;
-  search?: string;
+export interface CreateProductInput {
+  sku: string;
+  name: string;
+  description?: string;
+  category: string;
+  unitPrice: number;
+  unit?: string;
 }
 
-export interface PaginationOptions {
-  page: number;
-  perPage: number;
+export interface UpdateProductInput {
+  sku?: string;
+  name?: string;
+  description?: string;
+  category?: string;
+  unitPrice?: number;
+  unit?: string;
+  active?: boolean;
 }
 
 export class InventoryService {
   /**
-   * Get all products with pagination and filters
+   * Create a new product
    */
-  static async getProducts(
-    filters: ProductFilters = {},
-    pagination: PaginationOptions = { page: 1, perPage: 30 }
-  ): Promise<{ products: Product[]; total: number }> {
-    const { category, active, search } = filters;
-    const { page, perPage } = pagination;
-
-    const where: Prisma.ProductWhereInput = {};
-
-    if (category) {
-      where.category = category;
-    }
-
-    if (active !== undefined) {
-      where.active = active;
-    }
-
-    if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { sku: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } },
-      ];
-    }
-
-    const [products, total] = await Promise.all([
-      prisma.product.findMany({
-        where,
-        skip: (page - 1) * perPage,
-        take: perPage,
-        orderBy: { createdAt: 'desc' },
-        include: {
-          stocks: {
-            include: {
-              warehouse: {
-                select: {
-                  id: true,
-                  name: true,
-                  location: true,
-                },
-              },
-            },
-          },
-          suppliers: {
-            include: {
-              supplier: {
-                select: {
-                  id: true,
-                  name: true,
-                },
-              },
-            },
-          },
-        },
-      }),
-      prisma.product.count({ where }),
-    ]);
-
-    return { products, total };
-  }
-
-  /**
-   * Get a product by ID
-   */
-  static async getProductById(id: string): Promise<Product> {
-    const product = await prisma.product.findUnique({
-      where: { id },
-      include: {
-        stocks: {
-          include: {
-            warehouse: true,
-          },
-        },
-        suppliers: {
-          include: {
-            supplier: true,
-          },
-        },
-        movements: {
-          orderBy: { createdAt: 'desc' },
-          take: 10,
-        },
-      },
-    });
-
-    if (!product) {
-      throw new NotFoundError('Product not found');
-    }
+  async createProduct(input: CreateProductInput) {
+    const [product] = await db.insert(products).values({
+      id: uuidv4(),
+      sku: input.sku,
+      name: input.name,
+      description: input.description || null,
+      category: input.category,
+      unitPrice: input.unitPrice,
+      unit: input.unit || 'pcs',
+      active: true,
+    }).returning();
 
     return product;
   }
 
   /**
-   * Create a new product
+   * Get product by ID
    */
-  static async createProduct(data: {
-    sku: string;
-    name: string;
-    description?: string;
-    category: string;
-    unitPrice: number;
-    unit?: string;
-  }): Promise<Product> {
-    // Check if SKU already exists
-    const existingProduct = await prisma.product.findUnique({
-      where: { sku: data.sku },
-    });
+  async getProductById(id: string) {
+    const [product] = await db.select()
+      .from(products)
+      .where(eq(products.id, id))
+      .limit(1);
 
-    if (existingProduct) {
-      throw new ConflictError('Product with this SKU already exists');
-    }
+    return product;
+  }
 
-    const product = await prisma.product.create({
-      data: {
-        sku: data.sku,
-        name: data.name,
-        description: data.description,
-        category: data.category,
-        unitPrice: data.unitPrice,
-        unit: data.unit || 'pcs',
-      },
-    });
+  /**
+   * Get product by SKU
+   */
+  async getProductBySku(sku: string) {
+    const [product] = await db.select()
+      .from(products)
+      .where(eq(products.sku, sku))
+      .limit(1);
 
     return product;
   }
@@ -247,3 +168,103 @@ export class InventoryService {
     });
   }
 }
+   * Get all products with pagination
+   */
+  async getAllProducts(limit = 50, offset = 0) {
+    const allProducts = await db.select()
+      .from(products)
+      .where(eq(products.active, true))
+      .orderBy(desc(products.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    return allProducts;
+  }
+
+  /**
+   * Get products by category
+   */
+  async getProductsByCategory(category: string, limit = 50, offset = 0) {
+    const categoryProducts = await db.select()
+      .from(products)
+      .where(and(
+        eq(products.category, category),
+        eq(products.active, true)
+      ))
+      .orderBy(desc(products.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    return categoryProducts;
+  }
+
+  /**
+   * Search products by name or SKU
+   */
+  async searchProducts(searchTerm: string, limit = 50, offset = 0) {
+    // Simple search - in production, consider full-text search
+    const results = await db.select()
+      .from(products)
+      .where(
+        and(
+          eq(products.active, true)
+        )
+      )
+      .orderBy(desc(products.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    // Filter in memory for simple LIKE behavior
+    return results.filter(p => 
+      p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      p.sku.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }
+
+  /**
+   * Update product
+   */
+  async updateProduct(id: string, input: UpdateProductInput) {
+    const [updatedProduct] = await db.update(products)
+      .set({
+        ...input,
+        updatedAt: new Date(),
+      })
+      .where(eq(products.id, id))
+      .returning();
+
+    return updatedProduct;
+  }
+
+  /**
+   * Delete product (soft delete)
+   */
+  async deleteProduct(id: string) {
+    const [deletedProduct] = await db.update(products)
+      .set({
+        active: false,
+        updatedAt: new Date(),
+      })
+      .where(eq(products.id, id))
+      .returning();
+
+    return deletedProduct;
+  }
+
+  /**
+   * Validate SKU uniqueness
+   */
+  async validateSku(sku: string, excludeId?: string) {
+    const [existing] = await db.select()
+      .from(products)
+      .where(eq(products.sku, sku))
+      .limit(1);
+
+    if (!existing) return true;
+    if (excludeId && existing.id === excludeId) return true;
+    
+    return false;
+  }
+}
+
+export const inventoryService = new InventoryService();

@@ -1,6 +1,7 @@
 import express, { Express, Request, Response, NextFunction } from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
+import chatRoutes from './routes/chat';
 
 // Import routes
 import authRoutes from './routes/auth';
@@ -27,11 +28,17 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Logger middleware
-app.use(logger);
+// Request logging middleware
+app.use((req: Request, _res: Response, next: NextFunction) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+  next();
+});
+
+// API Routes
+app.use('/api/chat', chatRoutes);
 
 // Health check endpoint
-app.get('/health', (req: Request, res: Response) => {
+app.get('/health', (_req: Request, res: Response) => {
   res.json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
@@ -40,7 +47,7 @@ app.get('/health', (req: Request, res: Response) => {
 });
 
 // Root endpoint
-app.get('/', (req: Request, res: Response) => {
+app.get('/', (_req: Request, res: Response) => {
   res.json({
     message: 'AI-Powered Inventory Management System',
     version: '1.0.0',
@@ -74,7 +81,7 @@ app.use((req: Request, res: Response) => {
 app.use(errorLogger);
 
 // Error handling middleware
-app.use((err: Error | AppError, req: Request, res: Response, next: NextFunction) => {
+app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   console.error('Error:', err.message);
   
   const statusCode = err instanceof AppError ? err.statusCode : 500;
