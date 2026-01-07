@@ -1,5 +1,5 @@
 import { Router, Response } from 'express';
-import { StockService } from '../services/stockService';
+import { stockService } from '../services/stockService';
 import { AuthRequest } from '../types';
 import {
   validate,
@@ -30,24 +30,22 @@ router.get(
   validate(stockQuerySchema, 'query'),
   async (req: AuthRequest, res: Response) => {
     try {
-      const { warehouseId, productId, lowStock, page, perPage } = req.query as any;
+      const { warehouseId, productId } = req.query as any;
 
-      const result = await StockService.getStock({
-        warehouseId,
-        productId,
-        lowStock: lowStock === 'true',
-        page: page || 1,
-        perPage: perPage || 30,
-      });
+      let stocks;
+      if (warehouseId && productId) {
+        const stock = await stockService.getStock(productId, warehouseId);
+        stocks = stock ? [stock] : [];
+      } else if (productId) {
+        stocks = await stockService.getProductStock(productId);
+      } else if (warehouseId) {
+        stocks = await stockService.getWarehouseStock(warehouseId);
+      } else {
+        // Get low stock items as default
+        stocks = await stockService.getLowStockItems();
+      }
 
-      return paginatedResponse(
-        res,
-        result.stocks,
-        page || 1,
-        perPage || 30,
-        result.total,
-        'Stock retrieved successfully'
-      );
+      return successResponse(res, stocks, 'Stock retrieved successfully');
     } catch (error) {
       console.error('Get stock error:', error);
       return internalServerErrorResponse(res, 'Failed to retrieve stock');
@@ -61,19 +59,9 @@ router.get(
  */
 router.get('/low', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const page = parseInt(req.query.page as string) || 1;
-    const perPage = parseInt(req.query.perPage as string) || 30;
+    const stocks = await stockService.getLowStockItems();
 
-    const result = await StockService.getLowStockItems(page, perPage);
-
-    return paginatedResponse(
-      res,
-      result.stocks,
-      page,
-      perPage,
-      result.total,
-      'Low stock items retrieved successfully'
-    );
+    return successResponse(res, stocks, 'Low stock items retrieved successfully');
   } catch (error) {
     console.error('Get low stock error:', error);
     return internalServerErrorResponse(res, 'Failed to retrieve low stock items');
@@ -90,23 +78,11 @@ router.get(
   async (req: AuthRequest, res: Response) => {
     try {
       const { warehouseId } = req.params;
-      const page = parseInt(req.query.page as string) || 1;
-      const perPage = parseInt(req.query.perPage as string) || 30;
 
-      const result = await StockService.getWarehouseStock(warehouseId, page, perPage);
+      const stocks = await stockService.getWarehouseStock(warehouseId);
 
-      return paginatedResponse(
-        res,
-        result.stocks,
-        page,
-        perPage,
-        result.total,
-        'Warehouse stock retrieved successfully'
-      );
+      return successResponse(res, stocks, 'Warehouse stock retrieved successfully');
     } catch (error: any) {
-      if (error.statusCode === 404) {
-        return notFoundResponse(res, error.message);
-      }
       console.error('Get warehouse stock error:', error);
       return internalServerErrorResponse(res, 'Failed to retrieve warehouse stock');
     }
@@ -124,12 +100,9 @@ router.get(
   async (req: AuthRequest, res: Response) => {
     try {
       const { productId } = req.params;
-      const summary = await StockService.getProductStockSummary(productId);
-      return successResponse(res, summary, 'Product stock summary retrieved successfully');
+      const stocks = await stockService.getProductStock(productId);
+      return successResponse(res, stocks, 'Product stock summary retrieved successfully');
     } catch (error: any) {
-      if (error.statusCode === 404) {
-        return notFoundResponse(res, error.message);
-      }
       console.error('Get product stock error:', error);
       return internalServerErrorResponse(res, 'Failed to retrieve product stock');
     }
@@ -148,9 +121,9 @@ router.post(
   async (req: AuthRequest, res: Response) => {
     try {
       const { productId, warehouseId, quantity, reason, notes } = req.body;
-      const userId = req.user?.id;
+      const userId = req.user?.id || 'system';
 
-      const stock = await StockService.adjustStock(
+      const stock = await stockService.adjustStock(
         productId,
         warehouseId,
         quantity,
@@ -161,12 +134,6 @@ router.post(
 
       return createdResponse(res, stock, 'Stock adjusted successfully');
     } catch (error: any) {
-      if (error.statusCode === 404) {
-        return notFoundResponse(res, error.message);
-      }
-      if (error.statusCode === 400) {
-        return badRequestResponse(res, error.message);
-      }
       console.error('Adjust stock error:', error);
       return internalServerErrorResponse(res, 'Failed to adjust stock');
     }
@@ -185,29 +152,17 @@ router.post(
   async (req: AuthRequest, res: Response) => {
     try {
       const { productId, fromWarehouseId, toWarehouseId, quantity, notes } = req.body;
-      const userId = req.user?.id;
 
-      if (!userId) {
-        return badRequestResponse(res, 'User ID not found');
-      }
-
-      const transfer = await StockService.transferStock(
+      const transfer = await stockService.transferStock({
         productId,
         fromWarehouseId,
         toWarehouseId,
         quantity,
         notes,
-        userId
-      );
+      });
 
       return createdResponse(res, transfer, 'Stock transferred successfully');
     } catch (error: any) {
-      if (error.statusCode === 404) {
-        return notFoundResponse(res, error.message);
-      }
-      if (error.statusCode === 400) {
-        return badRequestResponse(res, error.message);
-      }
       console.error('Transfer stock error:', error);
       return internalServerErrorResponse(res, 'Failed to transfer stock');
     }

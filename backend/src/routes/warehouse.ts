@@ -1,5 +1,5 @@
 import { Router, Response } from 'express';
-import { WarehouseService } from '../services/warehouseService';
+import { warehouseService } from '../services/warehouseService';
 import { AuthRequest } from '../types';
 import {
   validate,
@@ -30,20 +30,8 @@ router.get(
   validate(paginationSchema, 'query'),
   async (req: AuthRequest, res: Response) => {
     try {
-      const page = parseInt(req.query.page as string) || 1;
-      const perPage = parseInt(req.query.perPage as string) || 30;
-      const activeOnly = req.query.active === 'true';
-
-      const result = await WarehouseService.getWarehouses(page, perPage, activeOnly);
-
-      return paginatedResponse(
-        res,
-        result.warehouses,
-        page,
-        perPage,
-        result.total,
-        'Warehouses retrieved successfully'
-      );
+      const warehouses = await warehouseService.getAllWarehouses();
+      return successResponse(res, warehouses, 'Warehouses retrieved successfully');
     } catch (error) {
       console.error('Get warehouses error:', error);
       return internalServerErrorResponse(res, 'Failed to retrieve warehouses');
@@ -62,12 +50,14 @@ router.get(
   async (req: AuthRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const warehouse = await WarehouseService.getWarehouseById(id);
+      const warehouse = await warehouseService.getWarehouseById(id);
+      
+      if (!warehouse) {
+        return notFoundResponse(res, 'Warehouse not found');
+      }
+      
       return successResponse(res, warehouse, 'Warehouse retrieved successfully');
     } catch (error: any) {
-      if (error.statusCode === 404) {
-        return notFoundResponse(res, error.message);
-      }
       console.error('Get warehouse error:', error);
       return internalServerErrorResponse(res, 'Failed to retrieve warehouse');
     }
@@ -85,7 +75,7 @@ router.get(
   async (req: AuthRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const utilization = await WarehouseService.getWarehouseUtilization(id);
+      const utilization = await warehouseService.getWarehouseUtilization(id);
       return successResponse(res, utilization, 'Warehouse utilization retrieved successfully');
     } catch (error: any) {
       if (error.statusCode === 404) {
@@ -108,7 +98,7 @@ router.get(
   async (req: AuthRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const summary = await WarehouseService.getWarehouseStockSummary(id);
+      const summary = await warehouseService.getWarehouseStockSummary(id);
       return successResponse(res, summary, 'Warehouse stock summary retrieved successfully');
     } catch (error: any) {
       if (error.statusCode === 404) {
@@ -131,7 +121,7 @@ router.post(
   validate(warehouseCreateSchema),
   async (req: AuthRequest, res: Response) => {
     try {
-      const warehouse = await WarehouseService.createWarehouse(req.body);
+      const warehouse = await warehouseService.createWarehouse(req.body);
       return createdResponse(res, warehouse, 'Warehouse created successfully');
     } catch (error: any) {
       if (error.statusCode === 409) {
@@ -156,7 +146,7 @@ router.put(
   async (req: AuthRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const warehouse = await WarehouseService.updateWarehouse(id, req.body);
+      const warehouse = await warehouseService.updateWarehouse(id, req.body);
       return successResponse(res, warehouse, 'Warehouse updated successfully');
     } catch (error: any) {
       if (error.statusCode === 404) {

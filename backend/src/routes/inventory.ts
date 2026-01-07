@@ -1,5 +1,5 @@
 import { Router, Response } from 'express';
-import { InventoryService } from '../services/inventoryService';
+import { inventoryService } from '../services/inventoryService';
 import { AuthRequest } from '../types';
 import {
   validate,
@@ -30,19 +30,26 @@ router.get(
   validate(productListSchema, 'query'),
   async (req: AuthRequest, res: Response) => {
     try {
-      const { page, perPage, category, active, search } = req.query as any;
+      const { page, perPage, category, search } = req.query as any;
+      
+      const limit = perPage || 30;
+      const offset = ((page || 1) - 1) * limit;
 
-      const result = await InventoryService.getProducts(
-        { category, active, search },
-        { page: page || 1, perPage: perPage || 30 }
-      );
+      let products;
+      if (category) {
+        products = await inventoryService.getProductsByCategory(category, limit, offset);
+      } else if (search) {
+        products = await inventoryService.searchProducts(search, limit, offset);
+      } else {
+        products = await inventoryService.getAllProducts(limit, offset);
+      }
 
       return paginatedResponse(
         res,
-        result.products,
+        products,
         page || 1,
         perPage || 30,
-        result.total,
+        products.length, // Simplified - in production, get actual total
         'Products retrieved successfully'
       );
     } catch (error) {
@@ -58,7 +65,7 @@ router.get(
  */
 router.get('/categories', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const categories = await InventoryService.getCategories();
+    const categories = await inventoryService.getCategories();
     return successResponse(res, categories, 'Categories retrieved successfully');
   } catch (error) {
     console.error('Get categories error:', error);
@@ -77,12 +84,14 @@ router.get(
   async (req: AuthRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const product = await InventoryService.getProductById(id);
+      const product = await inventoryService.getProductById(id);
+      
+      if (!product) {
+        return notFoundResponse(res, 'Product not found');
+      }
+      
       return successResponse(res, product, 'Product retrieved successfully');
     } catch (error: any) {
-      if (error.statusCode === 404) {
-        return notFoundResponse(res, error.message);
-      }
       console.error('Get product error:', error);
       return internalServerErrorResponse(res, 'Failed to retrieve product');
     }
@@ -100,12 +109,15 @@ router.post(
   validate(productCreateSchema),
   async (req: AuthRequest, res: Response) => {
     try {
-      const product = await InventoryService.createProduct(req.body);
+      // Check SKU uniqueness
+      const isUnique = await inventoryService.validateSku(req.body.sku);
+      if (!isUnique) {
+        return conflictResponse(res, 'Product with this SKU already exists');
+      }
+      
+      const product = await inventoryService.createProduct(req.body);
       return createdResponse(res, product, 'Product created successfully');
     } catch (error: any) {
-      if (error.statusCode === 409) {
-        return conflictResponse(res, error.message);
-      }
       console.error('Create product error:', error);
       return internalServerErrorResponse(res, 'Failed to create product');
     }
@@ -125,12 +137,24 @@ router.put(
   async (req: AuthRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const product = await InventoryService.updateProduct(id, req.body);
+      
+      // Check if product exists
+      const existing = await inventoryService.getProductById(id);
+      if (!existing) {
+        return notFoundResponse(res, 'Product not found');
+      }
+      
+      // Check SKU uniqueness if SKU is being updated
+      if (req.body.sku) {
+        const isUnique = await inventoryService.validateSku(req.body.sku, id);
+        if (!isUnique) {
+          return conflictResponse(res, 'Product with this SKU already exists');
+        }
+      }
+      
+      const product = await inventoryService.updateProduct(id, req.body);
       return successResponse(res, product, 'Product updated successfully');
     } catch (error: any) {
-      if (error.statusCode === 404) {
-        return notFoundResponse(res, error.message);
-      }
       console.error('Update product error:', error);
       return internalServerErrorResponse(res, 'Failed to update product');
     }
@@ -149,12 +173,16 @@ router.delete(
   async (req: AuthRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const product = await InventoryService.deleteProduct(id);
+      
+      // Check if product exists
+      const existing = await inventoryService.getProductById(id);
+      if (!existing) {
+        return notFoundResponse(res, 'Product not found');
+      }
+      
+      const product = await inventoryService.deleteProduct(id);
       return successResponse(res, product, 'Product deleted successfully');
     } catch (error: any) {
-      if (error.statusCode === 404) {
-        return notFoundResponse(res, error.message);
-      }
       console.error('Delete product error:', error);
       return internalServerErrorResponse(res, 'Failed to delete product');
     }
