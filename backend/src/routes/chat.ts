@@ -2,7 +2,6 @@
 import { Router, Request, Response } from 'express';
 import { getChatService } from '../services/chatService';
 import { getChatLogger } from '../services/chatLogger';
-import { streamToSSE } from '../utils/streamingResponse';
 import {
   authenticateChat,
   checkChatAccess,

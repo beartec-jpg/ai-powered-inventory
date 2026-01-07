@@ -102,8 +102,7 @@ export class ChatService {
             toolCall.function.name,
             JSON.parse(toolCall.function.arguments),
             result?.result,
-            result?.success ? 'success' : 'error',
-            result?.error
+            result?.success ? 'success' : 'error'
           );
         }
 

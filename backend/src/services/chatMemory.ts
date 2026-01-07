@@ -227,8 +227,7 @@ Available Operations:
     toolName: string,
     parameters: Record<string, any>,
     result?: Record<string, any>,
-    status: 'pending' | 'success' | 'error' = 'success',
-    error?: string
+    status: 'pending' | 'success' | 'error' = 'success'
   ): Promise<void> {
     await db.insert(toolCalls).values({
       id: uuidv4(),

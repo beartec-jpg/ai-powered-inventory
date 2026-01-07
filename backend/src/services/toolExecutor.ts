@@ -26,7 +26,7 @@ export class ToolExecutor {
     try {
       switch (toolName) {
         case 'check_stock':
-          return await inventoryIntelligence.checkStock(parameters.product_id, parameters.warehouse_id);
+          return await inventoryIntelligence.checkStock(parameters.product_id);
 
         case 'search_product':
           return await inventoryIntelligence.searchProducts(parameters.query);
