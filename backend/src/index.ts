@@ -1,6 +1,7 @@
 import express, { Express, Request, Response, NextFunction } from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
+import chatRoutes from './routes/chat';
 
 // Load environment variables
 dotenv.config();
@@ -19,6 +20,9 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
   next();
 });
+
+// API Routes
+app.use('/api/chat', chatRoutes);
 
 // Health check endpoint
 app.get('/health', (req: Request, res: Response) => {
