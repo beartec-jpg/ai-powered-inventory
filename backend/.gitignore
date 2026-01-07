@@ -1,0 +1,54 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Database
+*.db
+*.db-journal
+dev.db*
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Testing
+coverage/
+.nyc_output/
+
+# Prisma
+prisma/migrations/*_*/
+!prisma/migrations/migration_lock.toml
+prisma/**/*.js
+prisma/**/*.js.map
+prisma/**/*.d.ts
+prisma/**/*.d.ts.map
+
+# Temporary files
+tmp/
+temp/
+*.tmp

@@ -66,6 +66,108 @@ export class InventoryService {
   }
 
   /**
+   * Update a product
+   */
+  static async updateProduct(
+    id: string,
+    data: {
+      name?: string;
+      description?: string;
+      category?: string;
+      unitPrice?: number;
+      unit?: string;
+      active?: boolean;
+    }
+  ): Promise<Product> {
+    // Check if product exists
+    const existingProduct = await prisma.product.findUnique({
+      where: { id },
+    });
+
+    if (!existingProduct) {
+      throw new NotFoundError('Product not found');
+    }
+
+    const product = await prisma.product.update({
+      where: { id },
+      data,
+    });
+
+    return product;
+  }
+
+  /**
+   * Delete a product (soft delete)
+   */
+  static async deleteProduct(id: string): Promise<Product> {
+    // Check if product exists
+    const existingProduct = await prisma.product.findUnique({
+      where: { id },
+    });
+
+    if (!existingProduct) {
+      throw new NotFoundError('Product not found');
+    }
+
+    // Soft delete by marking as inactive
+    const product = await prisma.product.update({
+      where: { id },
+      data: { active: false },
+    });
+
+    return product;
+  }
+
+  /**
+   * Check if SKU is unique
+   */
+  static async isSkuUnique(sku: string, excludeId?: string): Promise<boolean> {
+    const product = await prisma.product.findUnique({
+      where: { sku },
+    });
+
+    if (!product) {
+      return true;
+    }
+
+    // If excludeId is provided, check if it's the same product
+    if (excludeId && product.id === excludeId) {
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Get all unique categories
+   */
+  static async getCategories(): Promise<string[]> {
+    const products = await prisma.product.findMany({
+      where: { active: true },
+      select: { category: true },
+      distinct: ['category'],
+      orderBy: { category: 'asc' },
+    });
+
+    return products.map((p) => p.category);
+  }
+
+  /**
+   * Get product by SKU
+   */
+  static async getProductBySku(sku: string): Promise<Product | null> {
+    return prisma.product.findUnique({
+      where: { sku },
+      include: {
+        stocks: {
+          include: {
+            warehouse: true,
+          },
+        },
+      },
+    });
+  }
+}
    * Get all products with pagination
    */
   async getAllProducts(limit = 50, offset = 0) {

@@ -49,7 +49,8 @@ model Warehouse {
   // Relations
   stocks    Stock[]
   accesses  WarehouseAccess[]
-  transfers StockTransfer[]
+  transfersFrom StockTransfer[] @relation("FromWarehouse")
+  transfersTo   StockTransfer[] @relation("ToWarehouse")
 
   @@map("warehouses")
 }
@@ -88,6 +89,7 @@ model Product {
   stocks       Stock[]
   movements    StockMovement[]
   suppliers    ProductSupplier[]
+  transfers    StockTransfer[]
 
   @@index([category])
   @@map("products")
@@ -185,6 +187,7 @@ enum StockMovementType {
 // Stock transfer between warehouses
 model StockTransfer {
   id              String   @id @default(cuid())
+  productId       String
   fromWarehouseId String
   toWarehouseId   String
   quantity        Int
@@ -195,10 +198,12 @@ model StockTransfer {
   updatedAt       DateTime @updatedAt
 
   // Relations
+  product       Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
   fromWarehouse Warehouse @relation("FromWarehouse", fields: [fromWarehouseId], references: [id])
   toWarehouse   Warehouse @relation("ToWarehouse", fields: [toWarehouseId], references: [id])
   user          User      @relation(fields: [initiatedBy], references: [id])
 
+  @@index([productId])
   @@index([fromWarehouseId])
   @@index([toWarehouseId])
   @@map("stock_transfers")

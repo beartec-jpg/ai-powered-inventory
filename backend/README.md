@@ -54,65 +54,49 @@ The server will run on http://localhost:3000
 - `npm run dev` - Start development server with hot reload
 - `npm run build` - Build for production
 - `npm start` - Start production server
-- `npm run type-check` - Type check TypeScript code
+- `npm test` - Run tests
 - `npm run lint` - Lint code
-- `npm run lint:fix` - Fix linting issues
 - `npm run format` - Format code with Prettier
-- `npm run db:generate` - Generate Drizzle migrations
-- `npm run db:migrate` - Run migrations
-- `npm run db:push` - Push schema changes to database
-- `npm run db:studio` - Open Drizzle Studio
-- `npm run db:seed` - Seed database with test data
+- `npm run prisma:generate` - Generate Prisma Client
+- `npm run prisma:migrate` - Run database migrations
+- `npm run prisma:seed` - Seed database with sample data
+- `npm run prisma:studio` - Open Prisma Studio (GUI for database)
 
-## Database Schema
+## Environment Variables
 
-The database includes the following tables:
+See `.env.example` in the root directory for all required environment variables.
 
-- `users` - User accounts and authentication
-- `warehouses` - Warehouse locations
-- `warehouse_accesses` - User warehouse permissions
-- `products` - Product catalog
-- `suppliers` - Supplier information
-- `product_suppliers` - Product-supplier relationships
-- `stocks` - Inventory stock levels
-- `stock_movements` - Stock movement history
-- `stock_transfers` - Warehouse transfers
-- `purchase_orders` - Purchase orders
-- `purchase_order_items` - PO line items
-- `activities` - Audit log
-- `chat_conversations` - AI chat conversations
-- `chat_messages` - Chat messages
-- `tool_calls` - AI tool execution tracking
+Key variables:
+- `DATABASE_URL` - PostgreSQL connection string
+- `JWT_SECRET` - Secret key for JWT token signing
+- `JWT_EXPIRY` - Access token expiration (e.g., "24h")
+- `JWT_REFRESH_EXPIRY` - Refresh token expiration (e.g., "7d")
+- `PORT` - Server port (default: 3000)
+- `NODE_ENV` - Environment (development/production)
 
-## Authentication
+## Phase 2 Completion
 
-This backend uses Clerk for authentication. Configure Clerk credentials in your `.env` file:
+This backend implements Phase 2 requirements:
 
-```env
-CLERK_SECRET_KEY=sk_test_...
-CLERK_PUBLISHABLE_KEY=pk_test_...
-```
+✅ Database migrations and schema  
+✅ Comprehensive seed script with realistic data  
+✅ JWT-based authentication with RBAC  
+✅ Inventory CRUD endpoints  
+✅ Stock management (adjust, transfer, low stock alerts)  
+✅ Warehouse management endpoints  
+✅ Input validation on all endpoints  
+✅ Standardized error handling and responses  
+✅ TypeScript strict typing throughout  
+✅ Activity logging for audit trail  
 
-## API Endpoints
+## Next Steps (Phase 3)
 
-### Health Check
-- `GET /health` - Basic health check
-- `GET /health/detailed` - Detailed health information
-
-### Inventory (Protected)
-- Product CRUD operations
-- Stock management
-- Warehouse operations
-- Transfer operations
-
-### AI Chat (Protected)
-- Natural language inventory queries
-- AI-powered stock operations
-- Conversation history
-
-## Deployment
-
-This backend is designed to run on Vercel Serverless. Configuration is in `vercel.json` at the project root.
+Phase 3 will integrate xAI for:
+- Intelligent inventory forecasting
+- Automated reorder recommendations
+- Natural language queries
+- Demand prediction
+- Stock optimization
 
 ## License
 
