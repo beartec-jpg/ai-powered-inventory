@@ -64,11 +64,12 @@ export class ToolExecutor {
           );
 
         case 'create_parts_list':
-          return {
-            success: true,
-            message: 'Parts list creation would be executed here (placeholder)',
-            data: { jobNumber: parameters.job_number, items: parameters.items },
-          };
+          return await inventoryIntelligence.createPartsList(
+            parameters.job_number,
+            parameters.items,
+            parameters.customer_name,
+            parameters.notes
+          );
 
         case 'get_low_stock_items':
           // Filter by user's accessible warehouses if warehouse_id provided
@@ -91,21 +92,13 @@ export class ToolExecutor {
               message: 'You do not have access to this warehouse',
             };
           }
-          return await inventoryIntelligence.getWarehouseUtilization(parameters.warehouse_id);
+          return await inventoryIntelligence.warehouseInventoryReport(parameters.warehouse_id);
 
         case 'supplier_availability':
-          return {
-            success: true,
-            message: 'Supplier info would be retrieved here (placeholder)',
-            data: { productId: parameters.product_id },
-          };
+          return await inventoryIntelligence.supplierAvailability(parameters.product_id);
 
         case 'get_product_details':
-          return {
-            success: true,
-            message: 'Product details would be retrieved here (placeholder)',
-            data: { productId: parameters.product_id },
-          };
+          return await inventoryIntelligence.getProductDetails(parameters.product_id);
 
         default:
           return {

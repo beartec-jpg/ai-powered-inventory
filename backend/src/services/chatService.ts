@@ -187,6 +187,128 @@ export class ChatService {
   }
 
   /**
+   * Process a chat message with streaming response
+   */
+  async processMessageStreaming(
+    request: ChatRequest,
+    userContext: UserContext,
+    res: any
+  ): Promise<void> {
+    try {
+      // Get or create conversation
+      const conversationId = await this.chatMemory.getOrCreateConversation(
+        userContext.userId,
+        request.conversationId
+      );
+
+      // Save user message
+      await this.chatMemory.addMessage(conversationId, MessageRole.USER, request.message);
+
+      // Build conversation history
+      const history = await this.chatMemory.getConversationHistory(conversationId);
+
+      // Build system context
+      const systemContext = this.chatMemory.buildSystemContext(userContext);
+
+      // Prepare messages for AI
+      const messages: GrokMessage[] = [
+        { role: 'system', content: systemContext },
+        ...history,
+        { role: 'user', content: request.message },
+      ];
+
+      // Call xAI with streaming
+      const stream = await this.xaiService.createStreamingChatCompletion(
+        messages,
+        inventoryTools
+      );
+
+      let fullContent = '';
+      let toolCalls: any[] = [];
+
+      // Process stream
+      for await (const chunk of stream) {
+        const delta = (chunk as any).choices[0]?.delta;
+        
+        if (delta?.content) {
+          fullContent += delta.content;
+          // Send content chunk
+          res.write(`event: content\n`);
+          res.write(`data: ${JSON.stringify({ content: delta.content })}\n\n`);
+        }
+
+        if (delta?.tool_calls) {
+          toolCalls = delta.tool_calls;
+          // Send tool call notification
+          res.write(`event: tool_call\n`);
+          res.write(`data: ${JSON.stringify({ toolCalls: delta.tool_calls })}\n\n`);
+        }
+      }
+
+      // If there were tool calls, execute them
+      if (toolCalls && toolCalls.length > 0) {
+        const toolResults = await this.executeToolCalls(toolCalls, userContext);
+        
+        // Send tool results
+        res.write(`event: tool_results\n`);
+        res.write(`data: ${JSON.stringify({ results: toolResults })}\n\n`);
+
+        // Get final response from AI with tool results
+        const toolMessages: GrokMessage[] = toolResults.map((result) => ({
+          role: 'tool',
+          tool_call_id: result.id,
+          name: result.name,
+          content: JSON.stringify(result.result),
+        }));
+
+        const finalMessages: GrokMessage[] = [
+          { role: 'system', content: systemContext },
+          ...history,
+          { role: 'user', content: request.message },
+          { role: 'assistant', content: fullContent || 'Executing tools...', tool_calls: toolCalls },
+          ...toolMessages,
+        ];
+
+        const finalStream = await this.xaiService.createStreamingChatCompletion(finalMessages);
+        
+        let finalContent = '';
+        for await (const chunk of finalStream) {
+          const delta = (chunk as any).choices[0]?.delta;
+          if (delta?.content) {
+            finalContent += delta.content;
+            res.write(`event: content\n`);
+            res.write(`data: ${JSON.stringify({ content: delta.content })}\n\n`);
+          }
+        }
+
+        // Save final message
+        await this.chatMemory.addMessage(
+          conversationId,
+          MessageRole.ASSISTANT,
+          finalContent,
+          { tool_calls: toolCalls }
+        );
+      } else {
+        // Save assistant message
+        await this.chatMemory.addMessage(
+          conversationId,
+          MessageRole.ASSISTANT,
+          fullContent
+        );
+      }
+
+      // Send completion event
+      res.write(`event: done\n`);
+      res.write(`data: ${JSON.stringify({ conversationId })}\n\n`);
+
+    } catch (error: any) {
+      console.error('Streaming chat service error:', error);
+      res.write(`event: error\n`);
+      res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
+    }
+  }
+
+  /**
    * Execute multiple tool calls
    */
   private async executeToolCalls(

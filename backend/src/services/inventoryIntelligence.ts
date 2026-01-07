@@ -340,6 +340,225 @@ export class InventoryIntelligence {
       };
     }
   }
+
+  /**
+   * Create parts list for a job
+   */
+  async createPartsList(
+    jobNumber: string,
+    items: Array<{ product_id: string; quantity: number }>,
+    customerName: string,
+    notes?: string
+  ): Promise<ToolResult> {
+    try {
+      // Validate all products exist
+      const productDetails = [];
+      for (const item of items) {
+        const product = await inventoryService.getProductById(item.product_id);
+        if (!product) {
+          return {
+            success: false,
+            error: `Product with ID "${item.product_id}" not found`,
+          };
+        }
+        productDetails.push({
+          product,
+          quantity: item.quantity,
+        });
+      }
+
+      // Create parts list summary
+      const partsList = {
+        jobNumber,
+        customerName,
+        notes,
+        items: productDetails.map(pd => ({
+          productId: pd.product.id,
+          sku: pd.product.sku,
+          name: pd.product.name,
+          quantity: pd.quantity,
+          unitPrice: pd.product.unitPrice,
+          totalPrice: pd.product.unitPrice * pd.quantity,
+        })),
+        totalValue: productDetails.reduce(
+          (sum, pd) => sum + pd.product.unitPrice * pd.quantity,
+          0
+        ),
+        createdAt: new Date().toISOString(),
+      };
+
+      return {
+        success: true,
+        data: partsList,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
+
+  /**
+   * Get warehouse inventory report
+   */
+  async warehouseInventoryReport(warehouseId: string): Promise<ToolResult> {
+    try {
+      const warehouse = await warehouseService.getWarehouseById(warehouseId);
+      if (!warehouse) {
+        return {
+          success: false,
+          error: `Warehouse with ID "${warehouseId}" not found`,
+        };
+      }
+
+      const stocks = await stockService.getWarehouseStock(warehouseId);
+      
+      // Calculate totals
+      let totalItems = 0;
+      let totalValue = 0;
+      let lowStockCount = 0;
+
+      const stockDetails = await Promise.all(
+        stocks.map(async (stock: any) => {
+          const product = await inventoryService.getProductById(stock.productId);
+          if (!product) return null;
+
+          const value = product.unitPrice * stock.quantity;
+          totalItems += stock.quantity;
+          totalValue += value;
+          if (stock.quantity <= stock.reorderLevel) {
+            lowStockCount++;
+          }
+
+          return {
+            productId: stock.productId,
+            sku: product.sku,
+            name: product.name,
+            category: product.category,
+            quantity: stock.quantity,
+            available: stock.available,
+            reserved: stock.reserved,
+            reorderLevel: stock.reorderLevel,
+            unitPrice: product.unitPrice,
+            totalValue: value,
+            needsReorder: stock.quantity <= stock.reorderLevel,
+          };
+        })
+      );
+
+      return {
+        success: true,
+        data: {
+          warehouse: {
+            id: warehouse.id,
+            name: warehouse.name,
+            location: warehouse.location,
+            capacity: warehouse.capacity,
+          },
+          summary: {
+            totalItems,
+            totalValue: totalValue.toFixed(2),
+            lowStockCount,
+            productCount: stocks.length,
+          },
+          stocks: stockDetails.filter(s => s !== null),
+          reportDate: new Date().toISOString(),
+        },
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
+
+  /**
+   * Get supplier availability for a product
+   */
+  async supplierAvailability(productId: string): Promise<ToolResult> {
+    try {
+      const product = await inventoryService.getProductById(productId);
+      if (!product) {
+        return {
+          success: false,
+          error: `Product with ID "${productId}" not found`,
+        };
+      }
+
+      // Note: This is a simplified version as the supplier relationship
+      // would require Prisma or additional database queries
+      return {
+        success: true,
+        data: {
+          product: {
+            id: product.id,
+            sku: product.sku,
+            name: product.name,
+          },
+          suppliers: [],
+          message: 'Supplier information not available in current implementation',
+        },
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
+
+  /**
+   * Get full product details
+   */
+  async getProductDetails(productId: string): Promise<ToolResult> {
+    try {
+      const product = await inventoryService.getProductById(productId);
+      if (!product) {
+        return {
+          success: false,
+          error: `Product with ID "${productId}" not found`,
+        };
+      }
+
+      // Get stock levels across all warehouses
+      const stocks = await stockService.getProductStock(productId);
+
+      return {
+        success: true,
+        data: {
+          product: {
+            id: product.id,
+            sku: product.sku,
+            name: product.name,
+            description: product.description,
+            category: product.category,
+            unitPrice: product.unitPrice,
+            unit: product.unit,
+            active: product.active,
+            createdAt: product.createdAt,
+            updatedAt: product.updatedAt,
+          },
+          stockLevels: stocks.map((s: any) => ({
+            warehouseId: s.warehouseId,
+            warehouse: s.warehouse?.name || 'Unknown',
+            quantity: s.stock.quantity,
+            available: s.stock.available,
+            reserved: s.stock.reserved,
+            reorderLevel: s.stock.reorderLevel,
+          })),
+          totalStock: stocks.reduce((sum: number, s: any) => sum + s.stock.quantity, 0),
+          totalAvailable: stocks.reduce((sum: number, s: any) => sum + s.stock.available, 0),
+        },
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
 }
 
 export const inventoryIntelligence = new InventoryIntelligence();

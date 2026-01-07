@@ -77,6 +77,78 @@ router.post('/', async (req: Request, res: Response) => {
 });
 
 /**
+ * POST /api/chat/stream
+ * Send a message and get streaming AI response (Server-Sent Events)
+ */
+router.post('/stream', async (req: Request, res: Response) => {
+  try {
+    const userContext = (req as any).userContext as UserContext;
+    const { message, conversationId } = req.body;
+
+    if (!message || typeof message !== 'string') {
+      res.status(400).json({
+        error: 'Bad Request',
+        message: 'Message is required and must be a string',
+      });
+      return;
+    }
+
+    // Initialize SSE
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders();
+
+    // Log interaction
+    await chatLogger.logInteraction({
+      userId: userContext.userId,
+      conversationId: conversationId || 'new',
+      action: 'chat_stream_started',
+      details: { message: message.substring(0, 100) },
+    });
+
+    try {
+      // Create chat request
+      const chatRequest: ChatRequest = {
+        message,
+        conversationId,
+        context: userContext,
+      };
+
+      // Stream response
+      await chatService.processMessageStreaming(chatRequest, userContext, res);
+
+      // Log completion
+      await chatLogger.logInteraction({
+        userId: userContext.userId,
+        conversationId: conversationId || 'new',
+        action: 'chat_stream_completed',
+      });
+
+    } catch (streamError: any) {
+      console.error('Streaming error:', streamError);
+      res.write(`event: error\n`);
+      res.write(`data: ${JSON.stringify({ error: streamError.message })}\n\n`);
+    } finally {
+      res.end();
+    }
+  } catch (error: any) {
+    console.error('Chat stream setup error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({
+        error: 'Internal Server Error',
+        message: error.message || 'Failed to start chat stream',
+      });
+    } else {
+      res.write(`event: error\n`);
+      res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
+      res.end();
+    }
+  }
+});
+
+/**
  * GET /api/chat/history
  * Get chat history for user
  */
