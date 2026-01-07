@@ -1,8 +1,5 @@
-// Chat Memory Service - Manages conversation history and context using Drizzle ORM
-import { eq, desc } from 'drizzle-orm';
-import { db } from '../db/client';
-import { chatConversations, chatMessages, toolCalls } from '../db/schema';
-import { v4 as uuidv4 } from 'uuid';
+// Chat Memory Service - Manages conversation history and context using Prisma
+import { prisma } from '../db/prisma';
 import { GrokMessage, UserContext, MessageRole } from '../types/chat';
 import { chatConfig } from '../config/xaiConfig';
 
@@ -11,12 +8,13 @@ export class ChatMemory {
    * Create a new conversation
    */
   async createConversation(userId: string, title?: string): Promise<string> {
-    const [conversation] = await db.insert(chatConversations).values({
-      id: uuidv4(),
-      userId,
-      title: title || 'New Conversation',
-      active: true,
-    }).returning();
+    const conversation = await prisma.chatConversation.create({
+      data: {
+        userId,
+        title: title || 'New Conversation',
+        active: true,
+      },
+    });
 
     return conversation.id;
   }
@@ -26,10 +24,9 @@ export class ChatMemory {
    */
   async getOrCreateConversation(userId: string, conversationId?: string): Promise<string> {
     if (conversationId) {
-      const [exists] = await db.select()
-        .from(chatConversations)
-        .where(eq(chatConversations.id, conversationId))
-        .limit(1);
+      const exists = await prisma.chatConversation.findUnique({
+        where: { id: conversationId },
+      });
         
       if (exists && exists.userId === userId && exists.active) {
         return conversationId;
@@ -47,18 +44,21 @@ export class ChatMemory {
     content: string,
     metadata?: Record<string, any>
   ): Promise<string> {
-    const [message] = await db.insert(chatMessages).values({
-      id: uuidv4(),
-      conversationId,
-      role: role.toLowerCase(),
-      content,
-      toolCalls: metadata ? JSON.stringify(metadata) : null,
-    }).returning();
+    const message = await prisma.chatMessage.create({
+      data: {
+        conversationId,
+        role: role.toLowerCase(),
+        content,
+        toolCalls: metadata ? JSON.stringify(metadata) : null,
+        metadata: metadata ? JSON.stringify(metadata) : null,
+      },
+    });
 
     // Update conversation's updatedAt
-    await db.update(chatConversations)
-      .set({ updatedAt: new Date() })
-      .where(eq(chatConversations.id, conversationId));
+    await prisma.chatConversation.update({
+      where: { id: conversationId },
+      data: { updatedAt: new Date() },
+    });
 
     return message.id;
   }
@@ -69,11 +69,11 @@ export class ChatMemory {
   async getConversationHistory(conversationId: string, limit?: number): Promise<GrokMessage[]> {
     const effectiveLimit = limit || chatConfig.maxContextLength;
 
-    const messages = await db.select()
-      .from(chatMessages)
-      .where(eq(chatMessages.conversationId, conversationId))
-      .orderBy(desc(chatMessages.createdAt))
-      .limit(effectiveLimit);
+    const messages = await prisma.chatMessage.findMany({
+      where: { conversationId },
+      orderBy: { createdAt: 'desc' },
+      take: effectiveLimit,
+    });
 
     // Reverse to get chronological order
     const sortedMessages = messages.reverse();
@@ -141,68 +141,60 @@ Available Operations:
     limit: number = 10,
     offset: number = 0
   ): Promise<any[]> {
-    const conversations = await db.select()
-      .from(chatConversations)
-      .where(eq(chatConversations.userId, userId))
-      .orderBy(desc(chatConversations.updatedAt))
-      .limit(limit)
-      .offset(offset);
+    const conversations = await prisma.chatConversation.findMany({
+      where: { userId },
+      orderBy: { updatedAt: 'desc' },
+      take: limit,
+      skip: offset,
+      include: {
+        messages: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+        _count: {
+          select: { messages: true },
+        },
+      },
+    });
 
-    const result = [];
-    for (const conv of conversations) {
-      // Get last message and count
-      const messages = await db.select()
-        .from(chatMessages)
-        .where(eq(chatMessages.conversationId, conv.id))
-        .orderBy(desc(chatMessages.createdAt))
-        .limit(1);
-
-      const messageCount = await db.select({ count: chatMessages.id })
-        .from(chatMessages)
-        .where(eq(chatMessages.conversationId, conv.id));
-
-      result.push({
-        id: conv.id,
-        title: conv.title,
-        lastMessage: messages[0]?.content.substring(0, 100),
-        messageCount: messageCount.length,
-        createdAt: conv.createdAt,
-        updatedAt: conv.updatedAt,
-      });
-    }
-
-    return result;
+    return conversations.map((conv) => ({
+      id: conv.id,
+      title: conv.title,
+      lastMessage: conv.messages[0]?.content.substring(0, 100),
+      messageCount: conv._count.messages,
+      createdAt: conv.createdAt,
+      updatedAt: conv.updatedAt,
+    }));
   }
 
   /**
    * Get full conversation with all messages
    */
   async getConversation(conversationId: string, userId: string): Promise<any | null> {
-    const [conversation] = await db.select()
-      .from(chatConversations)
-      .where(eq(chatConversations.id, conversationId))
-      .limit(1);
+    const conversation = await prisma.chatConversation.findUnique({
+      where: { id: conversationId },
+      include: {
+        messages: {
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+    });
 
     if (!conversation || conversation.userId !== userId) {
       return null;
     }
-
-    const messages = await db.select()
-      .from(chatMessages)
-      .where(eq(chatMessages.conversationId, conversationId))
-      .orderBy(chatMessages.createdAt);
 
     return {
       id: conversation.id,
       title: conversation.title,
       createdAt: conversation.createdAt,
       updatedAt: conversation.updatedAt,
-      messages: messages.map((msg) => ({
+      messages: conversation.messages.map((msg) => ({
         id: msg.id,
         role: msg.role.toUpperCase(),
         content: msg.content,
         createdAt: msg.createdAt,
-        metadata: msg.toolCalls ? JSON.parse(msg.toolCalls) : null,
+        metadata: msg.metadata ? JSON.parse(msg.metadata) : null,
       })),
     };
   }
@@ -211,12 +203,20 @@ Available Operations:
    * Delete a conversation
    */
   async deleteConversation(conversationId: string, userId: string): Promise<boolean> {
-    const result = await db.update(chatConversations)
-      .set({ active: false, updatedAt: new Date() })
-      .where(eq(chatConversations.id, conversationId))
-      .returning();
+    const conversation = await prisma.chatConversation.findUnique({
+      where: { id: conversationId },
+    });
 
-    return result.length > 0 && result[0].userId === userId;
+    if (!conversation || conversation.userId !== userId) {
+      return false;
+    }
+
+    await prisma.chatConversation.update({
+      where: { id: conversationId },
+      data: { active: false },
+    });
+
+    return true;
   }
 
   /**
@@ -229,13 +229,14 @@ Available Operations:
     result?: Record<string, any>,
     status: 'pending' | 'success' | 'error' = 'success'
   ): Promise<void> {
-    await db.insert(toolCalls).values({
-      id: uuidv4(),
-      messageId,
-      toolName,
-      arguments: JSON.stringify(parameters),
-      result: result ? JSON.stringify(result) : null,
-      status,
+    await prisma.toolCall.create({
+      data: {
+        messageId,
+        toolName,
+        arguments: JSON.stringify(parameters),
+        result: result ? JSON.stringify(result) : null,
+        status,
+      },
     });
   }
 
@@ -246,22 +247,19 @@ Available Operations:
     const retentionDate = new Date();
     retentionDate.setDate(retentionDate.getDate() - chatConfig.messageRetentionDays);
 
-    // Note: Drizzle doesn't have a direct way to return count, so we query first
-    const oldConversations = await db.select()
-      .from(chatConversations)
-      .where(eq(chatConversations.active, true));
+    const result = await prisma.chatConversation.updateMany({
+      where: {
+        active: true,
+        updatedAt: {
+          lt: retentionDate,
+        },
+      },
+      data: {
+        active: false,
+      },
+    });
 
-    const toUpdate = oldConversations.filter(c => c.updatedAt < retentionDate);
-
-    if (toUpdate.length > 0) {
-      for (const conv of toUpdate) {
-        await db.update(chatConversations)
-          .set({ active: false })
-          .where(eq(chatConversations.id, conv.id));
-      }
-    }
-
-    return toUpdate.length;
+    return result.count;
   }
 }
 
