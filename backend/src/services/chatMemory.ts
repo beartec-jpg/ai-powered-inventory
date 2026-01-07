@@ -49,8 +49,13 @@ export class ChatMemory {
         conversationId,
         role: role.toLowerCase(),
         content,
-        toolCalls: metadata ? JSON.stringify(metadata) : null,
-        metadata: metadata ? JSON.stringify(metadata) : null,
+        // Store tool calls separately if present
+        toolCalls: metadata?.tool_calls ? JSON.stringify(metadata.tool_calls) : null,
+        // Store other metadata excluding tool_calls
+        metadata: metadata ? JSON.stringify({ 
+          ...metadata,
+          tool_calls: undefined // Remove to avoid duplication
+        }) : null,
       },
     });
 
