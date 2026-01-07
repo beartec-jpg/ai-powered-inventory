@@ -47,9 +47,10 @@ model Warehouse {
   updatedAt DateTime @updatedAt
 
   // Relations
-  stocks    Stock[]
-  accesses  WarehouseAccess[]
-  transfers StockTransfer[]
+  stocks              Stock[]
+  accesses            WarehouseAccess[]
+  transfersFrom       StockTransfer[] @relation("FromWarehouse")
+  transfersTo         StockTransfer[] @relation("ToWarehouse")
 
   @@map("warehouses")
 }
