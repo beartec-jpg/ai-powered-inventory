@@ -35,6 +35,7 @@ interface ParseCommandResponse {
 // Constants for confidence levels and timeouts
 const HIGH_CONFIDENCE = 0.9;
 const MEDIUM_CONFIDENCE = 0.6;
+const DEFAULT_CONFIDENCE = 0.5;
 const LOW_CONFIDENCE_THRESHOLD = 0.7;
 const GROK_3_MINI_TIMEOUT = 15000;
 const GROK_3_TIMEOUT = 30000;
@@ -264,9 +265,10 @@ Guidelines:
   });
 
   // Add timeout handling with cleanup
-  let timeoutId: NodeJS.Timeout;
-  const timeoutPromise = new Promise((_, reject) => {
-    timeoutId = setTimeout(() => reject(new Error(`Request timeout after ${timeout}ms`)), timeout);
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    const timeoutId = setTimeout(() => reject(new Error(`Request timeout after ${timeout}ms`)), timeout);
+    // Store timeout ID for cleanup
+    (timeoutPromise as any)._timeoutId = timeoutId;
   });
 
   try {
@@ -276,7 +278,9 @@ Guidelines:
     ]) as OpenAI.Chat.Completions.ChatCompletion;
     
     // Clear timeout on success
-    clearTimeout(timeoutId!);
+    if ((timeoutPromise as any)._timeoutId) {
+      clearTimeout((timeoutPromise as any)._timeoutId);
+    }
     
     const message = completion.choices[0]?.message;
 
@@ -329,7 +333,7 @@ Guidelines:
       return {
         action: parsed.action || 'QUERY_INVENTORY',
         parameters: parsed.parameters || {},
-        confidence: parsed.confidence || 0.5,
+        confidence: parsed.confidence || DEFAULT_CONFIDENCE,
         reasoning: parsed.reasoning || parsed.interpretation || 'Parsed from text response',
         clarificationNeeded: parsed.clarificationNeeded,
       };
@@ -345,7 +349,9 @@ Guidelines:
     };
   } catch (error) {
     // Clear timeout on error
-    clearTimeout(timeoutId!);
+    if ((timeoutPromise as any)._timeoutId) {
+      clearTimeout((timeoutPromise as any)._timeoutId);
+    }
     throw error;
   }
 }

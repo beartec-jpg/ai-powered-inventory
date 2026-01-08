@@ -168,7 +168,7 @@ export function setCorsHeaders(res: VercelResponse): void {
 /**
  * Validate command response structure
  */
-export function validateCommandResponse(response: any): any {
+export function validateCommandResponse(response: Record<string, any>): Record<string, any> {
   // Constants
   const DEFAULT_CONFIDENCE = 0.5;
 
