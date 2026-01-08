@@ -325,7 +325,14 @@ Guidelines:
       const tool = inventoryTools.find(t => t.function.name === functionName);
       const requiredParams = tool?.function.parameters.required || [];
       const providedParams = Object.keys(functionArgs);
-      const hasAllRequired = requiredParams.every(p => providedParams.includes(p));
+      
+      // Check that all required parameters are present and have valid values
+      const hasAllRequired = requiredParams.every(p => 
+        providedParams.includes(p) && 
+        functionArgs[p] !== null && 
+        functionArgs[p] !== undefined && 
+        functionArgs[p] !== ''
+      );
       const confidence = hasAllRequired ? HIGH_CONFIDENCE : MEDIUM_CONFIDENCE;
 
       // Generate reasoning
@@ -363,7 +370,10 @@ Guidelines:
     // If no structured response, return low confidence query
     return {
       action: 'QUERY_INVENTORY',
-      parameters: { query: command },
+      parameters: { 
+        queryType: 'product_list',
+        search: command 
+      },
       confidence: 0.3,
       reasoning: 'Could not parse command into structured format',
       clarificationNeeded: 'Could you please rephrase your request?',
