@@ -20,8 +20,7 @@ type InventoryAction =
   | 'TRANSFER_STOCK' 
   | 'CREATE_PRODUCT' 
   | 'QUERY_INVENTORY'
-  | 'UPDATE_PRODUCT'
-  | 'DELETE_PRODUCT';
+  | 'UPDATE_PRODUCT';
 
 interface ParseCommandResponse {
   action: InventoryAction;
@@ -33,169 +32,191 @@ interface ParseCommandResponse {
   latency?: number;
 }
 
-// Define function schemas for inventory operations
-const inventoryFunctions = [
+// Constants for confidence levels and timeouts
+const HIGH_CONFIDENCE = 0.9;
+const MEDIUM_CONFIDENCE = 0.6;
+const LOW_CONFIDENCE_THRESHOLD = 0.7;
+const GROK_3_MINI_TIMEOUT = 15000;
+const GROK_3_TIMEOUT = 30000;
+
+// Define tool schemas for inventory operations
+const inventoryTools = [
   {
-    name: 'adjust_stock',
-    description: 'Adjust stock quantity for a product in a warehouse (add or remove stock)',
-    parameters: {
-      type: 'object',
-      properties: {
-        productId: {
-          type: 'string',
-          description: 'The ID or SKU of the product',
+    type: 'function' as const,
+    function: {
+      name: 'adjust_stock',
+      description: 'Adjust stock quantity for a product in a warehouse (add or remove stock)',
+      parameters: {
+        type: 'object',
+        properties: {
+          productId: {
+            type: 'string',
+            description: 'The ID or SKU of the product',
+          },
+          warehouseId: {
+            type: 'string',
+            description: 'The ID or name of the warehouse',
+          },
+          quantity: {
+            type: 'number',
+            description: 'The quantity to adjust (positive to add, negative to remove)',
+          },
+          reason: {
+            type: 'string',
+            description: 'The reason for adjustment (e.g., "received", "damaged", "sold", "returned")',
+          },
+          notes: {
+            type: 'string',
+            description: 'Optional notes about the adjustment',
+          },
         },
-        warehouseId: {
-          type: 'string',
-          description: 'The ID or name of the warehouse',
-        },
-        quantity: {
-          type: 'number',
-          description: 'The quantity to adjust (positive to add, negative to remove)',
-        },
-        reason: {
-          type: 'string',
-          description: 'The reason for adjustment (e.g., "received", "damaged", "sold", "returned")',
-        },
-        notes: {
-          type: 'string',
-          description: 'Optional notes about the adjustment',
-        },
+        required: ['productId', 'warehouseId', 'quantity', 'reason'],
       },
-      required: ['productId', 'warehouseId', 'quantity', 'reason'],
     },
   },
   {
-    name: 'transfer_stock',
-    description: 'Transfer stock from one warehouse to another',
-    parameters: {
-      type: 'object',
-      properties: {
-        productId: {
-          type: 'string',
-          description: 'The ID or SKU of the product to transfer',
+    type: 'function' as const,
+    function: {
+      name: 'transfer_stock',
+      description: 'Transfer stock from one warehouse to another',
+      parameters: {
+        type: 'object',
+        properties: {
+          productId: {
+            type: 'string',
+            description: 'The ID or SKU of the product to transfer',
+          },
+          fromWarehouseId: {
+            type: 'string',
+            description: 'The source warehouse ID or name',
+          },
+          toWarehouseId: {
+            type: 'string',
+            description: 'The destination warehouse ID or name',
+          },
+          quantity: {
+            type: 'number',
+            description: 'The quantity to transfer (must be positive)',
+          },
+          notes: {
+            type: 'string',
+            description: 'Optional notes about the transfer',
+          },
         },
-        fromWarehouseId: {
-          type: 'string',
-          description: 'The source warehouse ID or name',
-        },
-        toWarehouseId: {
-          type: 'string',
-          description: 'The destination warehouse ID or name',
-        },
-        quantity: {
-          type: 'number',
-          description: 'The quantity to transfer (must be positive)',
-        },
-        notes: {
-          type: 'string',
-          description: 'Optional notes about the transfer',
-        },
+        required: ['productId', 'fromWarehouseId', 'toWarehouseId', 'quantity'],
       },
-      required: ['productId', 'fromWarehouseId', 'toWarehouseId', 'quantity'],
     },
   },
   {
-    name: 'create_product',
-    description: 'Create a new product in the inventory system',
-    parameters: {
-      type: 'object',
-      properties: {
-        sku: {
-          type: 'string',
-          description: 'The unique SKU for the product',
+    type: 'function' as const,
+    function: {
+      name: 'create_product',
+      description: 'Create a new product in the inventory system',
+      parameters: {
+        type: 'object',
+        properties: {
+          sku: {
+            type: 'string',
+            description: 'The unique SKU for the product',
+          },
+          name: {
+            type: 'string',
+            description: 'The product name',
+          },
+          description: {
+            type: 'string',
+            description: 'Optional product description',
+          },
+          category: {
+            type: 'string',
+            description: 'The product category',
+          },
+          unitPrice: {
+            type: 'number',
+            description: 'The unit price of the product',
+          },
+          unit: {
+            type: 'string',
+            description: 'The unit of measurement (e.g., "piece", "kg", "liter")',
+          },
         },
-        name: {
-          type: 'string',
-          description: 'The product name',
-        },
-        description: {
-          type: 'string',
-          description: 'Optional product description',
-        },
-        category: {
-          type: 'string',
-          description: 'The product category',
-        },
-        unitPrice: {
-          type: 'number',
-          description: 'The unit price of the product',
-        },
-        unit: {
-          type: 'string',
-          description: 'The unit of measurement (e.g., "piece", "kg", "liter")',
-        },
+        required: ['sku', 'name', 'category', 'unitPrice'],
       },
-      required: ['sku', 'name', 'category', 'unitPrice'],
     },
   },
   {
-    name: 'update_product',
-    description: 'Update an existing product in the inventory system',
-    parameters: {
-      type: 'object',
-      properties: {
-        productId: {
-          type: 'string',
-          description: 'The ID or SKU of the product to update',
+    type: 'function' as const,
+    function: {
+      name: 'update_product',
+      description: 'Update an existing product in the inventory system',
+      parameters: {
+        type: 'object',
+        properties: {
+          productId: {
+            type: 'string',
+            description: 'The ID or SKU of the product to update',
+          },
+          name: {
+            type: 'string',
+            description: 'Updated product name',
+          },
+          description: {
+            type: 'string',
+            description: 'Updated product description',
+          },
+          category: {
+            type: 'string',
+            description: 'Updated product category',
+          },
+          unitPrice: {
+            type: 'number',
+            description: 'Updated unit price',
+          },
+          unit: {
+            type: 'string',
+            description: 'Updated unit of measurement',
+          },
+          active: {
+            type: 'boolean',
+            description: 'Whether the product is active',
+          },
         },
-        name: {
-          type: 'string',
-          description: 'Updated product name',
-        },
-        description: {
-          type: 'string',
-          description: 'Updated product description',
-        },
-        category: {
-          type: 'string',
-          description: 'Updated product category',
-        },
-        unitPrice: {
-          type: 'number',
-          description: 'Updated unit price',
-        },
-        unit: {
-          type: 'string',
-          description: 'Updated unit of measurement',
-        },
-        active: {
-          type: 'boolean',
-          description: 'Whether the product is active',
-        },
+        required: ['productId'],
       },
-      required: ['productId'],
     },
   },
   {
-    name: 'query_inventory',
-    description: 'Query inventory information (stock levels, product details, low stock items, etc.)',
-    parameters: {
-      type: 'object',
-      properties: {
-        queryType: {
-          type: 'string',
-          enum: ['stock_level', 'product_info', 'low_stock', 'warehouse_stock', 'product_list'],
-          description: 'The type of query to perform',
+    type: 'function' as const,
+    function: {
+      name: 'query_inventory',
+      description: 'Query inventory information (stock levels, product details, low stock items, etc.)',
+      parameters: {
+        type: 'object',
+        properties: {
+          queryType: {
+            type: 'string',
+            enum: ['stock_level', 'product_info', 'low_stock', 'warehouse_stock', 'product_list'],
+            description: 'The type of query to perform',
+          },
+          productId: {
+            type: 'string',
+            description: 'Product ID or SKU for specific product queries',
+          },
+          warehouseId: {
+            type: 'string',
+            description: 'Warehouse ID for warehouse-specific queries',
+          },
+          category: {
+            type: 'string',
+            description: 'Filter by category',
+          },
+          search: {
+            type: 'string',
+            description: 'Search term for product search',
+          },
         },
-        productId: {
-          type: 'string',
-          description: 'Product ID or SKU for specific product queries',
-        },
-        warehouseId: {
-          type: 'string',
-          description: 'Warehouse ID for warehouse-specific queries',
-        },
-        category: {
-          type: 'string',
-          description: 'Filter by category',
-        },
-        search: {
-          type: 'string',
-          description: 'Search term for product search',
-        },
+        required: ['queryType'],
       },
-      required: ['queryType'],
     },
   },
 ];
@@ -236,8 +257,8 @@ Guidelines:
         content: userPrompt,
       },
     ],
-    functions: inventoryFunctions,
-    function_call: 'auto',
+    tools: inventoryTools,
+    tool_choice: 'auto',
     temperature: 0.2,
     max_tokens: 500,
   });
@@ -258,10 +279,11 @@ Guidelines:
     throw new Error('No response from AI model');
   }
 
-  // Check if function was called
-  if (message.function_call) {
-    const functionName = message.function_call.name;
-    const functionArgs = JSON.parse(message.function_call.arguments || '{}');
+  // Check if tool was called
+  if (message.tool_calls && message.tool_calls.length > 0) {
+    const toolCall = message.tool_calls[0];
+    const functionName = toolCall.function.name;
+    const functionArgs = JSON.parse(toolCall.function.arguments || '{}');
 
     // Map function names to action types
     const actionMap: Record<string, InventoryAction> = {
@@ -275,12 +297,11 @@ Guidelines:
     const action = actionMap[functionName] || 'QUERY_INVENTORY';
 
     // Calculate confidence based on completeness of parameters
-    const requiredParams = inventoryFunctions
-      .find(f => f.name === functionName)
-      ?.parameters.required || [];
+    const tool = inventoryTools.find(t => t.function.name === functionName);
+    const requiredParams = tool?.function.parameters.required || [];
     const providedParams = Object.keys(functionArgs);
     const hasAllRequired = requiredParams.every(p => providedParams.includes(p));
-    const confidence = hasAllRequired ? 0.9 : 0.6;
+    const confidence = hasAllRequired ? HIGH_CONFIDENCE : MEDIUM_CONFIDENCE;
 
     // Generate reasoning
     const reasoning = `Interpreted command as ${action}: ${JSON.stringify(functionArgs)}`;
@@ -360,7 +381,7 @@ export default async function handler(
     let model: string;
 
     try {
-      result = await tryParseCommand(command, context, 'grok-3-mini', 15000);
+      result = await tryParseCommand(command, context, 'grok-3-mini', GROK_3_MINI_TIMEOUT);
       latency = Date.now() - startTime;
       model = 'grok-3-mini';
       
@@ -373,7 +394,7 @@ export default async function handler(
       const fallbackStartTime = Date.now();
       
       try {
-        result = await tryParseCommand(command, context, 'grok-3', 30000);
+        result = await tryParseCommand(command, context, 'grok-3', GROK_3_TIMEOUT);
         latency = Date.now() - fallbackStartTime;
         model = 'grok-3';
         
@@ -385,14 +406,14 @@ export default async function handler(
     }
 
     // If confidence is low from grok-3-mini, try grok-3 for better reasoning
-    if (model === 'grok-3-mini' && result.confidence < 0.7) {
+    if (model === 'grok-3-mini' && result.confidence < LOW_CONFIDENCE_THRESHOLD) {
       console.log(
         `Low confidence (${result.confidence}) from grok-3-mini, trying grok-3 for better reasoning...`
       );
       
       const fallbackStartTime = Date.now();
       try {
-        const fallbackResult = await tryParseCommand(command, context, 'grok-3', 30000);
+        const fallbackResult = await tryParseCommand(command, context, 'grok-3', GROK_3_TIMEOUT);
         const fallbackLatency = Date.now() - fallbackStartTime;
 
         // Use grok-3 result if it has higher confidence

@@ -169,13 +169,15 @@ export function setCorsHeaders(res: VercelResponse): void {
  * Validate command response structure
  */
 export function validateCommandResponse(response: any): any {
+  // Constants
+  const DEFAULT_CONFIDENCE = 0.5;
+
   // Ensure action is valid
   const validActions = [
     'ADJUST_STOCK',
     'TRANSFER_STOCK',
     'CREATE_PRODUCT',
     'UPDATE_PRODUCT',
-    'DELETE_PRODUCT',
     'QUERY_INVENTORY',
   ];
 
@@ -185,7 +187,7 @@ export function validateCommandResponse(response: any): any {
 
   // Ensure confidence is between 0 and 1
   if (typeof response.confidence !== 'number' || response.confidence < 0 || response.confidence > 1) {
-    response.confidence = 0.5;
+    response.confidence = DEFAULT_CONFIDENCE;
   }
 
   // Ensure parameters is an object
