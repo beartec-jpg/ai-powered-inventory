@@ -29,7 +29,8 @@ export function ProtectedLayout({ children }: ProtectedLayoutProps) {
   // Redirect to Clerk's Account Portal if not authenticated
   useEffect(() => {
     if (isLoaded && !isSignedIn) {
-      window.location.href = 'https://accounts.beartecai-inventory.uk/sign-in';
+      const signInUrl = import.meta.env.VITE_CLERK_SIGN_IN_URL || 'https://accounts.beartecai-inventory.uk/sign-in';
+      window.location.replace(signInUrl);
     }
   }, [isLoaded, isSignedIn]);
 
