@@ -223,6 +223,21 @@ const inventoryTools = [
 ];
 
 /**
+ * Create a timeout promise with cleanup capability
+ */
+function createTimeoutPromise(timeout: number): { promise: Promise<never>; cancel: () => void } {
+  let timeoutId: NodeJS.Timeout;
+  const promise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(`Request timeout after ${timeout}ms`)), timeout);
+  });
+  
+  return {
+    promise,
+    cancel: () => clearTimeout(timeoutId),
+  };
+}
+
+/**
  * Try to parse a command using a specific model with function calling
  */
 async function tryParseCommand(
@@ -265,11 +280,7 @@ Guidelines:
   });
 
   // Add timeout handling with cleanup
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    const timeoutId = setTimeout(() => reject(new Error(`Request timeout after ${timeout}ms`)), timeout);
-    // Store timeout ID for cleanup
-    (timeoutPromise as any)._timeoutId = timeoutId;
-  });
+  const { promise: timeoutPromise, cancel: cancelTimeout } = createTimeoutPromise(timeout);
 
   try {
     const completion = await Promise.race([
@@ -278,9 +289,7 @@ Guidelines:
     ]) as OpenAI.Chat.Completions.ChatCompletion;
     
     // Clear timeout on success
-    if ((timeoutPromise as any)._timeoutId) {
-      clearTimeout((timeoutPromise as any)._timeoutId);
-    }
+    cancelTimeout();
     
     const message = completion.choices[0]?.message;
 
@@ -349,9 +358,7 @@ Guidelines:
     };
   } catch (error) {
     // Clear timeout on error
-    if ((timeoutPromise as any)._timeoutId) {
-      clearTimeout((timeoutPromise as any)._timeoutId);
-    }
+    cancelTimeout();
     throw error;
   }
 }
