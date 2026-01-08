@@ -1,4 +1,4 @@
-import { eq, and, sql, desc } from 'drizzle-orm';
+import { eq, and, sql, desc, SQL } from 'drizzle-orm';
 import { db } from './db';
 import { products, stocks, warehouses, stockMovements, suppliers, productSuppliers } from './schema';
 
@@ -12,7 +12,7 @@ export interface ProductFilters {
 export async function getProducts(filters: ProductFilters = {}) {
   try {
     const { page = 1, pageSize = 20 } = filters;
-    let conditions = [];
+    let conditions: SQL[] = [];
 
     if (filters.active !== undefined) {
       conditions.push(eq(products.active, filters.active));
@@ -134,7 +134,7 @@ export interface StockFilters {
 export async function getStock(filters: StockFilters = {}) {
   try {
     const { page = 1, pageSize = 20 } = filters;
-    let conditions = [];
+    let conditions: SQL[] = [];
 
     if (filters.warehouseId) {
       conditions.push(eq(stocks.warehouseId, filters.warehouseId));
