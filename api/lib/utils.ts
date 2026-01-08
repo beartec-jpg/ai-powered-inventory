@@ -164,3 +164,49 @@ export function setCorsHeaders(res: VercelResponse): void {
     'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization'
   );
 }
+
+/**
+ * Validate command response structure
+ */
+export function validateCommandResponse(response: Record<string, any>): Record<string, any> {
+  // Constants
+  const DEFAULT_CONFIDENCE = 0.5;
+
+  // Create a copy to avoid mutating the input
+  const validated = { ...response };
+
+  // Ensure action is valid
+  const validActions = [
+    'ADJUST_STOCK',
+    'TRANSFER_STOCK',
+    'CREATE_PRODUCT',
+    'UPDATE_PRODUCT',
+    'QUERY_INVENTORY',
+  ];
+
+  if (!validActions.includes(validated.action)) {
+    validated.action = 'QUERY_INVENTORY';
+  }
+
+  // Ensure confidence is between 0 and 1
+  if (typeof validated.confidence !== 'number' || validated.confidence < 0 || validated.confidence > 1) {
+    validated.confidence = DEFAULT_CONFIDENCE;
+  }
+
+  // Ensure parameters is an object
+  if (typeof validated.parameters !== 'object' || validated.parameters === null) {
+    validated.parameters = {};
+  }
+
+  // Ensure reasoning is a string
+  if (typeof validated.reasoning !== 'string') {
+    validated.reasoning = 'Command parsed successfully';
+  }
+
+  // Ensure clarificationNeeded is string or undefined
+  if (validated.clarificationNeeded !== undefined && typeof validated.clarificationNeeded !== 'string') {
+    delete validated.clarificationNeeded;
+  }
+
+  return validated;
+}
