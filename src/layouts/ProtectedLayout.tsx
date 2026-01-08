@@ -1,5 +1,5 @@
 import { ReactNode, useEffect, useRef } from 'react';
-import { useAuth, useUser } from '@clerk/clerk-react';
+import { useAuth } from '@clerk/clerk-react';
 
 interface ProtectedLayoutProps {
   children: ReactNode;
@@ -15,8 +15,30 @@ const DEFAULT_CLERK_SIGN_IN_URL = 'https://accounts.beartecai-inventory.uk/sign-
  */
 export function ProtectedLayout({ children }: ProtectedLayoutProps) {
   const { isSignedIn, isLoaded } = useAuth();
-  const { user } = useUser();
   const redirectInitiated = useRef(false);
+
+  // Redirect to Clerk's Account Portal if not authenticated
+  // IMPORTANT: This useEffect must be called before any conditional returns
+  // to comply with React's Rules of Hooks
+  useEffect(() => {
+    if (isLoaded && !isSignedIn && !redirectInitiated.current) {
+      redirectInitiated.current = true;
+      try {
+        const signInUrl = (import.meta.env.VITE_CLERK_SIGN_IN_URL as string | undefined) || DEFAULT_CLERK_SIGN_IN_URL;
+        
+        // Warn if environment variable is not set
+        if (!import.meta.env.VITE_CLERK_SIGN_IN_URL) {
+          console.warn('VITE_CLERK_SIGN_IN_URL is not set. Using default sign-in URL:', DEFAULT_CLERK_SIGN_IN_URL);
+        }
+        
+        window.location.replace(signInUrl);
+      } catch (error) {
+        // If redirect fails, fallback to console error and retry with default URL
+        console.error('Failed to redirect to sign-in:', error);
+        window.location.replace(DEFAULT_CLERK_SIGN_IN_URL);
+      }
+    }
+  }, [isLoaded, isSignedIn]);
 
   // Show loading state while Clerk initializes
   if (!isLoaded) {
@@ -29,21 +51,6 @@ export function ProtectedLayout({ children }: ProtectedLayoutProps) {
       </div>
     );
   }
-
-  // Redirect to Clerk's Account Portal if not authenticated
-  useEffect(() => {
-    if (isLoaded && !isSignedIn && !redirectInitiated.current) {
-      redirectInitiated.current = true;
-      try {
-        const signInUrl = (import.meta.env.VITE_CLERK_SIGN_IN_URL as string | undefined) || DEFAULT_CLERK_SIGN_IN_URL;
-        window.location.replace(signInUrl);
-      } catch (error) {
-        // If redirect fails, fallback to console error and retry with default URL
-        console.error('Failed to redirect to sign-in:', error);
-        window.location.replace(DEFAULT_CLERK_SIGN_IN_URL);
-      }
-    }
-  }, [isLoaded, isSignedIn]);
 
   // Show loading while redirecting
   if (!isSignedIn) {

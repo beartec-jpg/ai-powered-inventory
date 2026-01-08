@@ -27,6 +27,12 @@ export function ProtectedRoute({ children, requiredRoles }: ProtectedRouteProps)
   }
 
   // Check if user has required role
+  // If requiredRoles is specified but role is undefined (and not loading), redirect to unauthorized
+  // This prevents users from bypassing role checks if the API fails
+  if (requiredRoles && !role) {
+    return <Navigate to="/unauthorized" replace />;
+  }
+
   if (requiredRoles && role && !requiredRoles.includes(role)) {
     return <Navigate to="/unauthorized" replace />;
   }
