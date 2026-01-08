@@ -301,7 +301,14 @@ Guidelines:
     if (message.tool_calls && message.tool_calls.length > 0) {
       const toolCall = message.tool_calls[0];
       const functionName = toolCall.function.name;
-      const functionArgs = JSON.parse(toolCall.function.arguments || '{}');
+      
+      let functionArgs: Record<string, unknown>;
+      try {
+        functionArgs = JSON.parse(toolCall.function.arguments || '{}');
+      } catch (parseError) {
+        console.error('Failed to parse function arguments:', parseError);
+        functionArgs = {};
+      }
 
       // Map function names to action types
       const actionMap: Record<string, InventoryAction> = {
@@ -338,14 +345,19 @@ Guidelines:
     // Try to extract JSON from content
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0]);
-      return {
-        action: parsed.action || 'QUERY_INVENTORY',
-        parameters: parsed.parameters || {},
-        confidence: parsed.confidence || DEFAULT_CONFIDENCE,
-        reasoning: parsed.reasoning || parsed.interpretation || 'Parsed from text response',
-        clarificationNeeded: parsed.clarificationNeeded,
-      };
+      try {
+        const parsed = JSON.parse(jsonMatch[0]);
+        return {
+          action: parsed.action || 'QUERY_INVENTORY',
+          parameters: parsed.parameters || {},
+          confidence: parsed.confidence || DEFAULT_CONFIDENCE,
+          reasoning: parsed.reasoning || parsed.interpretation || 'Parsed from text response',
+          clarificationNeeded: parsed.clarificationNeeded,
+        };
+      } catch (parseError) {
+        // JSON parsing failed, fall through to low confidence query
+        console.error('Failed to parse JSON from content:', parseError);
+      }
     }
 
     // If no structured response, return low confidence query
