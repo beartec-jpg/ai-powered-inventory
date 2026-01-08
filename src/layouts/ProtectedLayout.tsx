@@ -1,5 +1,4 @@
-import { ReactNode } from 'react';
-import { Navigate } from 'react-router-dom';
+import { ReactNode, useEffect } from 'react';
 import { useAuth, useUser } from '@clerk/clerk-react';
 
 interface ProtectedLayoutProps {
@@ -8,7 +7,7 @@ interface ProtectedLayoutProps {
 
 /**
  * Protected layout that enforces authentication
- * Redirects to /sign-in if user is not authenticated
+ * Redirects to Clerk's Account Portal if user is not authenticated
  * Shows loading spinner while Clerk initializes
  */
 export function ProtectedLayout({ children }: ProtectedLayoutProps) {
@@ -27,9 +26,23 @@ export function ProtectedLayout({ children }: ProtectedLayoutProps) {
     );
   }
 
-  // Redirect to sign-in if not authenticated
+  // Redirect to Clerk's Account Portal if not authenticated
+  useEffect(() => {
+    if (isLoaded && !isSignedIn) {
+      window.location.href = 'https://accounts.beartecai-inventory.uk/sign-in';
+    }
+  }, [isLoaded, isSignedIn]);
+
+  // Show loading while redirecting
   if (!isSignedIn) {
-    return <Navigate to="/sign-in" replace />;
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Redirecting to sign in...</p>
+        </div>
+      </div>
+    );
   }
 
   // Render protected content

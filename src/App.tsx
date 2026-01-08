@@ -4,8 +4,6 @@ import { ClerkProvider } from '@/providers/ClerkProvider'
 import { ThemeProvider } from '@/providers/ThemeProvider'
 import { ProtectedLayout } from '@/layouts/ProtectedLayout'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
-import { SignIn } from '@/pages/SignIn'
-import { SignUp } from '@/pages/SignUp'
 import { Dashboard } from '@/pages/Dashboard'
 import { Unauthorized } from '@/pages/Unauthorized'
 
@@ -27,8 +25,6 @@ function App() {
           <BrowserRouter>
             <Routes>
               {/* Public routes */}
-              <Route path="/sign-in/*" element={<SignIn />} />
-              <Route path="/sign-up/*" element={<SignUp />} />
               <Route path="/unauthorized" element={<Unauthorized />} />
 
               {/* Protected routes */}
