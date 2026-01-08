@@ -1,6 +1,7 @@
 import { relations } from 'drizzle-orm';
 import {
   users,
+  userProfiles,
   warehouses,
   warehouseAccesses,
   products,
@@ -35,9 +36,9 @@ export const warehousesRelations = relations(warehouses, ({ many }) => ({
 
 // Warehouse Access Relations
 export const warehouseAccessesRelations = relations(warehouseAccesses, ({ one }) => ({
-  user: one(users, {
-    fields: [warehouseAccesses.userId],
-    references: [users.id],
+  user: one(userProfiles, {
+    fields: [warehouseAccesses.userProfileId],
+    references: [userProfiles.id],
   }),
   warehouse: one(warehouses, {
     fields: [warehouseAccesses.warehouseId],

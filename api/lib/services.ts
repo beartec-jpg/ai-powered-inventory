@@ -1,4 +1,4 @@
-import { eq, and, sql, desc } from 'drizzle-orm';
+import { eq, and, sql, desc, lte } from 'drizzle-orm';
 import { db } from './db';
 import { products, stocks, warehouses, users, stockMovements } from './schema';
 import { v4 as uuidv4 } from 'uuid';
@@ -150,7 +150,7 @@ export async function getStock(filters: {
     conditions.push(eq(stocks.productId, filters.productId));
   }
   if (filters.lowStock) {
-    conditions.push(sql`${stocks.available} <= ${stocks.reorderLevel}`);
+    conditions.push(lte(stocks.available, stocks.reorderLevel));
   }
 
   const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
