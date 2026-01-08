@@ -25,7 +25,23 @@ export const stockMovementTypeEnum = pgEnum('stock_movement_type', [
 export const transferStatusEnum = pgEnum('transfer_status', ['PENDING', 'IN_TRANSIT', 'COMPLETED', 'CANCELLED']);
 export const poStatusEnum = pgEnum('po_status', ['DRAFT', 'SUBMITTED', 'CONFIRMED', 'RECEIVED', 'COMPLETED', 'CANCELLED']);
 
-// Users Table
+// User Profiles Table (Clerk Integration)
+export const userProfiles = pgTable('user_profiles', {
+  id: text('id').primaryKey().notNull(),
+  clerkUserId: varchar('clerk_user_id', { length: 255 }).notNull().unique(),
+  email: varchar('email', { length: 255 }).notNull(),
+  fullName: varchar('full_name', { length: 255 }),
+  phone: varchar('phone', { length: 50 }),
+  role: userRoleEnum('role').default('VIEWER').notNull(),
+  active: boolean('active').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  clerkUserIdIdx: uniqueIndex('user_profiles_clerk_user_id_idx').on(table.clerkUserId),
+  emailIdx: index('user_profiles_email_idx').on(table.email),
+}));
+
+// Users Table (Legacy - keeping for backward compatibility)
 export const users = pgTable('users', {
   id: text('id').primaryKey().notNull(),
   email: varchar('email', { length: 255 }).notNull().unique(),
@@ -52,16 +68,16 @@ export const warehouses = pgTable('warehouses', {
   nameIdx: uniqueIndex('warehouses_name_idx').on(table.name),
 }));
 
-// Warehouse Access Table
+// Warehouse Access Table (Updated to use user_profiles)
 export const warehouseAccesses = pgTable('warehouse_accesses', {
   id: text('id').primaryKey().notNull(),
-  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  userProfileId: text('user_profile_id').notNull().references(() => userProfiles.id, { onDelete: 'cascade' }),
   warehouseId: text('warehouse_id').notNull().references(() => warehouses.id, { onDelete: 'cascade' }),
-  role: varchar('role', { length: 100 }).notNull(),
+  accessLevel: varchar('access_level', { length: 100 }).notNull(), // VIEW, EDIT, MANAGE
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => ({
-  userWarehouseIdx: uniqueIndex('warehouse_accesses_user_warehouse_idx').on(table.userId, table.warehouseId),
+  userWarehouseIdx: uniqueIndex('warehouse_accesses_user_warehouse_idx').on(table.userProfileId, table.warehouseId),
 }));
 
 // Products Table
