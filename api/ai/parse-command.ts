@@ -4,7 +4,8 @@ import {
   successResponse, 
   badRequestResponse, 
   internalServerErrorResponse,
-  setCorsHeaders 
+  setCorsHeaders,
+  validateCommandResponse 
 } from '../lib/utils';
 
 // Initialize OpenAI client configured for xAI (Grok)
@@ -13,69 +14,308 @@ const openai = new OpenAI({
   baseURL: 'https://api.x.ai/v1',
 });
 
+// Action types for inventory operations
+type InventoryAction = 
+  | 'ADJUST_STOCK' 
+  | 'TRANSFER_STOCK' 
+  | 'CREATE_PRODUCT' 
+  | 'QUERY_INVENTORY'
+  | 'UPDATE_PRODUCT'
+  | 'DELETE_PRODUCT';
+
 interface ParseCommandResponse {
-  action: string;
+  action: InventoryAction;
   parameters: Record<string, unknown>;
   confidence: number;
-  interpretation: string;
+  reasoning: string;
   clarificationNeeded?: string;
   model?: string;
   latency?: number;
 }
 
+// Define function schemas for inventory operations
+const inventoryFunctions = [
+  {
+    name: 'adjust_stock',
+    description: 'Adjust stock quantity for a product in a warehouse (add or remove stock)',
+    parameters: {
+      type: 'object',
+      properties: {
+        productId: {
+          type: 'string',
+          description: 'The ID or SKU of the product',
+        },
+        warehouseId: {
+          type: 'string',
+          description: 'The ID or name of the warehouse',
+        },
+        quantity: {
+          type: 'number',
+          description: 'The quantity to adjust (positive to add, negative to remove)',
+        },
+        reason: {
+          type: 'string',
+          description: 'The reason for adjustment (e.g., "received", "damaged", "sold", "returned")',
+        },
+        notes: {
+          type: 'string',
+          description: 'Optional notes about the adjustment',
+        },
+      },
+      required: ['productId', 'warehouseId', 'quantity', 'reason'],
+    },
+  },
+  {
+    name: 'transfer_stock',
+    description: 'Transfer stock from one warehouse to another',
+    parameters: {
+      type: 'object',
+      properties: {
+        productId: {
+          type: 'string',
+          description: 'The ID or SKU of the product to transfer',
+        },
+        fromWarehouseId: {
+          type: 'string',
+          description: 'The source warehouse ID or name',
+        },
+        toWarehouseId: {
+          type: 'string',
+          description: 'The destination warehouse ID or name',
+        },
+        quantity: {
+          type: 'number',
+          description: 'The quantity to transfer (must be positive)',
+        },
+        notes: {
+          type: 'string',
+          description: 'Optional notes about the transfer',
+        },
+      },
+      required: ['productId', 'fromWarehouseId', 'toWarehouseId', 'quantity'],
+    },
+  },
+  {
+    name: 'create_product',
+    description: 'Create a new product in the inventory system',
+    parameters: {
+      type: 'object',
+      properties: {
+        sku: {
+          type: 'string',
+          description: 'The unique SKU for the product',
+        },
+        name: {
+          type: 'string',
+          description: 'The product name',
+        },
+        description: {
+          type: 'string',
+          description: 'Optional product description',
+        },
+        category: {
+          type: 'string',
+          description: 'The product category',
+        },
+        unitPrice: {
+          type: 'number',
+          description: 'The unit price of the product',
+        },
+        unit: {
+          type: 'string',
+          description: 'The unit of measurement (e.g., "piece", "kg", "liter")',
+        },
+      },
+      required: ['sku', 'name', 'category', 'unitPrice'],
+    },
+  },
+  {
+    name: 'update_product',
+    description: 'Update an existing product in the inventory system',
+    parameters: {
+      type: 'object',
+      properties: {
+        productId: {
+          type: 'string',
+          description: 'The ID or SKU of the product to update',
+        },
+        name: {
+          type: 'string',
+          description: 'Updated product name',
+        },
+        description: {
+          type: 'string',
+          description: 'Updated product description',
+        },
+        category: {
+          type: 'string',
+          description: 'Updated product category',
+        },
+        unitPrice: {
+          type: 'number',
+          description: 'Updated unit price',
+        },
+        unit: {
+          type: 'string',
+          description: 'Updated unit of measurement',
+        },
+        active: {
+          type: 'boolean',
+          description: 'Whether the product is active',
+        },
+      },
+      required: ['productId'],
+    },
+  },
+  {
+    name: 'query_inventory',
+    description: 'Query inventory information (stock levels, product details, low stock items, etc.)',
+    parameters: {
+      type: 'object',
+      properties: {
+        queryType: {
+          type: 'string',
+          enum: ['stock_level', 'product_info', 'low_stock', 'warehouse_stock', 'product_list'],
+          description: 'The type of query to perform',
+        },
+        productId: {
+          type: 'string',
+          description: 'Product ID or SKU for specific product queries',
+        },
+        warehouseId: {
+          type: 'string',
+          description: 'Warehouse ID for warehouse-specific queries',
+        },
+        category: {
+          type: 'string',
+          description: 'Filter by category',
+        },
+        search: {
+          type: 'string',
+          description: 'Search term for product search',
+        },
+      },
+      required: ['queryType'],
+    },
+  },
+];
+
 /**
- * Try to parse a command using a specific model
+ * Try to parse a command using a specific model with function calling
  */
 async function tryParseCommand(
   command: string,
   context: Record<string, unknown> | undefined,
-  modelName: string
+  modelName: string,
+  timeout: number = 30000
 ): Promise<ParseCommandResponse> {
-  const contextStr = context ? `\nContext: ${JSON.stringify(context)}` : '';
-  const prompt = `Parse this inventory command and extract the action and parameters: "${command}"${contextStr}
+  const contextStr = context ? `\n\nAdditional context: ${JSON.stringify(context)}` : '';
+  
+  const systemPrompt = `You are an expert inventory management assistant. Parse natural language commands into structured function calls.
+  
+Guidelines:
+- Understand intent from natural language (e.g., "add 50 units" means adjust_stock with positive quantity)
+- Infer reasonable defaults when information is implied
+- Use function calling to structure the response
+- If critical information is missing, use query_inventory to indicate a clarification is needed
+- Be confident in your interpretation when the command is clear
+- Set confidence lower (<0.7) when information is ambiguous`;
 
-Respond in JSON format like this: 
-{
-  "action": "action_name", 
-  "parameters": {"key": "value"},
-  "confidence": 0.95,
-  "interpretation": "Brief explanation of what will be done",
-  "clarificationNeeded": "Optional question if unclear"
-}
+  const userPrompt = `Parse this inventory command: "${command}"${contextStr}`;
 
-Possible actions: add_item, remove_item, move_item, update_quantity, create_location, stock_check, create_job, create_customer, query, list_items
-
-Be smart about understanding intent. Set confidence between 0 and 1 based on how certain you are about the interpretation.
-If you need clarification, set confidence < 0.7 and provide a clarificationNeeded question.`;
-
-  const completion = await openai.chat.completions.create({
+  // Create completion with timeout
+  const completionPromise = openai.chat.completions.create({
     model: modelName,
     messages: [
       {
+        role: 'system',
+        content: systemPrompt,
+      },
+      {
         role: 'user',
-        content: prompt,
+        content: userPrompt,
       },
     ],
-    temperature: 0.3,
+    functions: inventoryFunctions,
+    function_call: 'auto',
+    temperature: 0.2,
     max_tokens: 500,
   });
 
-  const responseText = completion.choices[0]?.message?.content || '';
-  
-  // Extract JSON from response
-  const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) {
-    throw new Error('Failed to parse JSON from AI response');
+  // Add timeout handling
+  const timeoutPromise = new Promise((_, reject) => {
+    setTimeout(() => reject(new Error(`Request timeout after ${timeout}ms`)), timeout);
+  });
+
+  const completion = await Promise.race([
+    completionPromise,
+    timeoutPromise,
+  ]) as OpenAI.Chat.Completions.ChatCompletion;
+
+  const message = completion.choices[0]?.message;
+
+  if (!message) {
+    throw new Error('No response from AI model');
   }
 
-  const parsed = JSON.parse(jsonMatch[0]);
+  // Check if function was called
+  if (message.function_call) {
+    const functionName = message.function_call.name;
+    const functionArgs = JSON.parse(message.function_call.arguments || '{}');
 
+    // Map function names to action types
+    const actionMap: Record<string, InventoryAction> = {
+      'adjust_stock': 'ADJUST_STOCK',
+      'transfer_stock': 'TRANSFER_STOCK',
+      'create_product': 'CREATE_PRODUCT',
+      'update_product': 'UPDATE_PRODUCT',
+      'query_inventory': 'QUERY_INVENTORY',
+    };
+
+    const action = actionMap[functionName] || 'QUERY_INVENTORY';
+
+    // Calculate confidence based on completeness of parameters
+    const requiredParams = inventoryFunctions
+      .find(f => f.name === functionName)
+      ?.parameters.required || [];
+    const providedParams = Object.keys(functionArgs);
+    const hasAllRequired = requiredParams.every(p => providedParams.includes(p));
+    const confidence = hasAllRequired ? 0.9 : 0.6;
+
+    // Generate reasoning
+    const reasoning = `Interpreted command as ${action}: ${JSON.stringify(functionArgs)}`;
+
+    return {
+      action,
+      parameters: functionArgs,
+      confidence,
+      reasoning,
+    };
+  }
+
+  // Fallback: parse from content if no function call
+  const content = message.content || '';
+  
+  // Try to extract JSON from content
+  const jsonMatch = content.match(/\{[\s\S]*\}/);
+  if (jsonMatch) {
+    const parsed = JSON.parse(jsonMatch[0]);
+    return {
+      action: parsed.action || 'QUERY_INVENTORY',
+      parameters: parsed.parameters || {},
+      confidence: parsed.confidence || 0.5,
+      reasoning: parsed.reasoning || parsed.interpretation || 'Parsed from text response',
+      clarificationNeeded: parsed.clarificationNeeded,
+    };
+  }
+
+  // If no structured response, return low confidence query
   return {
-    action: parsed.action || 'unknown',
-    parameters: parsed.parameters || {},
-    confidence: parsed.confidence || 0.5,
-    interpretation: parsed.interpretation || 'Unable to interpret command',
-    clarificationNeeded: parsed.clarificationNeeded,
+    action: 'QUERY_INVENTORY',
+    parameters: { query: command },
+    confidence: 0.3,
+    reasoning: 'Could not parse command into structured format',
+    clarificationNeeded: 'Could you please rephrase your request?',
   };
 }
 
@@ -113,37 +353,66 @@ export default async function handler(
   }
 
   try {
-    // Try grok-2-latest first (fast, cheap)
+    // Try grok-3-mini first (fast, cheap, 131k context)
     const startTime = Date.now();
-    let result = await tryParseCommand(command, context, 'grok-2-latest');
-    let latency = Date.now() - startTime;
-    let model = 'grok-2-latest';
+    let result: ParseCommandResponse;
+    let latency: number;
+    let model: string;
 
-    // Fallback to grok-beta if confidence is low
-    if (result.confidence < 0.75) {
+    try {
+      result = await tryParseCommand(command, context, 'grok-3-mini', 15000);
+      latency = Date.now() - startTime;
+      model = 'grok-3-mini';
+      
+      console.log(`grok-3-mini parsed command with confidence: ${result.confidence}`);
+    } catch (primaryError) {
+      console.error('grok-3-mini failed:', primaryError);
+      
+      // Fallback to grok-3 (powerful reasoning, slower)
+      console.log('Falling back to grok-3...');
+      const fallbackStartTime = Date.now();
+      
+      try {
+        result = await tryParseCommand(command, context, 'grok-3', 30000);
+        latency = Date.now() - fallbackStartTime;
+        model = 'grok-3';
+        
+        console.log(`grok-3 parsed command with confidence: ${result.confidence}`);
+      } catch (fallbackError) {
+        console.error('grok-3 also failed:', fallbackError);
+        throw new Error('Both primary and fallback models failed to parse command');
+      }
+    }
+
+    // If confidence is low from grok-3-mini, try grok-3 for better reasoning
+    if (model === 'grok-3-mini' && result.confidence < 0.7) {
       console.log(
-        `Low confidence (${result.confidence}) from grok-2-latest, trying grok-beta...`
+        `Low confidence (${result.confidence}) from grok-3-mini, trying grok-3 for better reasoning...`
       );
       
       const fallbackStartTime = Date.now();
       try {
-        const fallbackResult = await tryParseCommand(command, context, 'grok-beta');
+        const fallbackResult = await tryParseCommand(command, context, 'grok-3', 30000);
         const fallbackLatency = Date.now() - fallbackStartTime;
 
-        // Use fallback result if it has higher confidence
+        // Use grok-3 result if it has higher confidence
         if (fallbackResult.confidence > result.confidence) {
           result = fallbackResult;
           latency = fallbackLatency;
-          model = 'grok-beta';
+          model = 'grok-3';
+          console.log(`grok-3 provided better confidence: ${result.confidence}`);
         }
       } catch (fallbackError) {
-        console.error('Fallback to grok-beta failed:', fallbackError);
-        // Continue with original result
+        console.error('Fallback to grok-3 failed:', fallbackError);
+        // Continue with grok-3-mini result
       }
     }
 
+    // Validate the response structure
+    const validatedResult = validateCommandResponse(result);
+
     return successResponse(res, {
-      ...result,
+      ...validatedResult,
       model,
       latency,
     });
