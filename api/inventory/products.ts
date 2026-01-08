@@ -7,7 +7,7 @@ import {
   badRequestResponse,
   internalServerErrorResponse,
   setCorsHeaders,
-} from '../lib/utils';
+} from '../lib/utils.js';
 import {
   getProducts,
   getProductById,
@@ -15,7 +15,7 @@ import {
   updateProduct,
   deleteProduct,
   getCategories,
-} from '../lib/services';
+} from '../lib/services.js';
 
 export default async function handler(
   req: VercelRequest,

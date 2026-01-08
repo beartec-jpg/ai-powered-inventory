@@ -1,6 +1,6 @@
 import { eq, and, sql, desc, SQL } from 'drizzle-orm';
-import { db } from './db';
-import { products, stocks, warehouses, stockMovements, suppliers, productSuppliers } from './schema';
+import { db } from './db.js';
+import { products, stocks, warehouses, stockMovements, suppliers, productSuppliers } from './schema.js';
 
 export interface ProductFilters {
   active?: boolean;

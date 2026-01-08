@@ -16,7 +16,7 @@ import {
   chatConversations,
   chatMessages,
   toolCalls,
-} from './schema';
+} from './schema.js';
 
 // User Relations
 export const usersRelations = relations(users, ({ many }) => ({
