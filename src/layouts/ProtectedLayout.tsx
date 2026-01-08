@@ -34,8 +34,14 @@ export function ProtectedLayout({ children }: ProtectedLayoutProps) {
   useEffect(() => {
     if (isLoaded && !isSignedIn && !redirectInitiated.current) {
       redirectInitiated.current = true;
-      const signInUrl = import.meta.env.VITE_CLERK_SIGN_IN_URL || DEFAULT_CLERK_SIGN_IN_URL;
-      window.location.replace(signInUrl);
+      try {
+        const signInUrl = (import.meta.env.VITE_CLERK_SIGN_IN_URL as string | undefined) || DEFAULT_CLERK_SIGN_IN_URL;
+        window.location.replace(signInUrl);
+      } catch (error) {
+        // If redirect fails, fallback to console error and retry with default URL
+        console.error('Failed to redirect to sign-in:', error);
+        window.location.replace(DEFAULT_CLERK_SIGN_IN_URL);
+      }
     }
   }, [isLoaded, isSignedIn]);
 
