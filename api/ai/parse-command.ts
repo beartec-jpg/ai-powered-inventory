@@ -19,8 +19,8 @@ type InventoryAction =
   | 'ADJUST_STOCK' 
   | 'TRANSFER_STOCK' 
   | 'CREATE_PRODUCT' 
-  | 'QUERY_INVENTORY'
-  | 'UPDATE_PRODUCT';
+  | 'UPDATE_PRODUCT'
+  | 'QUERY_INVENTORY';
 
 interface ParseCommandResponse {
   action: InventoryAction;

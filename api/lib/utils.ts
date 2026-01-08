@@ -172,6 +172,9 @@ export function validateCommandResponse(response: Record<string, any>): Record<s
   // Constants
   const DEFAULT_CONFIDENCE = 0.5;
 
+  // Create a copy to avoid mutating the input
+  const validated = { ...response };
+
   // Ensure action is valid
   const validActions = [
     'ADJUST_STOCK',
@@ -181,29 +184,29 @@ export function validateCommandResponse(response: Record<string, any>): Record<s
     'QUERY_INVENTORY',
   ];
 
-  if (!validActions.includes(response.action)) {
-    response.action = 'QUERY_INVENTORY';
+  if (!validActions.includes(validated.action)) {
+    validated.action = 'QUERY_INVENTORY';
   }
 
   // Ensure confidence is between 0 and 1
-  if (typeof response.confidence !== 'number' || response.confidence < 0 || response.confidence > 1) {
-    response.confidence = DEFAULT_CONFIDENCE;
+  if (typeof validated.confidence !== 'number' || validated.confidence < 0 || validated.confidence > 1) {
+    validated.confidence = DEFAULT_CONFIDENCE;
   }
 
   // Ensure parameters is an object
-  if (typeof response.parameters !== 'object' || response.parameters === null) {
-    response.parameters = {};
+  if (typeof validated.parameters !== 'object' || validated.parameters === null) {
+    validated.parameters = {};
   }
 
   // Ensure reasoning is a string
-  if (typeof response.reasoning !== 'string') {
-    response.reasoning = 'Command parsed successfully';
+  if (typeof validated.reasoning !== 'string') {
+    validated.reasoning = 'Command parsed successfully';
   }
 
   // Ensure clarificationNeeded is string or undefined
-  if (response.clarificationNeeded !== undefined && typeof response.clarificationNeeded !== 'string') {
-    delete response.clarificationNeeded;
+  if (validated.clarificationNeeded !== undefined && typeof validated.clarificationNeeded !== 'string') {
+    delete validated.clarificationNeeded;
   }
 
-  return response;
+  return validated;
 }
