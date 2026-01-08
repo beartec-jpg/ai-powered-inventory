@@ -1,9 +1,12 @@
-import { ReactNode, useEffect } from 'react';
+import { ReactNode, useEffect, useRef } from 'react';
 import { useAuth, useUser } from '@clerk/clerk-react';
 
 interface ProtectedLayoutProps {
   children: ReactNode;
 }
+
+// Default Clerk Account Portal sign-in URL
+const DEFAULT_CLERK_SIGN_IN_URL = 'https://accounts.beartecai-inventory.uk/sign-in';
 
 /**
  * Protected layout that enforces authentication
@@ -13,6 +16,7 @@ interface ProtectedLayoutProps {
 export function ProtectedLayout({ children }: ProtectedLayoutProps) {
   const { isSignedIn, isLoaded } = useAuth();
   const { user } = useUser();
+  const redirectInitiated = useRef(false);
 
   // Show loading state while Clerk initializes
   if (!isLoaded) {
@@ -28,8 +32,9 @@ export function ProtectedLayout({ children }: ProtectedLayoutProps) {
 
   // Redirect to Clerk's Account Portal if not authenticated
   useEffect(() => {
-    if (isLoaded && !isSignedIn) {
-      const signInUrl = import.meta.env.VITE_CLERK_SIGN_IN_URL || 'https://accounts.beartecai-inventory.uk/sign-in';
+    if (isLoaded && !isSignedIn && !redirectInitiated.current) {
+      redirectInitiated.current = true;
+      const signInUrl = import.meta.env.VITE_CLERK_SIGN_IN_URL || DEFAULT_CLERK_SIGN_IN_URL;
       window.location.replace(signInUrl);
     }
   }, [isLoaded, isSignedIn]);
