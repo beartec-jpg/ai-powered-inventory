@@ -1,9 +1,9 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import { Webhook } from 'svix';
 import { eq } from 'drizzle-orm';
-import { db } from '../lib/db';
-import { userProfiles } from '../lib/schema';
-import { successResponse, errorResponse } from '../lib/utils';
+import { db } from '../lib/db.js';
+import { userProfiles } from '../lib/schema.js';
+import { successResponse, errorResponse } from '../lib/utils.js';
 import { v4 as uuidv4 } from 'uuid';
 
 /**

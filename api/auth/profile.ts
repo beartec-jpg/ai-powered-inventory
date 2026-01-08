@@ -1,13 +1,13 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import { eq } from 'drizzle-orm';
-import { db } from '../lib/db';
-import { userProfiles, warehouseAccesses, warehouses } from '../lib/schema';
+import { db } from '../lib/db.js';
+import { userProfiles, warehouseAccesses, warehouses } from '../lib/schema.js';
 import {
   successResponse,
   unauthorizedResponse,
   errorResponse,
   setCorsHeaders,
-} from '../lib/utils';
+} from '../lib/utils.js';
 
 /**
  * Get user profile with role and warehouse access

@@ -6,7 +6,7 @@ import {
   internalServerErrorResponse,
   setCorsHeaders,
   validateCommandResponse 
-} from '../lib/utils';
+} from '../lib/utils.js';
 
 // Initialize OpenAI client configured for xAI (Grok)
 const openai = new OpenAI({

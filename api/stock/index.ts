@@ -7,7 +7,7 @@ import {
   badRequestResponse,
   internalServerErrorResponse,
   setCorsHeaders,
-} from '../lib/utils';
+} from '../lib/utils.js';
 import {
   getStock,
   getLowStockItems,
@@ -15,7 +15,7 @@ import {
   getProductStockSummary,
   adjustStock,
   transferStock,
-} from '../lib/services';
+} from '../lib/services.js';
 
 export default async function handler(
   req: VercelRequest,

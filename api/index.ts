@@ -1,5 +1,5 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
-import { successResponse, setCorsHeaders } from './lib/utils';
+import { successResponse, setCorsHeaders } from './lib/utils.js';
 
 export default async function handler(
   req: VercelRequest,

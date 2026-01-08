@@ -3,7 +3,7 @@ import {
   successResponse,
   unauthorizedResponse,
   setCorsHeaders,
-} from '../lib/utils';
+} from '../lib/utils.js';
 
 /**
  * Simple auth endpoint placeholder
