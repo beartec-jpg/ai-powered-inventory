@@ -1,19 +1,22 @@
-import { ReactNode } from 'react';
-import { Navigate } from 'react-router-dom';
+import { ReactNode, useEffect, useRef } from 'react';
 import { useAuth, useUser } from '@clerk/clerk-react';
 
 interface ProtectedLayoutProps {
   children: ReactNode;
 }
 
+// Default Clerk Account Portal sign-in URL
+const DEFAULT_CLERK_SIGN_IN_URL = 'https://accounts.beartecai-inventory.uk/sign-in';
+
 /**
  * Protected layout that enforces authentication
- * Redirects to /sign-in if user is not authenticated
+ * Redirects to Clerk's Account Portal if user is not authenticated
  * Shows loading spinner while Clerk initializes
  */
 export function ProtectedLayout({ children }: ProtectedLayoutProps) {
   const { isSignedIn, isLoaded } = useAuth();
   const { user } = useUser();
+  const redirectInitiated = useRef(false);
 
   // Show loading state while Clerk initializes
   if (!isLoaded) {
@@ -27,9 +30,31 @@ export function ProtectedLayout({ children }: ProtectedLayoutProps) {
     );
   }
 
-  // Redirect to sign-in if not authenticated
+  // Redirect to Clerk's Account Portal if not authenticated
+  useEffect(() => {
+    if (isLoaded && !isSignedIn && !redirectInitiated.current) {
+      redirectInitiated.current = true;
+      try {
+        const signInUrl = (import.meta.env.VITE_CLERK_SIGN_IN_URL as string | undefined) || DEFAULT_CLERK_SIGN_IN_URL;
+        window.location.replace(signInUrl);
+      } catch (error) {
+        // If redirect fails, fallback to console error and retry with default URL
+        console.error('Failed to redirect to sign-in:', error);
+        window.location.replace(DEFAULT_CLERK_SIGN_IN_URL);
+      }
+    }
+  }, [isLoaded, isSignedIn]);
+
+  // Show loading while redirecting
   if (!isSignedIn) {
-    return <Navigate to="/sign-in" replace />;
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Redirecting to sign in...</p>
+        </div>
+      </div>
+    );
   }
 
   // Render protected content
