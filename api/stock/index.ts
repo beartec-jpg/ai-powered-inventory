@@ -34,14 +34,14 @@ export default async function handler(
       const page = parseInt(req.query.page as string) || 1;
       const perPage = parseInt(req.query.perPage as string) || 30;
 
-      const result = await getLowStockItems(page, perPage);
+      const result = await getLowStockItems();
 
       return paginatedResponse(
         res,
-        result.stocks,
+        result,
         page,
         perPage,
-        result.total,
+        result.length,
         'Low stock items retrieved successfully'
       );
     }
@@ -53,14 +53,14 @@ export default async function handler(
       const perPage = parseInt(req.query.perPage as string) || 30;
 
       try {
-        const result = await getWarehouseStock(warehouseId, page, perPage);
+        const result = await getWarehouseStock(warehouseId);
 
         return paginatedResponse(
           res,
-          result.stocks,
+          result,
           page,
           perPage,
-          result.total,
+          result.length,
           'Warehouse stock retrieved successfully'
         );
       } catch (error: any) {
@@ -88,17 +88,20 @@ export default async function handler(
       const productId = req.query.productId as string;
       const lowStock = req.query.lowStock === 'true';
 
-      const result = await getStock(
-        { warehouseId, productId, lowStock },
-        { page, perPage }
-      );
+      const result = await getStock({
+        warehouseId,
+        productId,
+        lowStock,
+        page,
+        pageSize: perPage
+      });
 
       return paginatedResponse(
         res,
-        result.stocks,
+        result.data,
         page,
         perPage,
-        result.total,
+        result.pagination.total,
         'Stock retrieved successfully'
       );
     }
@@ -117,14 +120,14 @@ export default async function handler(
         }
 
         try {
-          const stock = await adjustStock(
+          const stock = await adjustStock({
             productId,
             warehouseId,
             quantity,
-            reason,
-            notes,
-            userId
-          );
+            movementType: reason,
+            reference: userId,
+            notes
+          });
 
           return createdResponse(res, stock, 'Stock adjusted successfully');
         } catch (error: any) {
@@ -155,14 +158,14 @@ export default async function handler(
         }
 
         try {
-          const transfer = await transferStock(
+          const transfer = await transferStock({
             productId,
             fromWarehouseId,
             toWarehouseId,
             quantity,
-            notes,
-            userId
-          );
+            initiatedBy: userId,
+            notes
+          });
 
           return createdResponse(res, transfer, 'Stock transferred successfully');
         } catch (error: any) {
