@@ -263,81 +263,91 @@ Guidelines:
     max_tokens: 500,
   });
 
-  // Add timeout handling
+  // Add timeout handling with cleanup
+  let timeoutId: NodeJS.Timeout;
   const timeoutPromise = new Promise((_, reject) => {
-    setTimeout(() => reject(new Error(`Request timeout after ${timeout}ms`)), timeout);
+    timeoutId = setTimeout(() => reject(new Error(`Request timeout after ${timeout}ms`)), timeout);
   });
 
-  const completion = await Promise.race([
-    completionPromise,
-    timeoutPromise,
-  ]) as OpenAI.Chat.Completions.ChatCompletion;
+  try {
+    const completion = await Promise.race([
+      completionPromise,
+      timeoutPromise,
+    ]) as OpenAI.Chat.Completions.ChatCompletion;
+    
+    // Clear timeout on success
+    clearTimeout(timeoutId!);
+    
+    const message = completion.choices[0]?.message;
 
-  const message = completion.choices[0]?.message;
+    if (!message) {
+      throw new Error('No response from AI model');
+    }
 
-  if (!message) {
-    throw new Error('No response from AI model');
-  }
+    // Check if tool was called
+    if (message.tool_calls && message.tool_calls.length > 0) {
+      const toolCall = message.tool_calls[0];
+      const functionName = toolCall.function.name;
+      const functionArgs = JSON.parse(toolCall.function.arguments || '{}');
 
-  // Check if tool was called
-  if (message.tool_calls && message.tool_calls.length > 0) {
-    const toolCall = message.tool_calls[0];
-    const functionName = toolCall.function.name;
-    const functionArgs = JSON.parse(toolCall.function.arguments || '{}');
+      // Map function names to action types
+      const actionMap: Record<string, InventoryAction> = {
+        'adjust_stock': 'ADJUST_STOCK',
+        'transfer_stock': 'TRANSFER_STOCK',
+        'create_product': 'CREATE_PRODUCT',
+        'update_product': 'UPDATE_PRODUCT',
+        'query_inventory': 'QUERY_INVENTORY',
+      };
 
-    // Map function names to action types
-    const actionMap: Record<string, InventoryAction> = {
-      'adjust_stock': 'ADJUST_STOCK',
-      'transfer_stock': 'TRANSFER_STOCK',
-      'create_product': 'CREATE_PRODUCT',
-      'update_product': 'UPDATE_PRODUCT',
-      'query_inventory': 'QUERY_INVENTORY',
-    };
+      const action = actionMap[functionName] || 'QUERY_INVENTORY';
 
-    const action = actionMap[functionName] || 'QUERY_INVENTORY';
+      // Calculate confidence based on completeness of parameters
+      const tool = inventoryTools.find(t => t.function.name === functionName);
+      const requiredParams = tool?.function.parameters.required || [];
+      const providedParams = Object.keys(functionArgs);
+      const hasAllRequired = requiredParams.every(p => providedParams.includes(p));
+      const confidence = hasAllRequired ? HIGH_CONFIDENCE : MEDIUM_CONFIDENCE;
 
-    // Calculate confidence based on completeness of parameters
-    const tool = inventoryTools.find(t => t.function.name === functionName);
-    const requiredParams = tool?.function.parameters.required || [];
-    const providedParams = Object.keys(functionArgs);
-    const hasAllRequired = requiredParams.every(p => providedParams.includes(p));
-    const confidence = hasAllRequired ? HIGH_CONFIDENCE : MEDIUM_CONFIDENCE;
+      // Generate reasoning
+      const reasoning = `Interpreted command as ${action}: ${JSON.stringify(functionArgs)}`;
 
-    // Generate reasoning
-    const reasoning = `Interpreted command as ${action}: ${JSON.stringify(functionArgs)}`;
+      return {
+        action,
+        parameters: functionArgs,
+        confidence,
+        reasoning,
+      };
+    }
 
+    // Fallback: parse from content if no function call
+    const content = message.content || '';
+    
+    // Try to extract JSON from content
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      return {
+        action: parsed.action || 'QUERY_INVENTORY',
+        parameters: parsed.parameters || {},
+        confidence: parsed.confidence || 0.5,
+        reasoning: parsed.reasoning || parsed.interpretation || 'Parsed from text response',
+        clarificationNeeded: parsed.clarificationNeeded,
+      };
+    }
+
+    // If no structured response, return low confidence query
     return {
-      action,
-      parameters: functionArgs,
-      confidence,
-      reasoning,
+      action: 'QUERY_INVENTORY',
+      parameters: { query: command },
+      confidence: 0.3,
+      reasoning: 'Could not parse command into structured format',
+      clarificationNeeded: 'Could you please rephrase your request?',
     };
+  } catch (error) {
+    // Clear timeout on error
+    clearTimeout(timeoutId!);
+    throw error;
   }
-
-  // Fallback: parse from content if no function call
-  const content = message.content || '';
-  
-  // Try to extract JSON from content
-  const jsonMatch = content.match(/\{[\s\S]*\}/);
-  if (jsonMatch) {
-    const parsed = JSON.parse(jsonMatch[0]);
-    return {
-      action: parsed.action || 'QUERY_INVENTORY',
-      parameters: parsed.parameters || {},
-      confidence: parsed.confidence || 0.5,
-      reasoning: parsed.reasoning || parsed.interpretation || 'Parsed from text response',
-      clarificationNeeded: parsed.clarificationNeeded,
-    };
-  }
-
-  // If no structured response, return low confidence query
-  return {
-    action: 'QUERY_INVENTORY',
-    parameters: { query: command },
-    confidence: 0.3,
-    reasoning: 'Could not parse command into structured format',
-    clarificationNeeded: 'Could you please rephrase your request?',
-  };
 }
 
 export default async function handler(
