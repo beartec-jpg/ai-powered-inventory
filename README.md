@@ -1,27 +1,26 @@
 # AI-Powered Inventory Management System
 
-An intelligent stock management system that uses natural language processing to execute inventory operations. Built with Drizzle ORM, Clerk Authentication, and designed for deployment on Vercel + Neon PostgreSQL.
+An intelligent stock management system that uses natural language processing to execute inventory operations. Built with Drizzle ORM, Vercel Serverless Functions, and Neon PostgreSQL.
 
 ## 🚀 Tech Stack
 
 ### Backend
 - **Runtime**: Node.js 18+
-- **Framework**: Express.js
+- **Architecture**: Vercel Serverless Functions
 - **Language**: TypeScript
 - **Database**: PostgreSQL (Neon)
 - **ORM**: Drizzle ORM
-- **Authentication**: Clerk
-- **Deployment**: Vercel Serverless
+- **AI**: xAI Grok API for natural language processing
+- **Deployment**: Vercel
 
 ### Frontend
-- **Framework**: React 18
+- **Framework**: React 19
 - **Build Tool**: Vite
-- **Authentication**: Clerk React
 - **Deployment**: Vercel
 
 ## ✨ Features
 
-- **Natural Language Interface**: AI-powered commands for inventory operations
+- **Natural Language Interface**: AI-powered commands for inventory operations via xAI Grok
 - **Multi-Warehouse Support**: Manage inventory across multiple locations
 - **Real-time Stock Tracking**: Track quantities, transfers, and movements
 - **Supplier Management**: Manage products and purchase orders
@@ -33,17 +32,24 @@ An intelligent stock management system that uses natural language processing to 
 
 ```
 ai-powered-inventory/
-├── backend/              # Express backend with Drizzle ORM
-│   ├── src/
-│   │   ├── db/          # Database schema and migrations
-│   │   ├── services/    # Business logic layer
-│   │   ├── middleware/  # Clerk auth, logging
-│   │   └── routes/      # API endpoints
-│   └── drizzle.config.ts
-├── frontend/            # React frontend
-│   └── src/
-├── vercel.json          # Vercel deployment config
-└── .env.example         # Environment variables template
+├── api/                  # Vercel Serverless Functions
+│   ├── index.ts          # Health check endpoint
+│   ├── ai/
+│   │   └── parse-command.ts   # xAI Grok integration
+│   ├── inventory/
+│   │   └── products.ts        # Product CRUD endpoints
+│   ├── stock/
+│   │   └── index.ts           # Stock management endpoints
+│   ├── auth/
+│   │   └── index.ts           # Auth endpoints (placeholder)
+│   └── lib/                   # Shared utilities
+│       ├── db.ts              # Database connection
+│       ├── schema.ts          # Database schema (Drizzle)
+│       ├── services.ts        # Business logic
+│       └── utils.ts           # Utility functions
+├── src/                  # React frontend
+├── vercel.json           # Vercel deployment config
+└── package.json          # Single package.json
 ```
 
 ## 🛠️ Setup
@@ -51,27 +57,25 @@ ai-powered-inventory/
 ### Prerequisites
 - Node.js 18+
 - PostgreSQL database (Neon recommended)
-- Clerk account for authentication
+- xAI API key for Grok integration
 
-### Backend Setup
+### Installation
 
-1. Navigate to backend directory:
+1. Clone the repository:
    ```bash
-   cd backend
+   git clone https://github.com/beartec-jpg/ai-powered-inventory.git
+   cd ai-powered-inventory
+   ```
+
+2. Install dependencies:
+   ```bash
    npm install
    ```
 
-2. Configure environment:
+3. Configure environment:
    ```bash
-   cp ../.env.example .env
+   cp .env.example .env
    # Edit .env with your credentials
-   ```
-
-3. Setup database:
-   ```bash
-   npm run db:generate    # Generate migrations
-   npm run db:migrate     # Run migrations
-   npm run db:seed        # Seed test data (optional)
    ```
 
 4. Start development server:
@@ -79,33 +83,25 @@ ai-powered-inventory/
    npm run dev
    ```
 
-### Frontend Setup
+## 🔐 Environment Variables
 
-1. Navigate to frontend directory:
-   ```bash
-   cd frontend
-   npm install
-   ```
+Create a `.env` file in the root directory:
 
-2. Configure environment:
-   ```bash
-   cp .env.example .env.local
-   # Edit with your Clerk publishable key
-   ```
+```env
+# Database Configuration
+DATABASE_URL=postgresql://...          # Neon PostgreSQL connection string
 
-3. Start development server:
-   ```bash
-   npm run dev
-   ```
+# xAI API Configuration
+XAI_API_KEY=your-xai-api-key-here
+XAI_MODEL=grok-beta
+XAI_ENDPOINT=https://api.x.ai/v1
 
-## 🔐 Authentication
+# CORS Configuration
+CORS_ORIGIN=http://localhost:5173
 
-This project uses Clerk for authentication. You'll need to:
-
-1. Create a Clerk account at https://clerk.dev
-2. Create a new application
-3. Get your API keys from the Clerk dashboard
-4. Add them to your `.env` files
+# Environment
+NODE_ENV=development
+```
 
 ## 📊 Database Schema
 
@@ -118,7 +114,7 @@ The system includes 14 tables covering:
 - AI chat conversations
 - Activity audit logs
 
-See `backend/src/db/schema.ts` for the complete schema definition.
+See `api/lib/schema.ts` for the complete schema definition.
 
 ## 🚀 Deployment
 
@@ -126,54 +122,57 @@ See `backend/src/db/schema.ts` for the complete schema definition.
 
 1. Push your code to GitHub
 2. Import the repository in Vercel
-3. Configure environment variables in Vercel dashboard
+3. Configure environment variables in Vercel dashboard:
+   - `DATABASE_URL` - Your Neon PostgreSQL connection string
+   - `XAI_API_KEY` - Your xAI API key
+   - `CORS_ORIGIN` - Your frontend URL
 4. Deploy!
 
-The `vercel.json` configuration handles both frontend and backend deployment.
-
-## 📝 Environment Variables
-
-### Backend (.env)
-```env
-DATABASE_URL=postgresql://...          # Neon PostgreSQL
-CLERK_SECRET_KEY=sk_test_...
-CLERK_PUBLISHABLE_KEY=pk_test_...
-PORT=3000
-NODE_ENV=development
-```
-
-### Frontend (.env.local)
-```env
-VITE_API_URL=http://localhost:3000
-VITE_CLERK_PUBLISHABLE_KEY=pk_test_...
-```
+The `vercel.json` configuration handles deployment automatically.
 
 ## 🔧 Available Scripts
 
-### Backend
-- `npm run dev` - Development server
+- `npm run dev` - Start development server
 - `npm run build` - Build for production
-- `npm run type-check` - TypeScript validation
-- `npm run db:generate` - Generate migrations
-- `npm run db:migrate` - Run migrations
-- `npm run db:seed` - Seed database
-
-### Frontend
-- `npm run dev` - Development server
-- `npm run build` - Production build
 - `npm run preview` - Preview production build
+- `npm run lint` - Run ESLint
 
 ## 📖 API Documentation
 
-### Health Endpoints
-- `GET /health` - Basic health check
-- `GET /health/detailed` - Detailed system info
+### Base URL
+- Development: `http://localhost:3000/api`
+- Production: `https://your-app.vercel.app/api`
 
-### Protected Endpoints (Require Authentication)
-- Product CRUD operations
-- Warehouse management
-- Stock operations and transfers
-- AI chat interface
+### Endpoints
+
+#### Health Check
+- `GET /api` - Basic health check
+
+#### AI Integration
+- `POST /api/ai/parse-command` - Parse natural language commands using xAI Grok
+  - Body: `{ command: string, context?: object }`
+  - Returns: Parsed action, parameters, confidence level
+
+#### Inventory Management
+- `GET /api/inventory/products` - List products (with pagination)
+- `GET /api/inventory/products?id={id}` - Get product by ID
+- `GET /api/inventory/products?categories=true` - Get all categories
+- `POST /api/inventory/products` - Create new product
+- `PUT /api/inventory/products` - Update product
+- `DELETE /api/inventory/products?id={id}` - Delete product (soft delete)
+
+#### Stock Management
+- `GET /api/stock` - List stock with filters
+- `GET /api/stock?low=true` - Get low stock items
+- `GET /api/stock?warehouseId={id}` - Get warehouse stock
+- `GET /api/stock?productId={id}` - Get product stock summary
+- `POST /api/stock` - Adjust or transfer stock
+  - Body (adjust): `{ action: "adjust", productId, warehouseId, quantity, reason, notes? }`
+  - Body (transfer): `{ action: "transfer", productId, fromWarehouseId, toWarehouseId, quantity, notes? }`
+
+#### Authentication
+- `GET /api/auth` - Check auth status (placeholder)
+- `POST /api/auth` - Login (placeholder - integrate with Clerk)
 
 ## 🤝 Contributing
 
@@ -186,6 +185,6 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## 🙏 Acknowledgments
 
 - Built with [Drizzle ORM](https://orm.drizzle.team/)
-- Authentication by [Clerk](https://clerk.dev/)
+- AI powered by [xAI Grok](https://x.ai/)
 - Hosted on [Vercel](https://vercel.com/)
 - Database by [Neon](https://neon.tech/)

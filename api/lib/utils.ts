@@ -1,15 +1,31 @@
-import { Response } from 'express';
-import { ApiResponse, PaginatedResponse } from '../types';
+import { VercelResponse } from '@vercel/node';
+
+export interface ApiResponse<T = any> {
+  success: boolean;
+  data?: T;
+  error?: string;
+  message?: string;
+  timestamp: string;
+}
+
+export interface PaginatedResponse<T = any> extends ApiResponse<T> {
+  pagination: {
+    page: number;
+    perPage: number;
+    total: number;
+    totalPages: number;
+  };
+}
 
 /**
  * Send a successful response
  */
 export function successResponse<T>(
-  res: Response,
+  res: VercelResponse,
   data: T,
   message?: string,
   statusCode: number = 200
-): Response {
+): VercelResponse {
   const response: ApiResponse<T> = {
     success: true,
     data,
@@ -23,13 +39,13 @@ export function successResponse<T>(
  * Send a paginated successful response
  */
 export function paginatedResponse<T>(
-  res: Response,
+  res: VercelResponse,
   data: T,
   page: number,
   perPage: number,
   total: number,
   message?: string
-): Response {
+): VercelResponse {
   const totalPages = Math.ceil(total / perPage);
   
   const response: PaginatedResponse<T> = {
@@ -51,11 +67,11 @@ export function paginatedResponse<T>(
  * Send an error response
  */
 export function errorResponse(
-  res: Response,
+  res: VercelResponse,
   error: string,
   statusCode: number = 500,
   message?: string
-): Response {
+): VercelResponse {
   const response: ApiResponse = {
     success: false,
     error,
@@ -69,82 +85,82 @@ export function errorResponse(
  * Send a created response (201)
  */
 export function createdResponse<T>(
-  res: Response,
+  res: VercelResponse,
   data: T,
   message: string = 'Resource created successfully'
-): Response {
+): VercelResponse {
   return successResponse(res, data, message, 201);
-}
-
-/**
- * Send a no content response (204)
- */
-export function noContentResponse(res: Response): Response {
-  return res.status(204).send();
 }
 
 /**
  * Send a bad request response (400)
  */
 export function badRequestResponse(
-  res: Response,
-  error: string,
+  res: VercelResponse,
   message: string = 'Bad Request'
-): Response {
-  return errorResponse(res, error, 400, message);
+): VercelResponse {
+  return errorResponse(res, 'Bad Request', 400, message);
 }
 
 /**
  * Send an unauthorized response (401)
  */
 export function unauthorizedResponse(
-  res: Response,
-  error: string = 'Unauthorized',
+  res: VercelResponse,
   message: string = 'Authentication required'
-): Response {
-  return errorResponse(res, error, 401, message);
+): VercelResponse {
+  return errorResponse(res, 'Unauthorized', 401, message);
 }
 
 /**
  * Send a forbidden response (403)
  */
 export function forbiddenResponse(
-  res: Response,
-  error: string = 'Forbidden',
+  res: VercelResponse,
   message: string = 'You do not have permission to access this resource'
-): Response {
-  return errorResponse(res, error, 403, message);
+): VercelResponse {
+  return errorResponse(res, 'Forbidden', 403, message);
 }
 
 /**
  * Send a not found response (404)
  */
 export function notFoundResponse(
-  res: Response,
-  error: string = 'Not Found',
+  res: VercelResponse,
   message: string = 'The requested resource was not found'
-): Response {
-  return errorResponse(res, error, 404, message);
+): VercelResponse {
+  return errorResponse(res, 'Not Found', 404, message);
 }
 
 /**
  * Send a conflict response (409)
  */
 export function conflictResponse(
-  res: Response,
-  error: string,
+  res: VercelResponse,
   message: string = 'Conflict'
-): Response {
-  return errorResponse(res, error, 409, message);
+): VercelResponse {
+  return errorResponse(res, 'Conflict', 409, message);
 }
 
 /**
  * Send an internal server error response (500)
  */
 export function internalServerErrorResponse(
-  res: Response,
-  error: string = 'Internal Server Error',
+  res: VercelResponse,
   message: string = 'An unexpected error occurred'
-): Response {
-  return errorResponse(res, error, 500, message);
+): VercelResponse {
+  return errorResponse(res, 'Internal Server Error', 500, message);
+}
+
+/**
+ * Enable CORS for Vercel functions
+ */
+export function setCorsHeaders(res: VercelResponse): void {
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Origin', process.env.CORS_ORIGIN || '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization'
+  );
 }
