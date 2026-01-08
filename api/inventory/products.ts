@@ -35,19 +35,20 @@ export default async function handler(
       const perPage = parseInt(req.query.perPage as string) || 30;
       const category = req.query.category as string;
       const active = req.query.active === 'true' ? true : req.query.active === 'false' ? false : undefined;
-      const search = req.query.search as string;
 
-      const result = await getProducts(
-        { category, active, search },
-        { page, perPage }
-      );
+      const result = await getProducts({
+        category,
+        active,
+        page,
+        pageSize: perPage
+      });
 
       return paginatedResponse(
         res,
-        result.products,
+        result.data,
         page,
         perPage,
-        result.total,
+        result.pagination.total,
         'Products retrieved successfully'
       );
     }
