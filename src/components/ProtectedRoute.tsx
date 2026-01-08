@@ -12,7 +12,7 @@ interface ProtectedRouteProps {
  * Redirects to /unauthorized if user doesn't have required role
  */
 export function ProtectedRoute({ children, requiredRoles }: ProtectedRouteProps) {
-  const { role, isLoading } = useUserAccess();
+  const { role, isLoading, error } = useUserAccess();
 
   // Show loading state while fetching user profile
   if (isLoading) {
@@ -28,8 +28,12 @@ export function ProtectedRoute({ children, requiredRoles }: ProtectedRouteProps)
 
   // Check if user has required role
   // If requiredRoles is specified but role is undefined (and not loading), redirect to unauthorized
-  // This prevents users from bypassing role checks if the API fails
-  if (requiredRoles && !role) {
+  // This prevents users from bypassing role checks if the API fails or returns no role data
+  if (requiredRoles && role === undefined) {
+    // If there's an error, log it for debugging
+    if (error) {
+      console.error('Failed to load user role:', error.message);
+    }
     return <Navigate to="/unauthorized" replace />;
   }
 

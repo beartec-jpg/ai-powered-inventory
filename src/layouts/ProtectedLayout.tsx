@@ -28,7 +28,7 @@ export function ProtectedLayout({ children }: ProtectedLayoutProps) {
         
         // Warn if environment variable is not set
         if (!import.meta.env.VITE_CLERK_SIGN_IN_URL) {
-          console.warn('VITE_CLERK_SIGN_IN_URL is not set. Using default sign-in URL:', DEFAULT_CLERK_SIGN_IN_URL);
+          console.warn('VITE_CLERK_SIGN_IN_URL environment variable is not set. Using default configuration.');
         }
         
         window.location.replace(signInUrl);
