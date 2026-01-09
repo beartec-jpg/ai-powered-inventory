@@ -120,6 +120,62 @@ function tryLocalParse(command: string, aiParams: Record<string, unknown>): { ac
     }
   }
   
+  // Pattern: "Add new item [name/details] to [location]" (without cost)
+  // Matches: add item with details and location specification
+  // Examples: "Add a new item, details Siemens km3 123455 bought from comtherm, add to rack 1 bin 2"
+  const addItemToLocationMatch = lower.match(
+    /^(?:add\s+)?(?:a\s+)?(?:new\s+)?item[,\s]+(?:details?\s+)?(.+?)(?:\s+to\s+|,\s*add\s+to\s+)(.+)$/i
+  )
+  if (addItemToLocationMatch) {
+    const itemDetails = addItemToLocationMatch[1].trim()
+    const location = addItemToLocationMatch[2].trim()
+    
+    // Extract supplier if present ("bought from X" or "from X")
+    const supplierMatch = itemDetails.match(/(?:bought\s+from|from)\s+(\w+)/i)
+    const supplier = supplierMatch ? supplierMatch[1] : undefined
+    
+    // Remove supplier text from item name
+    const itemName = itemDetails.replace(/(?:bought\s+from|from)\s+\w+/i, '').trim()
+    
+    // Try to extract part number (alphanumeric sequences)
+    const partNumberMatch = itemName.match(/\b([A-Z0-9]+-?[A-Z0-9]+|\d{4,})\b/i)
+    const partNumber = partNumberMatch ? partNumberMatch[1] : itemName.split(/\s+/)[0]
+    
+    return {
+      action: 'RECEIVE_STOCK',
+      parameters: {
+        name: itemName,
+        partNumber: partNumber,
+        location: location,
+        supplier: supplier,
+        quantity: 1,
+        ...aiParams
+      }
+    }
+  }
+  
+  // Pattern: "Add [item] bought from [supplier]"
+  // Matches: add item with supplier mention
+  // Examples: "Add widget-123 bought from Acme"
+  const addWithSupplierMatch = lower.match(
+    /^add\s+(.+?)\s+(?:bought\s+from|from\s+supplier?)\s+(\w+)/i
+  )
+  if (addWithSupplierMatch) {
+    const itemDetails = addWithSupplierMatch[1].trim()
+    const supplier = addWithSupplierMatch[2].trim()
+    
+    return {
+      action: 'RECEIVE_STOCK', 
+      parameters: {
+        name: itemDetails,
+        partNumber: itemDetails.split(/\s+/)[0],
+        supplier: supplier,
+        quantity: 1,
+        ...aiParams
+      }
+    }
+  }
+  
   return null
 }
 
@@ -259,6 +315,7 @@ export async function executeCommand(
   if (actionLower === 'create_location') return createLocation(parameters, locations, setLocations)
   if (actionLower === 'stock_check') return stockCheckLegacy(parameters, inventory, locations)
   if (actionLower === 'query') return handleQuery(parameters, inventory, locations, customers, jobs)
+  if (actionLower === 'query_inventory') return handleQuery(parameters, inventory, locations, customers, jobs)
   if (actionLower === 'list_items') return listItems(parameters, inventory)
   
   return { success: false, message: `Unknown action: ${action}` }
