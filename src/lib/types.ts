@@ -200,7 +200,6 @@ export interface Job {
   
   status: 'quote' | 'scheduled' | 'dispatched' | 'in_progress' | 'on_hold' | 'completed' | 'invoiced' | 'cancelled'
   
-  createdDate: number
   scheduledDate?: number
   scheduledTimeSlot?: string
   estimatedDuration?: number

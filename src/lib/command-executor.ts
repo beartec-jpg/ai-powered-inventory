@@ -964,7 +964,6 @@ function createJob(params: Record<string, unknown>, state: StateSetters): Execut
     reportedFault: params.reportedFault ? String(params.reportedFault) : undefined,
     status: 'quote',
     partsUsed: [],
-    createdDate: Date.now(),
     createdAt: Date.now(),
   }
   

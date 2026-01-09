@@ -73,7 +73,7 @@ export function JobCard({ job }: JobCardProps) {
             <div className="text-xs text-muted-foreground italic">No parts recorded yet</div>
           )}
           <div className="text-xs text-muted-foreground mt-3">
-            Created {new Date(job.createdDate).toLocaleDateString()}
+            Created {new Date(job.createdAt).toLocaleDateString()}
           </div>
         </div>
       </Card>
@@ -96,7 +96,7 @@ export function JobsView({ jobs }: JobsViewProps) {
     )
   }
 
-  const sortedJobs = [...jobs].sort((a, b) => b.createdDate - a.createdDate)
+  const sortedJobs = [...jobs].sort((a, b) => b.createdAt - a.createdAt)
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
