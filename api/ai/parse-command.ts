@@ -16,8 +16,43 @@ const openai = new OpenAI({
 
 // Action types for inventory operations
 type InventoryAction = 
+  // Catalogue Management
+  | 'CREATE_CATALOGUE_ITEM'
+  | 'UPDATE_CATALOGUE_ITEM'
+  | 'SEARCH_CATALOGUE'
+  // Stock Management
+  | 'RECEIVE_STOCK'
+  | 'PUT_AWAY_STOCK'
+  | 'USE_STOCK'
+  | 'TRANSFER_STOCK'
+  | 'STOCK_COUNT'
+  | 'SEARCH_STOCK'
+  | 'LOW_STOCK_REPORT'
+  | 'SET_MIN_STOCK'
+  // Customer & Equipment
+  | 'CREATE_CUSTOMER'
+  | 'ADD_SITE_ADDRESS'
+  | 'CREATE_EQUIPMENT'
+  | 'UPDATE_EQUIPMENT'
+  | 'LIST_EQUIPMENT'
+  // Parts Installation
+  | 'INSTALL_FROM_STOCK'
+  | 'INSTALL_DIRECT_ORDER'
+  | 'QUERY_EQUIPMENT_PARTS'
+  | 'QUERY_CUSTOMER_PARTS'
+  // Jobs
+  | 'CREATE_JOB'
+  | 'SCHEDULE_JOB'
+  | 'START_JOB'
+  | 'COMPLETE_JOB'
+  | 'ADD_PART_TO_JOB'
+  | 'LIST_JOBS'
+  // Suppliers & Orders
+  | 'CREATE_SUPPLIER'
+  | 'CREATE_PURCHASE_ORDER'
+  | 'RECEIVE_PURCHASE_ORDER'
+  // Legacy
   | 'ADJUST_STOCK' 
-  | 'TRANSFER_STOCK' 
   | 'CREATE_PRODUCT' 
   | 'UPDATE_PRODUCT'
   | 'QUERY_INVENTORY';
@@ -42,36 +77,236 @@ const GROK_3_TIMEOUT = 30000;
 
 // Define tool schemas for inventory operations
 const inventoryTools = [
+  // ===== CATALOGUE MANAGEMENT =====
   {
     type: 'function' as const,
     function: {
-      name: 'adjust_stock',
-      description: 'Adjust stock quantity for a product in a warehouse (add or remove stock)',
+      name: 'create_catalogue_item',
+      description: 'Add a new product to the catalogue (not necessarily in stock). Use this for products you sell/use whether you stock them or not.',
       parameters: {
         type: 'object',
         properties: {
-          productId: {
+          partNumber: {
             type: 'string',
-            description: 'The ID or SKU of the product',
+            description: 'The unique part number/SKU for the product',
           },
-          warehouseId: {
+          name: {
             type: 'string',
-            description: 'The ID or name of the warehouse',
+            description: 'The product name',
+          },
+          description: {
+            type: 'string',
+            description: 'Product description',
+          },
+          manufacturer: {
+            type: 'string',
+            description: 'Manufacturer name',
+          },
+          category: {
+            type: 'string',
+            description: 'Product category (e.g., "cables", "sensors", "valves")',
+          },
+          subcategory: {
+            type: 'string',
+            description: 'Product subcategory',
+          },
+          unitCost: {
+            type: 'number',
+            description: 'Cost price per unit',
+          },
+          markup: {
+            type: 'number',
+            description: 'Markup percentage (e.g., 35 for 35%)',
+          },
+          sellPrice: {
+            type: 'number',
+            description: 'Selling price (if not using markup calculation)',
+          },
+          isStocked: {
+            type: 'boolean',
+            description: 'Whether this item is normally kept in stock',
+          },
+          minQuantity: {
+            type: 'number',
+            description: 'Minimum stock level / reorder point',
+          },
+          preferredSupplierName: {
+            type: 'string',
+            description: 'Preferred supplier name',
+          },
+          attributes: {
+            type: 'object',
+            description: 'Flexible attributes like size, color, voltage (e.g., {"color": "black", "size": "0.75mm"})',
+          },
+        },
+        required: ['partNumber', 'name'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'update_catalogue_item',
+      description: 'Update an existing catalogue item (pricing, details, etc.)',
+      parameters: {
+        type: 'object',
+        properties: {
+          partNumber: {
+            type: 'string',
+            description: 'The part number of the item to update',
+          },
+          name: {
+            type: 'string',
+            description: 'Updated product name',
+          },
+          unitCost: {
+            type: 'number',
+            description: 'Updated cost price',
+          },
+          markup: {
+            type: 'number',
+            description: 'Updated markup percentage',
+          },
+          sellPrice: {
+            type: 'number',
+            description: 'Updated selling price',
+          },
+          minQuantity: {
+            type: 'number',
+            description: 'Updated minimum stock level',
+          },
+          isStocked: {
+            type: 'boolean',
+            description: 'Whether this item should be stocked',
+          },
+          active: {
+            type: 'boolean',
+            description: 'Whether the product is active',
+          },
+        },
+        required: ['partNumber'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'search_catalogue',
+      description: 'Search for products in the catalogue (both stocked and non-stocked items)',
+      parameters: {
+        type: 'object',
+        properties: {
+          search: {
+            type: 'string',
+            description: 'Search term (searches part number, name, description, manufacturer)',
+          },
+          category: {
+            type: 'string',
+            description: 'Filter by category',
+          },
+          manufacturer: {
+            type: 'string',
+            description: 'Filter by manufacturer',
+          },
+        },
+        required: ['search'],
+      },
+    },
+  },
+  
+  // ===== STOCK MANAGEMENT =====
+  {
+    type: 'function' as const,
+    function: {
+      name: 'receive_stock',
+      description: 'Add stock from a delivery/receipt. Increases stock quantity at a location.',
+      parameters: {
+        type: 'object',
+        properties: {
+          partNumber: {
+            type: 'string',
+            description: 'The part number of the item received',
           },
           quantity: {
             type: 'number',
-            description: 'The quantity to adjust (positive to add, negative to remove)',
+            description: 'The quantity received (must be positive)',
           },
-          reason: {
+          location: {
             type: 'string',
-            description: 'The reason for adjustment (e.g., "received", "damaged", "sold", "returned")',
+            description: 'The location where stock is received (e.g., "Warehouse", "Van 1")',
+          },
+          supplierName: {
+            type: 'string',
+            description: 'The supplier name',
           },
           notes: {
             type: 'string',
-            description: 'Optional notes about the adjustment',
+            description: 'Optional notes about the receipt',
           },
         },
-        required: ['productId', 'warehouseId', 'quantity', 'reason'],
+        required: ['partNumber', 'quantity', 'location'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'put_away_stock',
+      description: 'Set or change the location of stock (e.g., move from receiving to specific bin)',
+      parameters: {
+        type: 'object',
+        properties: {
+          partNumber: {
+            type: 'string',
+            description: 'The part number',
+          },
+          fromLocation: {
+            type: 'string',
+            description: 'Current location',
+          },
+          toLocation: {
+            type: 'string',
+            description: 'New location (e.g., "Rack 12 Bin 2")',
+          },
+          quantity: {
+            type: 'number',
+            description: 'Quantity to move (optional, defaults to all)',
+          },
+        },
+        required: ['partNumber', 'fromLocation', 'toLocation'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'use_stock',
+      description: 'Decrease stock quantity (for jobs, installations, etc.)',
+      parameters: {
+        type: 'object',
+        properties: {
+          partNumber: {
+            type: 'string',
+            description: 'The part number',
+          },
+          quantity: {
+            type: 'number',
+            description: 'The quantity to use (must be positive)',
+          },
+          location: {
+            type: 'string',
+            description: 'The location where stock is taken from',
+          },
+          reason: {
+            type: 'string',
+            description: 'Reason for using stock (e.g., "job", "installation", "damaged")',
+          },
+          jobNumber: {
+            type: 'string',
+            description: 'Related job number if applicable',
+          },
+        },
+        required: ['partNumber', 'quantity', 'location', 'reason'],
       },
     },
   },
@@ -79,21 +314,21 @@ const inventoryTools = [
     type: 'function' as const,
     function: {
       name: 'transfer_stock',
-      description: 'Transfer stock from one warehouse to another',
+      description: 'Transfer stock between locations',
       parameters: {
         type: 'object',
         properties: {
-          productId: {
+          partNumber: {
             type: 'string',
-            description: 'The ID or SKU of the product to transfer',
+            description: 'The part number to transfer',
           },
-          fromWarehouseId: {
+          fromLocation: {
             type: 'string',
-            description: 'The source warehouse ID or name',
+            description: 'Source location',
           },
-          toWarehouseId: {
+          toLocation: {
             type: 'string',
-            description: 'The destination warehouse ID or name',
+            description: 'Destination location',
           },
           quantity: {
             type: 'number',
@@ -104,119 +339,647 @@ const inventoryTools = [
             description: 'Optional notes about the transfer',
           },
         },
-        required: ['productId', 'fromWarehouseId', 'toWarehouseId', 'quantity'],
+        required: ['partNumber', 'fromLocation', 'toLocation', 'quantity'],
       },
     },
   },
   {
     type: 'function' as const,
     function: {
-      name: 'create_product',
-      description: 'Create a new product in the inventory system',
+      name: 'stock_count',
+      description: 'Verify/count stock quantity and compare to expected. Updates stock level if different.',
       parameters: {
         type: 'object',
         properties: {
-          sku: {
+          partNumber: {
             type: 'string',
-            description: 'The unique SKU for the product',
+            description: 'The part number being counted',
           },
-          name: {
+          location: {
             type: 'string',
-            description: 'The product name',
+            description: 'The location where counting is happening',
           },
-          description: {
-            type: 'string',
-            description: 'Optional product description',
-          },
-          category: {
-            type: 'string',
-            description: 'The product category',
-          },
-          unitPrice: {
+          countedQuantity: {
             type: 'number',
-            description: 'The unit price of the product',
+            description: 'The actual quantity counted',
           },
-          unit: {
+          notes: {
             type: 'string',
-            description: 'The unit of measurement (e.g., "piece", "kg", "liter")',
+            description: 'Optional notes about the count',
           },
         },
-        required: ['sku', 'name', 'category', 'unitPrice'],
+        required: ['partNumber', 'location', 'countedQuantity'],
       },
     },
   },
   {
     type: 'function' as const,
     function: {
-      name: 'update_product',
-      description: 'Update an existing product in the inventory system',
+      name: 'search_stock',
+      description: 'Search for items currently IN STOCK (quantity > 0)',
       parameters: {
         type: 'object',
         properties: {
-          productId: {
-            type: 'string',
-            description: 'The ID or SKU of the product to update',
-          },
-          name: {
-            type: 'string',
-            description: 'Updated product name',
-          },
-          description: {
-            type: 'string',
-            description: 'Updated product description',
-          },
-          category: {
-            type: 'string',
-            description: 'Updated product category',
-          },
-          unitPrice: {
-            type: 'number',
-            description: 'Updated unit price',
-          },
-          unit: {
-            type: 'string',
-            description: 'Updated unit of measurement',
-          },
-          active: {
-            type: 'boolean',
-            description: 'Whether the product is active',
-          },
-        },
-        required: ['productId'],
-      },
-    },
-  },
-  {
-    type: 'function' as const,
-    function: {
-      name: 'query_inventory',
-      description: 'Query inventory information (stock levels, product details, low stock items, etc.)',
-      parameters: {
-        type: 'object',
-        properties: {
-          queryType: {
-            type: 'string',
-            enum: ['stock_level', 'product_info', 'low_stock', 'warehouse_stock', 'product_list'],
-            description: 'The type of query to perform',
-          },
-          productId: {
-            type: 'string',
-            description: 'Product ID or SKU for specific product queries',
-          },
-          warehouseId: {
-            type: 'string',
-            description: 'Warehouse ID for warehouse-specific queries',
-          },
-          category: {
-            type: 'string',
-            description: 'Filter by category',
-          },
           search: {
             type: 'string',
-            description: 'Search term for product search',
+            description: 'Search term for part number or name',
+          },
+          location: {
+            type: 'string',
+            description: 'Filter by location',
           },
         },
-        required: ['queryType'],
+        required: ['search'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'low_stock_report',
+      description: 'Get items with stock below minimum quantity',
+      parameters: {
+        type: 'object',
+        properties: {
+          location: {
+            type: 'string',
+            description: 'Optional filter by location',
+          },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'set_min_stock',
+      description: 'Set the minimum stock level / reorder point for an item',
+      parameters: {
+        type: 'object',
+        properties: {
+          partNumber: {
+            type: 'string',
+            description: 'The part number',
+          },
+          minQuantity: {
+            type: 'number',
+            description: 'The minimum stock level',
+          },
+          reorderQuantity: {
+            type: 'number',
+            description: 'Optional standard reorder quantity',
+          },
+        },
+        required: ['partNumber', 'minQuantity'],
+      },
+    },
+  },
+  
+  // ===== CUSTOMER & EQUIPMENT =====
+  {
+    type: 'function' as const,
+    function: {
+      name: 'create_customer',
+      description: 'Create a new customer',
+      parameters: {
+        type: 'object',
+        properties: {
+          name: {
+            type: 'string',
+            description: 'Customer name',
+          },
+          type: {
+            type: 'string',
+            enum: ['commercial', 'residential', 'industrial'],
+            description: 'Customer type',
+          },
+          contactName: {
+            type: 'string',
+            description: 'Primary contact name',
+          },
+          email: {
+            type: 'string',
+            description: 'Email address',
+          },
+          phone: {
+            type: 'string',
+            description: 'Phone number',
+          },
+          billingAddress: {
+            type: 'string',
+            description: 'Billing address',
+          },
+        },
+        required: ['name', 'type'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'add_site_address',
+      description: 'Add a site address to a customer',
+      parameters: {
+        type: 'object',
+        properties: {
+          customerName: {
+            type: 'string',
+            description: 'Customer name',
+          },
+          siteName: {
+            type: 'string',
+            description: 'Site name (e.g., "Main Office", "Factory 2")',
+          },
+          address: {
+            type: 'string',
+            description: 'Full site address',
+          },
+          postcode: {
+            type: 'string',
+            description: 'Postcode',
+          },
+          accessNotes: {
+            type: 'string',
+            description: 'Access instructions',
+          },
+        },
+        required: ['customerName', 'siteName', 'address'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'create_equipment',
+      description: 'Add equipment/asset at a customer site',
+      parameters: {
+        type: 'object',
+        properties: {
+          customerName: {
+            type: 'string',
+            description: 'Customer name',
+          },
+          equipmentName: {
+            type: 'string',
+            description: 'Equipment name/identifier (e.g., "Main Boiler", "Chiller Unit 1")',
+          },
+          type: {
+            type: 'string',
+            description: 'Equipment type (e.g., "boiler", "chiller", "pump")',
+          },
+          manufacturer: {
+            type: 'string',
+            description: 'Manufacturer',
+          },
+          model: {
+            type: 'string',
+            description: 'Model number',
+          },
+          serialNumber: {
+            type: 'string',
+            description: 'Serial number',
+          },
+          location: {
+            type: 'string',
+            description: 'Location at site',
+          },
+        },
+        required: ['customerName', 'equipmentName', 'type'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'update_equipment',
+      description: 'Update equipment details',
+      parameters: {
+        type: 'object',
+        properties: {
+          customerName: {
+            type: 'string',
+            description: 'Customer name',
+          },
+          equipmentName: {
+            type: 'string',
+            description: 'Equipment name',
+          },
+          lastServiceDate: {
+            type: 'number',
+            description: 'Last service date (timestamp)',
+          },
+          nextServiceDue: {
+            type: 'number',
+            description: 'Next service due date (timestamp)',
+          },
+          technicalNotes: {
+            type: 'string',
+            description: 'Technical notes',
+          },
+        },
+        required: ['customerName', 'equipmentName'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'list_equipment',
+      description: 'List equipment for a customer',
+      parameters: {
+        type: 'object',
+        properties: {
+          customerName: {
+            type: 'string',
+            description: 'Customer name',
+          },
+        },
+        required: ['customerName'],
+      },
+    },
+  },
+  
+  // ===== PARTS INSTALLATION =====
+  {
+    type: 'function' as const,
+    function: {
+      name: 'install_from_stock',
+      description: 'Install a part from stock onto customer equipment (decrements stock)',
+      parameters: {
+        type: 'object',
+        properties: {
+          partNumber: {
+            type: 'string',
+            description: 'Part number to install',
+          },
+          quantity: {
+            type: 'number',
+            description: 'Quantity to install',
+          },
+          customerName: {
+            type: 'string',
+            description: 'Customer name',
+          },
+          equipmentName: {
+            type: 'string',
+            description: 'Equipment name',
+          },
+          location: {
+            type: 'string',
+            description: 'Stock location to take from (e.g., "Van 1")',
+          },
+          jobNumber: {
+            type: 'string',
+            description: 'Related job number',
+          },
+        },
+        required: ['partNumber', 'quantity', 'customerName', 'equipmentName', 'location'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'install_direct_order',
+      description: 'Record a part installed that was ordered direct (no stock change)',
+      parameters: {
+        type: 'object',
+        properties: {
+          partNumber: {
+            type: 'string',
+            description: 'Part number',
+          },
+          name: {
+            type: 'string',
+            description: 'Part name',
+          },
+          quantity: {
+            type: 'number',
+            description: 'Quantity installed',
+          },
+          customerName: {
+            type: 'string',
+            description: 'Customer name',
+          },
+          equipmentName: {
+            type: 'string',
+            description: 'Equipment name',
+          },
+          supplierName: {
+            type: 'string',
+            description: 'Supplier name',
+          },
+          unitCost: {
+            type: 'number',
+            description: 'Cost per unit',
+          },
+          sellPrice: {
+            type: 'number',
+            description: 'Sell price per unit',
+          },
+        },
+        required: ['partNumber', 'name', 'quantity', 'customerName', 'equipmentName', 'supplierName'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'query_equipment_parts',
+      description: 'Get all parts installed on specific equipment',
+      parameters: {
+        type: 'object',
+        properties: {
+          customerName: {
+            type: 'string',
+            description: 'Customer name',
+          },
+          equipmentName: {
+            type: 'string',
+            description: 'Equipment name',
+          },
+        },
+        required: ['customerName', 'equipmentName'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'query_customer_parts',
+      description: 'Get all parts installed for a customer (across all equipment)',
+      parameters: {
+        type: 'object',
+        properties: {
+          customerName: {
+            type: 'string',
+            description: 'Customer name',
+          },
+        },
+        required: ['customerName'],
+      },
+    },
+  },
+  
+  // ===== JOBS =====
+  {
+    type: 'function' as const,
+    function: {
+      name: 'create_job',
+      description: 'Create a new work order/job',
+      parameters: {
+        type: 'object',
+        properties: {
+          customerName: {
+            type: 'string',
+            description: 'Customer name',
+          },
+          type: {
+            type: 'string',
+            enum: ['service', 'repair', 'installation', 'maintenance', 'quote', 'inspection'],
+            description: 'Job type',
+          },
+          priority: {
+            type: 'string',
+            enum: ['low', 'normal', 'high', 'emergency'],
+            description: 'Job priority',
+          },
+          equipmentName: {
+            type: 'string',
+            description: 'Equipment name (if job is for specific equipment)',
+          },
+          description: {
+            type: 'string',
+            description: 'Job description',
+          },
+          reportedFault: {
+            type: 'string',
+            description: 'Reported fault/issue',
+          },
+        },
+        required: ['customerName', 'type'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'schedule_job',
+      description: 'Schedule a job for a specific date/time',
+      parameters: {
+        type: 'object',
+        properties: {
+          jobNumber: {
+            type: 'string',
+            description: 'Job number',
+          },
+          scheduledDate: {
+            type: 'number',
+            description: 'Scheduled date (timestamp)',
+          },
+          assignedEngineerName: {
+            type: 'string',
+            description: 'Engineer name',
+          },
+        },
+        required: ['jobNumber', 'scheduledDate'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'start_job',
+      description: 'Mark a job as started/in progress',
+      parameters: {
+        type: 'object',
+        properties: {
+          jobNumber: {
+            type: 'string',
+            description: 'Job number',
+          },
+        },
+        required: ['jobNumber'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'complete_job',
+      description: 'Mark a job as completed with notes',
+      parameters: {
+        type: 'object',
+        properties: {
+          jobNumber: {
+            type: 'string',
+            description: 'Job number',
+          },
+          workCarriedOut: {
+            type: 'string',
+            description: 'Work carried out description',
+          },
+          findings: {
+            type: 'string',
+            description: 'Findings/observations',
+          },
+          recommendations: {
+            type: 'string',
+            description: 'Recommendations',
+          },
+        },
+        required: ['jobNumber', 'workCarriedOut'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'add_part_to_job',
+      description: 'Add a part usage record to a job',
+      parameters: {
+        type: 'object',
+        properties: {
+          jobNumber: {
+            type: 'string',
+            description: 'Job number',
+          },
+          partNumber: {
+            type: 'string',
+            description: 'Part number',
+          },
+          quantity: {
+            type: 'number',
+            description: 'Quantity used',
+          },
+          source: {
+            type: 'string',
+            enum: ['stock', 'direct_order', 'customer_supplied'],
+            description: 'Source of the part',
+          },
+        },
+        required: ['jobNumber', 'partNumber', 'quantity', 'source'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'list_jobs',
+      description: 'List jobs with optional filters',
+      parameters: {
+        type: 'object',
+        properties: {
+          customerName: {
+            type: 'string',
+            description: 'Filter by customer',
+          },
+          status: {
+            type: 'string',
+            enum: ['quote', 'scheduled', 'dispatched', 'in_progress', 'on_hold', 'completed', 'invoiced', 'cancelled'],
+            description: 'Filter by status',
+          },
+          assignedEngineerName: {
+            type: 'string',
+            description: 'Filter by assigned engineer',
+          },
+        },
+        required: [],
+      },
+    },
+  },
+  
+  // ===== SUPPLIERS & ORDERS =====
+  {
+    type: 'function' as const,
+    function: {
+      name: 'create_supplier',
+      description: 'Create a new supplier',
+      parameters: {
+        type: 'object',
+        properties: {
+          name: {
+            type: 'string',
+            description: 'Supplier name',
+          },
+          contactName: {
+            type: 'string',
+            description: 'Contact person name',
+          },
+          email: {
+            type: 'string',
+            description: 'Email address',
+          },
+          phone: {
+            type: 'string',
+            description: 'Phone number',
+          },
+          accountNumber: {
+            type: 'string',
+            description: 'Account number with supplier',
+          },
+        },
+        required: ['name'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'create_purchase_order',
+      description: 'Create a purchase order to a supplier',
+      parameters: {
+        type: 'object',
+        properties: {
+          supplierName: {
+            type: 'string',
+            description: 'Supplier name',
+          },
+          items: {
+            type: 'array',
+            description: 'Array of items to order',
+            items: {
+              type: 'object',
+              properties: {
+                partNumber: {
+                  type: 'string',
+                },
+                name: {
+                  type: 'string',
+                },
+                quantity: {
+                  type: 'number',
+                },
+                unitCost: {
+                  type: 'number',
+                },
+              },
+            },
+          },
+          jobNumber: {
+            type: 'string',
+            description: 'Related job number (if ordering for a specific job)',
+          },
+        },
+        required: ['supplierName', 'items'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'receive_purchase_order',
+      description: 'Mark a purchase order as received',
+      parameters: {
+        type: 'object',
+        properties: {
+          poNumber: {
+            type: 'string',
+            description: 'Purchase order number',
+          },
+        },
+        required: ['poNumber'],
       },
     },
   },
@@ -248,15 +1011,29 @@ async function tryParseCommand(
 ): Promise<ParseCommandResponse> {
   const contextStr = context ? `\n\nAdditional context: ${JSON.stringify(context)}` : '';
   
-  const systemPrompt = `You are an expert inventory management assistant. Parse natural language commands into structured function calls.
-  
+  const systemPrompt = `You are an expert Field Service & Inventory Management assistant. Parse natural language commands into structured function calls.
+
+This is a dual-purpose system:
+- CATALOGUE: All products you sell/use (whether stocked or not)
+- STOCK: Physical inventory at specific locations
+
+Key Concepts:
+- "Received 10 LMV37 into warehouse" → receive_stock (increases stock)
+- "Add new item cable 0.75mm..." → create_catalogue_item (creates catalogue entry)
+- "Find 0.75 cables" → search_catalogue (searches all products)
+- "What cables in stock?" → search_stock (only items with quantity > 0)
+- "Install LMV4 on ABC's boiler" → install_from_stock or install_direct_order
+- "I've got 5 LMV37 on rack12" → stock_count (verify/update quantity)
+- "Used 2 sensors on job 1234" → use_stock + add_part_to_job
+
 Guidelines:
-- Understand intent from natural language (e.g., "add 50 units" means adjust_stock with positive quantity)
+- Distinguish between catalogue operations (products) and stock operations (physical inventory)
+- For stock operations, location is critical
+- For installations, determine if from stock or direct order
+- Support customer equipment tracking and job management
 - Infer reasonable defaults when information is implied
-- Use function calling to structure the response
-- If critical information is missing, use query_inventory to indicate a clarification is needed
-- Be confident in your interpretation when the command is clear
-- Set confidence lower (<0.7) when information is ambiguous`;
+- Be confident when the command is clear
+- Set confidence lower (<0.7) when information is ambiguous or clarification needed`;
 
   const userPrompt = `Parse this inventory command: "${command}"${contextStr}`;
 
@@ -312,8 +1089,43 @@ Guidelines:
 
       // Map function names to action types
       const actionMap: Record<string, InventoryAction> = {
-        'adjust_stock': 'ADJUST_STOCK',
+        // Catalogue Management
+        'create_catalogue_item': 'CREATE_CATALOGUE_ITEM',
+        'update_catalogue_item': 'UPDATE_CATALOGUE_ITEM',
+        'search_catalogue': 'SEARCH_CATALOGUE',
+        // Stock Management
+        'receive_stock': 'RECEIVE_STOCK',
+        'put_away_stock': 'PUT_AWAY_STOCK',
+        'use_stock': 'USE_STOCK',
         'transfer_stock': 'TRANSFER_STOCK',
+        'stock_count': 'STOCK_COUNT',
+        'search_stock': 'SEARCH_STOCK',
+        'low_stock_report': 'LOW_STOCK_REPORT',
+        'set_min_stock': 'SET_MIN_STOCK',
+        // Customer & Equipment
+        'create_customer': 'CREATE_CUSTOMER',
+        'add_site_address': 'ADD_SITE_ADDRESS',
+        'create_equipment': 'CREATE_EQUIPMENT',
+        'update_equipment': 'UPDATE_EQUIPMENT',
+        'list_equipment': 'LIST_EQUIPMENT',
+        // Parts Installation
+        'install_from_stock': 'INSTALL_FROM_STOCK',
+        'install_direct_order': 'INSTALL_DIRECT_ORDER',
+        'query_equipment_parts': 'QUERY_EQUIPMENT_PARTS',
+        'query_customer_parts': 'QUERY_CUSTOMER_PARTS',
+        // Jobs
+        'create_job': 'CREATE_JOB',
+        'schedule_job': 'SCHEDULE_JOB',
+        'start_job': 'START_JOB',
+        'complete_job': 'COMPLETE_JOB',
+        'add_part_to_job': 'ADD_PART_TO_JOB',
+        'list_jobs': 'LIST_JOBS',
+        // Suppliers & Orders
+        'create_supplier': 'CREATE_SUPPLIER',
+        'create_purchase_order': 'CREATE_PURCHASE_ORDER',
+        'receive_purchase_order': 'RECEIVE_PURCHASE_ORDER',
+        // Legacy
+        'adjust_stock': 'ADJUST_STOCK',
         'create_product': 'CREATE_PRODUCT',
         'update_product': 'UPDATE_PRODUCT',
         'query_inventory': 'QUERY_INVENTORY',
