@@ -53,8 +53,8 @@ function tryLocalParse(command: string, aiParams: Record<string, unknown>): { ac
   // Pattern: "Add new item [name] cost [price] markup [%]"
   // Examples: 
   // - "Add new item Siemens LMV37.100 burner controller cost 450 markup 40%"
-  // - "Add new item cable 0.75mm trirated 100m roll black cost 25 markup 35%"
-  const addItemMatch = lower.match(/^(?:add\s+new\s+item|add\s+to\s+catalogue|create\s+product|new\s+part)\s+(.+?)(?:\s+cost\s+(\d+(?:\.\d+)?))(?:\s+markup\s+(\d+(?:\.\d+)?))?/i)
+  // - "Add new item cable 0.75mm tri-rated 100m roll black cost 25 markup 35%"
+  const addItemMatch = lower.match(/^(?:add\s+new\s+item|add\s+to\s+catalogue|create\s+product|new\s+part)\s+(.+?)\s+cost\s+(\d+(?:\.\d+)?)(?:\s+markup\s+(\d+(?:\.\d+)?))?/i)
   if (addItemMatch) {
     const name = addItemMatch[1].trim()
     const cost = parseFloat(addItemMatch[2])
@@ -63,7 +63,9 @@ function tryLocalParse(command: string, aiParams: Record<string, unknown>): { ac
     return {
       action: 'CREATE_CATALOGUE_ITEM',
       parameters: {
-        partNumber: name.split(/\s+/)[0], // Use first word as part number
+        // Use the full name as part number - the backend will handle it
+        // In a real system, you'd extract this more intelligently
+        partNumber: name.split(/\s+/)[0] || name, 
         name: name,
         unitCost: cost,
         markup: markup,
