@@ -8,18 +8,41 @@ import { CommandResponse, AIClarification } from '@/components/CommandResponse'
 import { InventoryTable } from '@/components/InventoryView'
 import { JobsView } from '@/components/JobsView'
 import { CommandHistory } from '@/components/CommandHistory'
+import { EquipmentView } from '@/components/EquipmentView'
+import { SuppliersView } from '@/components/SuppliersView'
 import { interpretCommand } from '@/lib/ai-commands'
 import { executeCommand } from '@/lib/command-executor'
 import { generateId } from '@/lib/ai-commands'
-import type { InventoryItem, Location, Customer, Job, CommandLog } from '@/lib/types'
-import { Package, FileText, ClockCounterClockwise, Sparkle } from '@phosphor-icons/react'
+import type { 
+  InventoryItem, 
+  Location, 
+  Customer, 
+  Job, 
+  CommandLog,
+  CatalogueItem,
+  StockLevel,
+  Supplier,
+  Equipment,
+  InstalledPart,
+  PurchaseOrder
+} from '@/lib/types'
+import { Package, FileText, ClockCounterClockwise, Sparkle, Gear, User } from '@phosphor-icons/react'
 
 export function Dashboard() {
+  // Legacy state
   const [inventory, setInventory] = useKV<InventoryItem[]>('inventory', [])
   const [locations, setLocations] = useKV<Location[]>('locations', [])
   const [customers, setCustomers] = useKV<Customer[]>('customers', [])
   const [jobs, setJobs] = useKV<Job[]>('jobs', [])
   const [commandLogs, setCommandLogs] = useKV<CommandLog[]>('command-logs', [])
+  
+  // New comprehensive state
+  const [catalogue, setCatalogue] = useKV<CatalogueItem[]>('catalogue', [])
+  const [stockLevels, setStockLevels] = useKV<StockLevel[]>('stock-levels', [])
+  const [suppliers, setSuppliers] = useKV<Supplier[]>('suppliers', [])
+  const [equipment, setEquipment] = useKV<Equipment[]>('equipment', [])
+  const [installedParts, setInstalledParts] = useKV<InstalledPart[]>('installed-parts', [])
+  const [purchaseOrders, setPurchaseOrders] = useKV<PurchaseOrder[]>('purchase-orders', [])
 
   const [isProcessing, setIsProcessing] = useState(false)
   const [latestResponse, setLatestResponse] = useState<CommandLog | null>(null)
@@ -55,7 +78,20 @@ export function Dashboard() {
         customers || [],
         setCustomers,
         jobs || [],
-        setJobs
+        setJobs,
+        // New state
+        catalogue || [],
+        setCatalogue,
+        stockLevels || [],
+        setStockLevels,
+        suppliers || [],
+        setSuppliers,
+        equipment || [],
+        setEquipment,
+        installedParts || [],
+        setInstalledParts,
+        purchaseOrders || [],
+        setPurchaseOrders
       )
 
       const log: CommandLog = {
@@ -99,6 +135,8 @@ export function Dashboard() {
   const jobsArray = jobs || []
   const customersArray = customers || []
   const commandLogsArray = commandLogs || []
+  const equipmentArray = equipment || []
+  const suppliersArray = suppliers || []
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -110,10 +148,10 @@ export function Dashboard() {
             </div>
             <div>
               <h1 className="text-3xl font-bold tracking-tight">
-                AI Stock Manager
+                Field Service Manager
               </h1>
               <p className="text-muted-foreground">
-                Natural language inventory control
+                AI-powered inventory & equipment tracking
               </p>
             </div>
           </div>
@@ -141,10 +179,18 @@ export function Dashboard() {
         <Separator className="my-8" />
 
         <Tabs defaultValue="inventory" className="w-full">
-          <TabsList className="grid w-full max-w-md grid-cols-3 mb-6">
+          <TabsList className="grid w-full max-w-3xl grid-cols-5 mb-6">
             <TabsTrigger value="inventory" className="gap-2">
               <Package size={16} />
               Inventory
+            </TabsTrigger>
+            <TabsTrigger value="equipment" className="gap-2">
+              <Gear size={16} />
+              Equipment
+            </TabsTrigger>
+            <TabsTrigger value="suppliers" className="gap-2">
+              <User size={16} />
+              Suppliers
             </TabsTrigger>
             <TabsTrigger value="jobs" className="gap-2">
               <FileText size={16} />
@@ -166,9 +212,29 @@ export function Dashboard() {
             <InventoryTable items={inventoryArray} />
           </TabsContent>
 
+          <TabsContent value="equipment">
+            <div className="mb-4">
+              <h2 className="text-xl font-bold mb-1">Customer Equipment</h2>
+              <p className="text-sm text-muted-foreground">
+                {equipmentArray.length} equipment items for {customersArray.length} customers
+              </p>
+            </div>
+            <EquipmentView equipment={equipmentArray} />
+          </TabsContent>
+
+          <TabsContent value="suppliers">
+            <div className="mb-4">
+              <h2 className="text-xl font-bold mb-1">Suppliers</h2>
+              <p className="text-sm text-muted-foreground">
+                {suppliersArray.length} suppliers registered
+              </p>
+            </div>
+            <SuppliersView suppliers={suppliersArray} />
+          </TabsContent>
+
           <TabsContent value="jobs">
             <div className="mb-4">
-              <h2 className="text-xl font-bold mb-1">Jobs & Parts Lists</h2>
+              <h2 className="text-xl font-bold mb-1">Work Orders</h2>
               <p className="text-sm text-muted-foreground">
                 {jobsArray.length} jobs for {customersArray.length} customers
               </p>

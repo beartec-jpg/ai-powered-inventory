@@ -9,10 +9,15 @@ interface JobCardProps {
 }
 
 export function JobCard({ job }: JobCardProps) {
-  const statusColors = {
-    active: 'bg-accent/20 text-accent border-accent/50',
+  const statusColors: Record<string, string> = {
+    quote: 'bg-slate-500/20 text-slate-400 border-slate-500/50',
+    scheduled: 'bg-blue-500/20 text-blue-400 border-blue-500/50',
+    dispatched: 'bg-purple-500/20 text-purple-400 border-purple-500/50',
+    in_progress: 'bg-accent/20 text-accent border-accent/50',
+    on_hold: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50',
     completed: 'bg-green-500/20 text-green-400 border-green-500/50',
-    cancelled: 'bg-destructive/20 text-destructive border-destructive/50'
+    invoiced: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50',
+    cancelled: 'bg-destructive/20 text-destructive border-destructive/50',
   }
 
   return (
@@ -32,30 +37,41 @@ export function JobCard({ job }: JobCardProps) {
                 Job #{job.jobNumber}
               </h3>
               <p className="text-sm text-muted-foreground">{job.customerName}</p>
+              {job.equipmentName && (
+                <p className="text-xs text-muted-foreground">Equipment: {job.equipmentName}</p>
+              )}
             </div>
           </div>
-          <Badge className={statusColors[job.status]}>
-            {job.status}
+          <Badge className={statusColors[job.status] || statusColors.quote}>
+            {job.status.replace('_', ' ')}
           </Badge>
         </div>
 
+        {job.description && (
+          <p className="text-sm text-muted-foreground mb-2">{job.description}</p>
+        )}
+
         <div className="mt-4 pt-3 border-t border-border">
           <div className="text-xs text-muted-foreground mb-2 uppercase tracking-wider">
-            Parts List ({job.partsList.length} items)
+            Parts Used ({job.partsUsed.length} items)
           </div>
-          <div className="space-y-1">
-            {job.partsList.slice(0, 3).map((part, idx) => (
-              <div key={idx} className="flex justify-between items-center text-sm">
-                <span className="font-mono">{part.partNumber}</span>
-                <span className="text-muted-foreground">×{part.quantity}</span>
-              </div>
-            ))}
-            {job.partsList.length > 3 && (
-              <div className="text-xs text-muted-foreground italic">
-                +{job.partsList.length - 3} more items
-              </div>
-            )}
-          </div>
+          {job.partsUsed.length > 0 ? (
+            <div className="space-y-1">
+              {job.partsUsed.slice(0, 3).map((part) => (
+                <div key={part.id} className="flex justify-between items-center text-sm">
+                  <span className="font-mono">{part.partNumber}</span>
+                  <span className="text-muted-foreground">×{part.quantity}</span>
+                </div>
+              ))}
+              {job.partsUsed.length > 3 && (
+                <div className="text-xs text-muted-foreground italic">
+                  +{job.partsUsed.length - 3} more items
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="text-xs text-muted-foreground italic">No parts recorded yet</div>
+          )}
           <div className="text-xs text-muted-foreground mt-3">
             Created {new Date(job.createdAt).toLocaleDateString()}
           </div>
@@ -75,7 +91,7 @@ export function JobsView({ jobs }: JobsViewProps) {
       <div className="text-center py-12 text-muted-foreground">
         <FileText size={48} className="mx-auto mb-4 opacity-50" />
         <p>No jobs created yet</p>
-        <p className="text-sm mt-2">Try: "create parts list for job 1234 with 10x bolt-m8, 5x washer for customer Acme Corp"</p>
+        <p className="text-sm mt-2">Try: "create job for ABC Manufacturing boiler service"</p>
       </div>
     )
   }
