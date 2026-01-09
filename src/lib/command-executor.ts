@@ -46,11 +46,18 @@ interface StateSetters {
 /**
  * Local fallback parser for common command patterns
  * Used when AI returns QUERY_INVENTORY but command matches known patterns
+ * 
+ * LIMITATIONS:
+ * - Part number extraction uses first word from name, which may not be ideal
+ *   for complex product names like "Siemens LMV37.100 burner controller"
+ * - The AI or backend should provide better part numbers when possible
+ * - This is a safety fallback, not the primary parsing mechanism
  */
 function tryLocalParse(command: string, aiParams: Record<string, unknown>): { action: string; parameters: Record<string, unknown> } | null {
   const lower = command.toLowerCase().trim()
   
   // Pattern: "Add new item [name] cost [price] markup [%]"
+  // Matches: add/create + item/product + name + cost + optional markup
   // Examples: 
   // - "Add new item Siemens LMV37.100 burner controller cost 450 markup 40%"
   // - "Add new item cable 0.75mm tri-rated 100m roll black cost 25 markup 35%"
