@@ -82,7 +82,7 @@ const inventoryTools = [
     type: 'function' as const,
     function: {
       name: 'create_catalogue_item',
-      description: 'Add a new product to the catalogue (not necessarily in stock). Use this for products you sell/use whether you stock them or not.',
+      description: 'Add a new product to the catalogue. USE THIS when user says "Add new item", "Add to catalogue", "Create product", or provides product details with cost/pricing info. This creates a catalogue entry (not necessarily in stock).',
       parameters: {
         type: 'object',
         properties: {
@@ -1017,9 +1017,22 @@ This is a dual-purpose system:
 - CATALOGUE: All products you sell/use (whether stocked or not)
 - STOCK: Physical inventory at specific locations
 
+CRITICAL COMMAND PATTERNS - RECOGNIZE THESE FIRST:
+1. "Add new item [name] cost [price] markup [%]" → create_catalogue_item
+2. "Add [name] to catalogue" → create_catalogue_item
+3. "Create product [name] cost [price]" → create_catalogue_item
+4. "New part [name] cost [price] markup [%]" → create_catalogue_item
+5. "Received [qty] [item] into [location]" → receive_stock
+6. "I've got [qty] [item] at [location]" → stock_count
+7. "Find [item]" or "Search [item]" → search_catalogue
+8. "What [items] in stock" → search_stock
+9. "Install [item] on [equipment]" → install_from_stock or install_direct_order
+10. "Used [qty] [item] from [location]" → use_stock
+
 Key Concepts:
 - "Received 10 LMV37 into warehouse" → receive_stock (increases stock)
-- "Add new item cable 0.75mm..." → create_catalogue_item (creates catalogue entry)
+- "Add new item cable 0.75mm cost 25 markup 35%" → create_catalogue_item (creates catalogue entry)
+- "Add Siemens LMV37.100 burner controller cost 450 markup 40%" → create_catalogue_item
 - "Find 0.75 cables" → search_catalogue (searches all products)
 - "What cables in stock?" → search_stock (only items with quantity > 0)
 - "Install LMV4 on ABC's boiler" → install_from_stock or install_direct_order
@@ -1027,13 +1040,15 @@ Key Concepts:
 - "Used 2 sensors on job 1234" → use_stock + add_part_to_job
 
 Guidelines:
+- ALWAYS use create_catalogue_item when user says "Add new item", "Add to catalogue", "Create product", or "New part" with pricing info
 - Distinguish between catalogue operations (products) and stock operations (physical inventory)
 - For stock operations, location is critical
 - For installations, determine if from stock or direct order
 - Support customer equipment tracking and job management
 - Infer reasonable defaults when information is implied
 - Be confident when the command is clear
-- Set confidence lower (<0.7) when information is ambiguous or clarification needed`;
+- Set confidence lower (<0.7) when information is ambiguous or clarification needed
+- Do NOT default to QUERY_INVENTORY unless the command is truly ambiguous`;
 
   const userPrompt = `Parse this inventory command: "${command}"${contextStr}`;
 
@@ -1237,17 +1252,19 @@ export default async function handler(
     let latency: number;
     let model: string;
 
+    console.log(`[AI Command] Parsing: "${command}"`);
+
     try {
       result = await tryParseCommand(command, context, 'grok-3-mini', GROK_3_MINI_TIMEOUT);
       latency = Date.now() - startTime;
       model = 'grok-3-mini';
       
-      console.log(`grok-3-mini parsed command with confidence: ${result.confidence}`);
+      console.log(`[AI Command] grok-3-mini result: action=${result.action}, confidence=${result.confidence}`);
     } catch (primaryError) {
       console.error('grok-3-mini failed:', primaryError);
       
       // Fallback to grok-3 (powerful reasoning, slower)
-      console.log('Falling back to grok-3...');
+      console.log('[AI Command] Falling back to grok-3...');
       const fallbackStartTime = Date.now();
       
       try {
@@ -1255,7 +1272,7 @@ export default async function handler(
         latency = Date.now() - fallbackStartTime;
         model = 'grok-3';
         
-        console.log(`grok-3 parsed command with confidence: ${result.confidence}`);
+        console.log(`[AI Command] grok-3 result: action=${result.action}, confidence=${result.confidence}`);
       } catch (fallbackError) {
         console.error('grok-3 also failed:', fallbackError);
         throw new Error('Both primary and fallback models failed to parse command');
@@ -1265,7 +1282,7 @@ export default async function handler(
     // If confidence is low from grok-3-mini, try grok-3 for better reasoning
     if (model === 'grok-3-mini' && result.confidence < LOW_CONFIDENCE_THRESHOLD) {
       console.log(
-        `Low confidence (${result.confidence}) from grok-3-mini, trying grok-3 for better reasoning...`
+        `[AI Command] Low confidence (${result.confidence}) from grok-3-mini, trying grok-3 for better reasoning...`
       );
       
       const fallbackStartTime = Date.now();
@@ -1278,7 +1295,7 @@ export default async function handler(
           result = fallbackResult;
           latency = fallbackLatency;
           model = 'grok-3';
-          console.log(`grok-3 provided better confidence: ${result.confidence}`);
+          console.log(`[AI Command] grok-3 provided better confidence: ${result.confidence}`);
         }
       } catch (fallbackError) {
         console.error('Fallback to grok-3 failed:', fallbackError);
