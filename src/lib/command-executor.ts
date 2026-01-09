@@ -134,11 +134,12 @@ function tryLocalParse(command: string, aiParams: Record<string, unknown>): { ac
     const location = addItemToLocationMatch[2].trim()
     
     // Extract supplier if present ("bought from X" or "from X")
-    const supplierMatch = itemDetails.match(/(?:bought\s+from|from)\s+(\w+)/i)
-    const supplier = supplierMatch ? supplierMatch[1] : undefined
+    // Note: Matches multi-word supplier names (e.g., "Acme Corp", "ABC Industries")
+    const supplierMatch = itemDetails.match(/(?:bought\s+from|from)\s+([A-Za-z0-9\s&]+?)(?:\s*,|\s+add\s+to\s+|$)/i)
+    const supplier = supplierMatch ? supplierMatch[1].trim() : undefined
     
     // Remove supplier text from item name
-    const itemName = itemDetails.replace(/(?:bought\s+from|from)\s+\w+/i, '').trim()
+    const itemName = itemDetails.replace(/(?:bought\s+from|from)\s+[A-Za-z0-9\s&]+?(?:\s*,|\s+add\s+to\s+|$)/i, '').trim()
     
     // Try to extract part number (alphanumeric sequences)
     const partNumberMatch = itemName.match(/\b([A-Z0-9]+-?[A-Z0-9]+|\d{4,})\b/i)
@@ -159,9 +160,11 @@ function tryLocalParse(command: string, aiParams: Record<string, unknown>): { ac
   
   // Pattern: "Add [item] bought from [supplier]"
   // Matches: add item with supplier mention
-  // Examples: "Add widget-123 bought from Acme"
+  // Examples: "Add widget-123 bought from Acme Corp", "Add bolts from ABC Industries"
+  // Note: Supports multi-word supplier names
+  // Item name is non-greedy but stops before "from" keyword
   const addWithSupplierMatch = lower.match(
-    /^add\s+(.+?)\s+(?:bought\s+from|from\s+supplier?)\s+(\w+)/i
+    /^add\s+([A-Za-z0-9\s\-_]+?)\s+(?:bought\s+)?from(?:\s+supplier)?\s+(.+?)(?:\s+to\s+|\s*$)/i
   )
   if (addWithSupplierMatch) {
     const itemDetails = addWithSupplierMatch[1].trim()
