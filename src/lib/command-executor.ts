@@ -54,22 +54,25 @@ function tryLocalParse(command: string, aiParams: Record<string, unknown>): { ac
   // Examples: 
   // - "Add new item Siemens LMV37.100 burner controller cost 450 markup 40%"
   // - "Add new item cable 0.75mm tri-rated 100m roll black cost 25 markup 35%"
-  const addItemMatch = lower.match(/^(?:add\s+new\s+item|add\s+to\s+catalogue|create\s+product|new\s+part)\s+(.+?)\s+cost\s+(\d+(?:\.\d+)?)(?:\s+markup\s+(\d+(?:\.\d+)?))?/i)
+  // Note: Markup percentage (%) symbol is optional in the pattern
+  const addItemMatch = lower.match(/^(?:add\s+new\s+item|add\s+to\s+catalogue|create\s+product|new\s+part)\s+(.+?)\s+cost\s+(\d+(?:\.\d+)?)(?:\s+markup\s+(\d+(?:\.\d+)?)%?)?/i)
   if (addItemMatch) {
     const name = addItemMatch[1].trim()
     const cost = parseFloat(addItemMatch[2])
+    // Markup is always treated as a percentage (e.g., 40 means 40%)
     const markup = addItemMatch[3] ? parseFloat(addItemMatch[3]) : undefined
     
     return {
       action: 'CREATE_CATALOGUE_ITEM',
       parameters: {
-        // Use the full name as part number - the backend will handle it
-        // In a real system, you'd extract this more intelligently
+        // Use the first meaningful token as part number (usually a model/part code)
+        // For "Siemens LMV37.100 burner controller", this would give "Siemens"
+        // The AI or backend can provide a better part number in aiParams
         partNumber: name.split(/\s+/)[0] || name, 
         name: name,
         unitCost: cost,
         markup: markup,
-        ...aiParams // Include any additional params from AI
+        ...aiParams // Include any additional params from AI (which may override partNumber)
       }
     }
   }
@@ -171,6 +174,7 @@ export async function executeCommand(
     const fallbackResult = tryLocalParse(originalCommand, parameters)
     if (fallbackResult) {
       console.log(`[Command Executor] Local parser matched: ${fallbackResult.action}`)
+      // Recursively call without originalCommand to prevent infinite loop
       return await executeCommand(
         fallbackResult.action,
         fallbackResult.parameters,
@@ -194,6 +198,7 @@ export async function executeCommand(
         setInstalledParts,
         purchaseOrders,
         setPurchaseOrders
+        // No originalCommand passed to prevent fallback logic from triggering again
       )
     }
   }
