@@ -204,10 +204,14 @@ User Command → AI Parse → Action Plan → Part Matching → Clarification (i
 
 1. **Fuzzy String Matching**:
    ```typescript
+   // Using Levenshtein distance for fuzzy matching
+   // Consider using libraries like: fuzzysort, fuse.js, or string-similarity
+   import { distance as levenshteinDistance } from 'fastest-levenshtein'
+   
    function fuzzyMatch(input: string, target: string, threshold: number = 0.8): boolean {
-     const distance = levenshteinDistance(input.toLowerCase(), target.toLowerCase())
+     const dist = levenshteinDistance(input.toLowerCase(), target.toLowerCase())
      const maxLength = Math.max(input.length, target.length)
-     const similarity = 1 - (distance / maxLength)
+     const similarity = 1 - (dist / maxLength)
      return similarity >= threshold
    }
    ```

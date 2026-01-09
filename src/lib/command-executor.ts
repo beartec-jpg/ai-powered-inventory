@@ -48,8 +48,11 @@ interface StateSetters {
  * Used when AI returns QUERY_INVENTORY but command matches known patterns
  * 
  * LIMITATIONS:
- * - Part number extraction uses first word from name, which may not be ideal
- *   for complex product names like "Siemens LMV37.100 burner controller"
+ * - Part number extraction is inconsistent across patterns:
+ *   * Some use regex matching for alphanumeric sequences
+ *   * Others use simple word splitting (first word)
+ *   * TODO: Create dedicated utility function for consistent extraction
+ * - Complex product names like "Siemens LMV37.100 burner controller" may not extract ideal part numbers
  * - The AI or backend should provide better part numbers when possible
  * - This is a safety fallback, not the primary parsing mechanism
  */
