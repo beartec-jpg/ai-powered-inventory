@@ -91,7 +91,8 @@ export function Dashboard() {
         installedParts || [],
         setInstalledParts,
         purchaseOrders || [],
-        setPurchaseOrders
+        setPurchaseOrders,
+        command // Pass original command for fallback parsing
       )
 
       const log: CommandLog = {

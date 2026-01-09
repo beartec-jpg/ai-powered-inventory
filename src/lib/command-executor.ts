@@ -43,6 +43,74 @@ interface StateSetters {
   setPurchaseOrders: (updater: (current: PurchaseOrder[]) => PurchaseOrder[]) => void
 }
 
+/**
+ * Local fallback parser for common command patterns
+ * Used when AI returns QUERY_INVENTORY but command matches known patterns
+ */
+function tryLocalParse(command: string, aiParams: Record<string, unknown>): { action: string; parameters: Record<string, unknown> } | null {
+  const lower = command.toLowerCase().trim()
+  
+  // Pattern: "Add new item [name] cost [price] markup [%]"
+  // Examples: 
+  // - "Add new item Siemens LMV37.100 burner controller cost 450 markup 40%"
+  // - "Add new item cable 0.75mm trirated 100m roll black cost 25 markup 35%"
+  const addItemMatch = lower.match(/^(?:add\s+new\s+item|add\s+to\s+catalogue|create\s+product|new\s+part)\s+(.+?)(?:\s+cost\s+(\d+(?:\.\d+)?))(?:\s+markup\s+(\d+(?:\.\d+)?))?/i)
+  if (addItemMatch) {
+    const name = addItemMatch[1].trim()
+    const cost = parseFloat(addItemMatch[2])
+    const markup = addItemMatch[3] ? parseFloat(addItemMatch[3]) : undefined
+    
+    return {
+      action: 'CREATE_CATALOGUE_ITEM',
+      parameters: {
+        partNumber: name.split(/\s+/)[0], // Use first word as part number
+        name: name,
+        unitCost: cost,
+        markup: markup,
+        ...aiParams // Include any additional params from AI
+      }
+    }
+  }
+  
+  // Pattern: "Received [qty] [item] into [location]"
+  const receivedMatch = lower.match(/^received\s+(\d+)\s+(.+?)\s+(?:into|at|to)\s+(.+)$/i)
+  if (receivedMatch) {
+    const quantity = parseInt(receivedMatch[1])
+    const item = receivedMatch[2].trim()
+    const location = receivedMatch[3].trim()
+    
+    return {
+      action: 'RECEIVE_STOCK',
+      parameters: {
+        partNumber: item,
+        quantity: quantity,
+        location: location,
+        ...aiParams
+      }
+    }
+  }
+  
+  // Pattern: "I've got [qty] [item] at/on [location]"
+  const stockCountMatch = lower.match(/^(?:i(?:'ve|\s+have)\s+got|there(?:'s|\s+are))\s+(\d+)\s+(.+?)\s+(?:at|on|in)\s+(.+)$/i)
+  if (stockCountMatch) {
+    const quantity = parseInt(stockCountMatch[1])
+    const item = stockCountMatch[2].trim()
+    const location = stockCountMatch[3].trim()
+    
+    return {
+      action: 'STOCK_COUNT',
+      parameters: {
+        partNumber: item,
+        location: location,
+        countedQuantity: quantity,
+        ...aiParams
+      }
+    }
+  }
+  
+  return null
+}
+
 export async function executeCommand(
   action: string,
   parameters: Record<string, unknown>,
@@ -66,7 +134,8 @@ export async function executeCommand(
   installedParts?: InstalledPart[],
   setInstalledParts?: (updater: (current: InstalledPart[]) => InstalledPart[]) => void,
   purchaseOrders?: PurchaseOrder[],
-  setPurchaseOrders?: (updater: (current: PurchaseOrder[]) => PurchaseOrder[]) => void
+  setPurchaseOrders?: (updater: (current: PurchaseOrder[]) => PurchaseOrder[]) => void,
+  originalCommand?: string
 ): Promise<ExecutionResult> {
   
   const state: StateSetters = {
@@ -93,6 +162,39 @@ export async function executeCommand(
   }
   
   const actionLower = action.toLowerCase()
+  
+  // If AI returned QUERY_INVENTORY, try local fallback parser
+  if (actionLower === 'query_inventory' && originalCommand) {
+    console.log(`[Command Executor] Attempting local fallback parsing for: "${originalCommand}"`)
+    const fallbackResult = tryLocalParse(originalCommand, parameters)
+    if (fallbackResult) {
+      console.log(`[Command Executor] Local parser matched: ${fallbackResult.action}`)
+      return await executeCommand(
+        fallbackResult.action,
+        fallbackResult.parameters,
+        inventory,
+        setInventory,
+        locations,
+        setLocations,
+        customers,
+        setCustomers,
+        jobs,
+        setJobs,
+        catalogue,
+        setCatalogue,
+        stockLevels,
+        setStockLevels,
+        suppliers,
+        setSuppliers,
+        equipment,
+        setEquipment,
+        installedParts,
+        setInstalledParts,
+        purchaseOrders,
+        setPurchaseOrders
+      )
+    }
+  }
   
   // Catalogue Management
   if (actionLower === 'create_catalogue_item') return createCatalogueItem(parameters, state)
