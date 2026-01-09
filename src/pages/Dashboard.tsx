@@ -11,15 +11,36 @@ import { CommandHistory } from '@/components/CommandHistory'
 import { interpretCommand } from '@/lib/ai-commands'
 import { executeCommand } from '@/lib/command-executor'
 import { generateId } from '@/lib/ai-commands'
-import type { InventoryItem, Location, Customer, Job, CommandLog } from '@/lib/types'
+import type { 
+  InventoryItem, 
+  Location, 
+  Customer, 
+  Job, 
+  CommandLog,
+  CatalogueItem,
+  StockLevel,
+  Supplier,
+  Equipment,
+  InstalledPart,
+  PurchaseOrder
+} from '@/lib/types'
 import { Package, FileText, ClockCounterClockwise, Sparkle } from '@phosphor-icons/react'
 
 export function Dashboard() {
+  // Legacy state
   const [inventory, setInventory] = useKV<InventoryItem[]>('inventory', [])
   const [locations, setLocations] = useKV<Location[]>('locations', [])
   const [customers, setCustomers] = useKV<Customer[]>('customers', [])
   const [jobs, setJobs] = useKV<Job[]>('jobs', [])
   const [commandLogs, setCommandLogs] = useKV<CommandLog[]>('command-logs', [])
+  
+  // New comprehensive state
+  const [catalogue, setCatalogue] = useKV<CatalogueItem[]>('catalogue', [])
+  const [stockLevels, setStockLevels] = useKV<StockLevel[]>('stock-levels', [])
+  const [suppliers, setSuppliers] = useKV<Supplier[]>('suppliers', [])
+  const [equipment, setEquipment] = useKV<Equipment[]>('equipment', [])
+  const [installedParts, setInstalledParts] = useKV<InstalledPart[]>('installed-parts', [])
+  const [purchaseOrders, setPurchaseOrders] = useKV<PurchaseOrder[]>('purchase-orders', [])
 
   const [isProcessing, setIsProcessing] = useState(false)
   const [latestResponse, setLatestResponse] = useState<CommandLog | null>(null)
@@ -55,7 +76,20 @@ export function Dashboard() {
         customers || [],
         setCustomers,
         jobs || [],
-        setJobs
+        setJobs,
+        // New state
+        catalogue || [],
+        setCatalogue,
+        stockLevels || [],
+        setStockLevels,
+        suppliers || [],
+        setSuppliers,
+        equipment || [],
+        setEquipment,
+        installedParts || [],
+        setInstalledParts,
+        purchaseOrders || [],
+        setPurchaseOrders
       )
 
       const log: CommandLog = {
