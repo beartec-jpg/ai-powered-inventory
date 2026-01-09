@@ -28,6 +28,97 @@ An intelligent stock management system that uses natural language processing to 
 - **Role-Based Access**: Admin, Manager, Staff, and Viewer roles
 - **Audit Trail**: Complete activity logging
 
+## 🏗️ System Architecture
+
+### High-Level Overview
+
+```
+┌─────────────┐      ┌──────────────┐      ┌─────────────┐
+│   User      │─────▶│  React UI    │─────▶│  Vercel     │
+│  (Browser)  │◀─────│  (Frontend)  │◀─────│  Functions  │
+└─────────────┘      └──────────────┘      └──────┬──────┘
+                                                   │
+                     ┌─────────────────────────────┼─────────────────┐
+                     │                             │                 │
+                     ▼                             ▼                 ▼
+              ┌──────────────┐            ┌──────────────┐   ┌──────────────┐
+              │  xAI Grok    │            │  Neon        │   │  Business    │
+              │  (AI Parse)  │            │  PostgreSQL  │   │  Logic       │
+              └──────────────┘            └──────────────┘   └──────────────┘
+```
+
+### AI Integration Flow
+
+The system uses **xAI Grok** for natural language command processing:
+
+1. **User Input**: User enters a command in natural language
+   - Example: *"Add 50 bolts to warehouse A"*
+   - Example: *"Show me all low stock items"*
+   - Example: *"Create a job for customer Acme Inc"*
+
+2. **AI Parsing**: Command sent to xAI Grok API
+   - Extracts action type (e.g., `RECEIVE_STOCK`, `LOW_STOCK_REPORT`)
+   - Extracts parameters (e.g., `partNumber`, `quantity`, `location`)
+   - Returns confidence score
+
+3. **Fallback Parser**: If AI can't parse or returns low confidence
+   - Local regex-based pattern matching
+   - Handles common command structures
+   - Example patterns: "Add item X to location Y", "Move X from Y to Z"
+
+4. **Execution**: Command executor routes to appropriate handler
+   - Validates parameters
+   - Updates database/state
+   - Returns success or error message
+
+5. **Response**: User sees confirmation or error message
+
+### Command Flow Diagram
+
+```
+User Command
+     │
+     ▼
+┌─────────────────┐
+│  AI Parse       │──── xAI Grok API
+│  (Primary)      │
+└────────┬────────┘
+         │
+    ┌────▼─────┐
+    │ Success? │
+    └────┬─────┘
+         │ No
+         ▼
+┌─────────────────┐
+│  Local Parse    │──── Regex Patterns
+│  (Fallback)     │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│  Route Action   │──── Action Type → Handler
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│  Execute        │──── Update State/DB
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│  Return Result  │──── Success/Error Message
+└─────────────────┘
+```
+
+For detailed information about the AI system, see [docs/AI_ARCHITECTURE.md](docs/AI_ARCHITECTURE.md).
+
+## 📚 Documentation
+
+- **[Development Roadmap](docs/DEVELOPMENT_ROADMAP.md)** - Phased implementation plan with testing checkpoints
+- **[AI Architecture](docs/AI_ARCHITECTURE.md)** - Detailed AI system documentation, action types, and how to add new actions
+- **[Field Service System](FIELD_SERVICE_SYSTEM.md)** - Field service and job management features
+- **[Phase 2 Summary](PHASE2_SUMMARY.md)** - Recent enhancements and changes
+
 ## 📦 Project Structure
 
 ```
@@ -48,6 +139,16 @@ ai-powered-inventory/
 │       ├── services.ts        # Business logic
 │       └── utils.ts           # Utility functions
 ├── src/                  # React frontend
+│   ├── lib/
+│   │   ├── command-executor.ts  # Command execution logic
+│   │   ├── ai-commands.ts       # AI helper functions
+│   │   └── types.ts             # TypeScript type definitions
+│   ├── components/       # React components
+│   ├── pages/            # Application pages
+│   └── ...
+├── docs/                 # Documentation
+│   ├── DEVELOPMENT_ROADMAP.md  # Implementation phases
+│   └── AI_ARCHITECTURE.md      # AI system documentation
 ├── vercel.json           # Vercel deployment config
 └── package.json          # Single package.json
 ```
@@ -92,16 +193,36 @@ Create a `.env` file in the root directory:
 DATABASE_URL=postgresql://...          # Neon PostgreSQL connection string
 
 # xAI API Configuration
-XAI_API_KEY=your-xai-api-key-here
-XAI_MODEL=grok-beta
-XAI_ENDPOINT=https://api.x.ai/v1
+XAI_API_KEY=your-xai-api-key-here     # Get from https://x.ai/
+XAI_MODEL=grok-beta                    # AI model to use
+XAI_ENDPOINT=https://api.x.ai/v1      # xAI API endpoint
 
 # CORS Configuration
-CORS_ORIGIN=http://localhost:5173
+CORS_ORIGIN=http://localhost:5173      # Frontend URL for CORS
 
 # Environment
-NODE_ENV=development
+NODE_ENV=development                   # development | production
 ```
+
+### Getting Your xAI API Key
+
+1. Visit [https://x.ai/](https://x.ai/) and sign up for an account
+2. Navigate to the API section in your account dashboard
+3. Generate a new API key
+4. Copy the key and add it to your `.env` file as `XAI_API_KEY`
+
+**Note**: Keep your API key secure and never commit it to version control. The `.gitignore` file is configured to exclude `.env` files.
+
+### Setting Up Neon PostgreSQL
+
+1. Visit [https://neon.tech/](https://neon.tech/) and create a free account
+2. Create a new project
+3. Copy the connection string from the project dashboard
+4. Add it to your `.env` file as `DATABASE_URL`
+5. Run database migrations (if applicable):
+   ```bash
+   npm run db:migrate
+   ```
 
 ## 📊 Database Schema
 
