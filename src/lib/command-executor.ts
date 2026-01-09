@@ -1,10 +1,46 @@
-import type { InventoryItem, Location, Customer, Job, CommandLog } from './types'
+import type { 
+  InventoryItem, 
+  Location, 
+  Customer, 
+  Job, 
+  CommandLog,
+  CatalogueItem,
+  StockLevel,
+  Supplier,
+  Equipment,
+  InstalledPart,
+  PurchaseOrder,
+  StockTake
+} from './types'
 import { generateId, findBestMatchItem } from './ai-commands'
 
 interface ExecutionResult {
   success: boolean
   message: string
   data?: unknown
+}
+
+interface StateSetters {
+  inventory: InventoryItem[]
+  setInventory: (updater: (current: InventoryItem[]) => InventoryItem[]) => void
+  locations: Location[]
+  setLocations: (updater: (current: Location[]) => Location[]) => void
+  customers: Customer[]
+  setCustomers: (updater: (current: Customer[]) => Customer[]) => void
+  jobs: Job[]
+  setJobs: (updater: (current: Job[]) => Job[]) => void
+  catalogue: CatalogueItem[]
+  setCatalogue: (updater: (current: CatalogueItem[]) => CatalogueItem[]) => void
+  stockLevels: StockLevel[]
+  setStockLevels: (updater: (current: StockLevel[]) => StockLevel[]) => void
+  suppliers: Supplier[]
+  setSuppliers: (updater: (current: Supplier[]) => Supplier[]) => void
+  equipment: Equipment[]
+  setEquipment: (updater: (current: Equipment[]) => Equipment[]) => void
+  installedParts: InstalledPart[]
+  setInstalledParts: (updater: (current: InstalledPart[]) => InstalledPart[]) => void
+  purchaseOrders: PurchaseOrder[]
+  setPurchaseOrders: (updater: (current: PurchaseOrder[]) => PurchaseOrder[]) => void
 }
 
 export async function executeCommand(
@@ -17,44 +53,1212 @@ export async function executeCommand(
   customers: Customer[],
   setCustomers: (updater: (current: Customer[]) => Customer[]) => void,
   jobs: Job[],
-  setJobs: (updater: (current: Job[]) => Job[]) => void
+  setJobs: (updater: (current: Job[]) => Job[]) => void,
+  // New state for comprehensive system
+  catalogue?: CatalogueItem[],
+  setCatalogue?: (updater: (current: CatalogueItem[]) => CatalogueItem[]) => void,
+  stockLevels?: StockLevel[],
+  setStockLevels?: (updater: (current: StockLevel[]) => StockLevel[]) => void,
+  suppliers?: Supplier[],
+  setSuppliers?: (updater: (current: Supplier[]) => Supplier[]) => void,
+  equipment?: Equipment[],
+  setEquipment?: (updater: (current: Equipment[]) => Equipment[]) => void,
+  installedParts?: InstalledPart[],
+  setInstalledParts?: (updater: (current: InstalledPart[]) => InstalledPart[]) => void,
+  purchaseOrders?: PurchaseOrder[],
+  setPurchaseOrders?: (updater: (current: PurchaseOrder[]) => PurchaseOrder[]) => void
 ): Promise<ExecutionResult> {
   
-  switch (action) {
-    case 'add_item':
-      return addItem(parameters, inventory, setInventory)
-    
-    case 'remove_item':
-      return removeItem(parameters, inventory, setInventory)
-    
-    case 'move_item':
-      return moveItem(parameters, inventory, setInventory)
-    
-    case 'update_quantity':
-      return updateQuantity(parameters, inventory, setInventory)
-    
-    case 'create_location':
-      return createLocation(parameters, locations, setLocations)
-    
-    case 'stock_check':
-      return stockCheck(parameters, inventory, locations)
-    
-    case 'create_job':
-      return createJob(parameters, customers, setCustomers, jobs, setJobs)
-    
-    case 'create_customer':
-      return createCustomer(parameters, customers, setCustomers)
-    
-    case 'query':
-      return handleQuery(parameters, inventory, locations, customers, jobs)
-    
-    case 'list_items':
-      return listItems(parameters, inventory)
-    
-    default:
-      return { success: false, message: 'Unknown action' }
+  const state: StateSetters = {
+    inventory,
+    setInventory,
+    locations,
+    setLocations,
+    customers,
+    setCustomers,
+    jobs,
+    setJobs,
+    catalogue: catalogue || [],
+    setCatalogue: setCatalogue || (() => {}),
+    stockLevels: stockLevels || [],
+    setStockLevels: setStockLevels || (() => {}),
+    suppliers: suppliers || [],
+    setSuppliers: setSuppliers || (() => {}),
+    equipment: equipment || [],
+    setEquipment: setEquipment || (() => {}),
+    installedParts: installedParts || [],
+    setInstalledParts: setInstalledParts || (() => {}),
+    purchaseOrders: purchaseOrders || [],
+    setPurchaseOrders: setPurchaseOrders || (() => {}),
+  }
+  
+  const actionLower = action.toLowerCase()
+  
+  // Catalogue Management
+  if (actionLower === 'create_catalogue_item') return createCatalogueItem(parameters, state)
+  if (actionLower === 'update_catalogue_item') return updateCatalogueItem(parameters, state)
+  if (actionLower === 'search_catalogue') return searchCatalogue(parameters, state)
+  
+  // Stock Management
+  if (actionLower === 'receive_stock') return receiveStock(parameters, state)
+  if (actionLower === 'put_away_stock') return putAwayStock(parameters, state)
+  if (actionLower === 'use_stock') return useStock(parameters, state)
+  if (actionLower === 'transfer_stock') return transferStock(parameters, state)
+  if (actionLower === 'stock_count') return stockCount(parameters, state)
+  if (actionLower === 'search_stock') return searchStock(parameters, state)
+  if (actionLower === 'low_stock_report') return lowStockReport(parameters, state)
+  if (actionLower === 'set_min_stock') return setMinStock(parameters, state)
+  
+  // Customer & Equipment
+  if (actionLower === 'create_customer') return createCustomer(parameters, state)
+  if (actionLower === 'add_site_address') return addSiteAddress(parameters, state)
+  if (actionLower === 'create_equipment') return createEquipment(parameters, state)
+  if (actionLower === 'update_equipment') return updateEquipment(parameters, state)
+  if (actionLower === 'list_equipment') return listEquipment(parameters, state)
+  
+  // Parts Installation
+  if (actionLower === 'install_from_stock') return installFromStock(parameters, state)
+  if (actionLower === 'install_direct_order') return installDirectOrder(parameters, state)
+  if (actionLower === 'query_equipment_parts') return queryEquipmentParts(parameters, state)
+  if (actionLower === 'query_customer_parts') return queryCustomerParts(parameters, state)
+  
+  // Jobs
+  if (actionLower === 'create_job') return createJob(parameters, state)
+  if (actionLower === 'schedule_job') return scheduleJob(parameters, state)
+  if (actionLower === 'start_job') return startJob(parameters, state)
+  if (actionLower === 'complete_job') return completeJob(parameters, state)
+  if (actionLower === 'add_part_to_job') return addPartToJob(parameters, state)
+  if (actionLower === 'list_jobs') return listJobs(parameters, state)
+  
+  // Suppliers & Orders
+  if (actionLower === 'create_supplier') return createSupplier(parameters, state)
+  if (actionLower === 'create_purchase_order') return createPurchaseOrder(parameters, state)
+  if (actionLower === 'receive_purchase_order') return receivePurchaseOrder(parameters, state)
+  
+  // Legacy actions
+  if (actionLower === 'add_item') return addItem(parameters, inventory, setInventory)
+  if (actionLower === 'remove_item') return removeItem(parameters, inventory, setInventory)
+  if (actionLower === 'move_item') return moveItem(parameters, inventory, setInventory)
+  if (actionLower === 'update_quantity') return updateQuantity(parameters, inventory, setInventory)
+  if (actionLower === 'create_location') return createLocation(parameters, locations, setLocations)
+  if (actionLower === 'stock_check') return stockCheckLegacy(parameters, inventory, locations)
+  if (actionLower === 'query') return handleQuery(parameters, inventory, locations, customers, jobs)
+  if (actionLower === 'list_items') return listItems(parameters, inventory)
+  
+  return { success: false, message: `Unknown action: ${action}` }
+}
+
+// ===== CATALOGUE MANAGEMENT =====
+
+function createCatalogueItem(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
+  const partNumber = String(params.partNumber || '').trim()
+  const name = String(params.name || '').trim()
+  
+  if (!partNumber || !name) {
+    return { success: false, message: 'Part number and name are required' }
+  }
+  
+  const exists = state.catalogue.find(item => 
+    item.partNumber.toLowerCase() === partNumber.toLowerCase()
+  )
+  
+  if (exists) {
+    return { success: false, message: `Catalogue item ${partNumber} already exists` }
+  }
+  
+  const unitCost = params.unitCost ? Number(params.unitCost) : undefined
+  const markup = params.markup ? Number(params.markup) : undefined
+  const sellPrice = params.sellPrice ? Number(params.sellPrice) : 
+    (unitCost && markup ? unitCost * (1 + markup / 100) : undefined)
+  
+  const newItem: CatalogueItem = {
+    id: generateId(),
+    partNumber,
+    name,
+    description: params.description ? String(params.description) : undefined,
+    manufacturer: params.manufacturer ? String(params.manufacturer) : undefined,
+    category: params.category ? String(params.category) : undefined,
+    subcategory: params.subcategory ? String(params.subcategory) : undefined,
+    unitCost,
+    markup,
+    sellPrice,
+    isStocked: params.isStocked === true,
+    minQuantity: params.minQuantity ? Number(params.minQuantity) : undefined,
+    preferredSupplierName: params.preferredSupplierName ? String(params.preferredSupplierName) : undefined,
+    attributes: params.attributes as Record<string, string> | undefined,
+    active: true,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  }
+  
+  state.setCatalogue((current) => [...current, newItem])
+  
+  return {
+    success: true,
+    message: `Created catalogue item: ${partNumber} - ${name}${sellPrice ? ` (£${sellPrice.toFixed(2)})` : ''}`,
+    data: newItem
   }
 }
+
+function updateCatalogueItem(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
+  const partNumber = String(params.partNumber || '').trim()
+  
+  if (!partNumber) {
+    return { success: false, message: 'Part number is required' }
+  }
+  
+  const item = state.catalogue.find(i => 
+    i.partNumber.toLowerCase() === partNumber.toLowerCase()
+  )
+  
+  if (!item) {
+    return { success: false, message: `Catalogue item ${partNumber} not found` }
+  }
+  
+  state.setCatalogue((current) =>
+    current.map(i =>
+      i.id === item.id
+        ? {
+            ...i,
+            name: params.name ? String(params.name) : i.name,
+            unitCost: params.unitCost !== undefined ? Number(params.unitCost) : i.unitCost,
+            markup: params.markup !== undefined ? Number(params.markup) : i.markup,
+            sellPrice: params.sellPrice !== undefined ? Number(params.sellPrice) : 
+              (params.unitCost && params.markup ? Number(params.unitCost) * (1 + Number(params.markup) / 100) : i.sellPrice),
+            minQuantity: params.minQuantity !== undefined ? Number(params.minQuantity) : i.minQuantity,
+            isStocked: params.isStocked !== undefined ? Boolean(params.isStocked) : i.isStocked,
+            active: params.active !== undefined ? Boolean(params.active) : i.active,
+            updatedAt: Date.now(),
+          }
+        : i
+    )
+  )
+  
+  return {
+    success: true,
+    message: `Updated catalogue item: ${partNumber}`
+  }
+}
+
+function searchCatalogue(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
+  const search = String(params.search || '').toLowerCase().trim()
+  
+  if (!search) {
+    return { success: false, message: 'Search term is required' }
+  }
+  
+  const results = state.catalogue.filter(item => {
+    const matchesSearch = 
+      item.partNumber.toLowerCase().includes(search) ||
+      item.name.toLowerCase().includes(search) ||
+      (item.description && item.description.toLowerCase().includes(search)) ||
+      (item.manufacturer && item.manufacturer.toLowerCase().includes(search))
+    
+    const matchesCategory = !params.category || 
+      (item.category && item.category.toLowerCase() === String(params.category).toLowerCase())
+    
+    const matchesManufacturer = !params.manufacturer || 
+      (item.manufacturer && item.manufacturer.toLowerCase() === String(params.manufacturer).toLowerCase())
+    
+    return matchesSearch && matchesCategory && matchesManufacturer
+  })
+  
+  // Get stock levels for results
+  const resultsWithStock = results.map(item => {
+    const stock = state.stockLevels.filter(s => s.catalogueItemId === item.id)
+    const totalQty = stock.reduce((sum, s) => sum + s.quantity, 0)
+    return { ...item, stockQuantity: totalQty, stockLocations: stock }
+  })
+  
+  return {
+    success: true,
+    message: `Found ${results.length} catalogue item(s)`,
+    data: resultsWithStock
+  }
+}
+
+// ===== STOCK MANAGEMENT =====
+
+function receiveStock(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
+  const partNumber = String(params.partNumber || '').trim()
+  const quantity = Number(params.quantity || 0)
+  const location = String(params.location || '').trim()
+  
+  if (!partNumber || quantity <= 0 || !location) {
+    return { success: false, message: 'Part number, positive quantity, and location are required' }
+  }
+  
+  // Find catalogue item
+  let catalogueItem = state.catalogue.find(i => 
+    i.partNumber.toLowerCase() === partNumber.toLowerCase()
+  )
+  
+  // If not in catalogue, create it
+  if (!catalogueItem) {
+    catalogueItem = {
+      id: generateId(),
+      partNumber,
+      name: partNumber,
+      isStocked: true,
+      active: true,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    }
+    state.setCatalogue((current) => [...current, catalogueItem!])
+  }
+  
+  // Find or create stock level
+  const existingStock = state.stockLevels.find(s => 
+    s.catalogueItemId === catalogueItem!.id && 
+    s.location.toLowerCase() === location.toLowerCase()
+  )
+  
+  if (existingStock) {
+    state.setStockLevels((current) =>
+      current.map(s =>
+        s.id === existingStock.id
+          ? { ...s, quantity: s.quantity + quantity, lastMovementAt: Date.now(), updatedAt: Date.now() }
+          : s
+      )
+    )
+  } else {
+    const newStock: StockLevel = {
+      id: generateId(),
+      catalogueItemId: catalogueItem.id,
+      partNumber: catalogueItem.partNumber,
+      name: catalogueItem.name,
+      location,
+      quantity,
+      lastMovementAt: Date.now(),
+      updatedAt: Date.now(),
+    }
+    state.setStockLevels((current) => [...current, newStock])
+  }
+  
+  const supplierInfo = params.supplierName ? ` from ${params.supplierName}` : ''
+  return {
+    success: true,
+    message: `Received ${quantity} units of ${partNumber}${supplierInfo} into ${location}`
+  }
+}
+
+function putAwayStock(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
+  return transferStock(params, state) // Same operation as transfer
+}
+
+function useStock(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
+  const partNumber = String(params.partNumber || '').trim()
+  const quantity = Number(params.quantity || 0)
+  const location = String(params.location || '').trim()
+  
+  if (!partNumber || quantity <= 0 || !location) {
+    return { success: false, message: 'Part number, positive quantity, and location are required' }
+  }
+  
+  const stockItem = state.stockLevels.find(s =>
+    s.partNumber.toLowerCase() === partNumber.toLowerCase() &&
+    s.location.toLowerCase() === location.toLowerCase()
+  )
+  
+  if (!stockItem) {
+    return { success: false, message: `${partNumber} not found in stock at ${location}` }
+  }
+  
+  if (stockItem.quantity < quantity) {
+    return {
+      success: false,
+      message: `Insufficient stock. Only ${stockItem.quantity} units available at ${location}`
+    }
+  }
+  
+  state.setStockLevels((current) =>
+    current.map(s =>
+      s.id === stockItem.id
+        ? { ...s, quantity: s.quantity - quantity, lastMovementAt: Date.now(), updatedAt: Date.now() }
+        : s
+    ).filter(s => s.quantity > 0)
+  )
+  
+  const reason = params.reason ? ` (${params.reason})` : ''
+  const jobInfo = params.jobNumber ? ` for job ${params.jobNumber}` : ''
+  
+  return {
+    success: true,
+    message: `Used ${quantity} units of ${partNumber} from ${location}${reason}${jobInfo}`
+  }
+}
+
+function transferStock(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
+  const partNumber = String(params.partNumber || '').trim()
+  const fromLocation = String(params.fromLocation || '').trim()
+  const toLocation = String(params.toLocation || '').trim()
+  const quantity = Number(params.quantity || 0)
+  
+  if (!partNumber || !fromLocation || !toLocation || quantity <= 0) {
+    return { success: false, message: 'Part number, from/to locations, and positive quantity are required' }
+  }
+  
+  const sourceStock = state.stockLevels.find(s =>
+    s.partNumber.toLowerCase() === partNumber.toLowerCase() &&
+    s.location.toLowerCase() === fromLocation.toLowerCase()
+  )
+  
+  if (!sourceStock) {
+    return { success: false, message: `${partNumber} not found at ${fromLocation}` }
+  }
+  
+  if (sourceStock.quantity < quantity) {
+    return {
+      success: false,
+      message: `Insufficient stock at ${fromLocation}. Only ${sourceStock.quantity} units available`
+    }
+  }
+  
+  const destStock = state.stockLevels.find(s =>
+    s.catalogueItemId === sourceStock.catalogueItemId &&
+    s.location.toLowerCase() === toLocation.toLowerCase()
+  )
+  
+  state.setStockLevels((current) => {
+    let updated = current.map(s =>
+      s.id === sourceStock.id
+        ? { ...s, quantity: s.quantity - quantity, lastMovementAt: Date.now(), updatedAt: Date.now() }
+        : s
+    ).filter(s => s.quantity > 0)
+    
+    if (destStock) {
+      updated = updated.map(s =>
+        s.id === destStock.id
+          ? { ...s, quantity: s.quantity + quantity, lastMovementAt: Date.now(), updatedAt: Date.now() }
+          : s
+      )
+    } else {
+      updated.push({
+        id: generateId(),
+        catalogueItemId: sourceStock.catalogueItemId,
+        partNumber: sourceStock.partNumber,
+        name: sourceStock.name,
+        location: toLocation,
+        quantity,
+        lastMovementAt: Date.now(),
+        updatedAt: Date.now(),
+      })
+    }
+    
+    return updated
+  })
+  
+  return {
+    success: true,
+    message: `Transferred ${quantity} units of ${partNumber} from ${fromLocation} to ${toLocation}`
+  }
+}
+
+function stockCount(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
+  const partNumber = String(params.partNumber || '').trim()
+  const location = String(params.location || '').trim()
+  const countedQuantity = Number(params.countedQuantity || 0)
+  
+  if (!partNumber || !location) {
+    return { success: false, message: 'Part number and location are required' }
+  }
+  
+  const stockItem = state.stockLevels.find(s =>
+    s.partNumber.toLowerCase() === partNumber.toLowerCase() &&
+    s.location.toLowerCase() === location.toLowerCase()
+  )
+  
+  if (!stockItem) {
+    // No existing stock, create new if counted > 0
+    if (countedQuantity > 0) {
+      const catalogueItem = state.catalogue.find(i =>
+        i.partNumber.toLowerCase() === partNumber.toLowerCase()
+      )
+      
+      if (catalogueItem) {
+        const newStock: StockLevel = {
+          id: generateId(),
+          catalogueItemId: catalogueItem.id,
+          partNumber: catalogueItem.partNumber,
+          name: catalogueItem.name,
+          location,
+          quantity: countedQuantity,
+          lastCountedAt: Date.now(),
+          lastMovementAt: Date.now(),
+          updatedAt: Date.now(),
+        }
+        state.setStockLevels((current) => [...current, newStock])
+        
+        return {
+          success: true,
+          message: `Stock count: Found ${countedQuantity} units of ${partNumber} at ${location} (previously untracked)`
+        }
+      }
+    }
+    
+    return {
+      success: true,
+      message: `Stock count: ${partNumber} not found at ${location}. Counted: ${countedQuantity}`
+    }
+  }
+  
+  const expectedQuantity = stockItem.quantity
+  const difference = countedQuantity - expectedQuantity
+  
+  state.setStockLevels((current) =>
+    current.map(s =>
+      s.id === stockItem.id
+        ? { ...s, quantity: countedQuantity, lastCountedAt: Date.now(), updatedAt: Date.now() }
+        : s
+    ).filter(s => s.quantity > 0)
+  )
+  
+  if (difference === 0) {
+    return {
+      success: true,
+      message: `Stock count verified: ${partNumber} at ${location} = ${countedQuantity} units (as expected)`
+    }
+  } else {
+    return {
+      success: true,
+      message: `Stock count updated: ${partNumber} at ${location}. Expected: ${expectedQuantity}, Counted: ${countedQuantity}, Difference: ${difference > 0 ? '+' : ''}${difference}`
+    }
+  }
+}
+
+function searchStock(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
+  const search = String(params.search || '').toLowerCase().trim()
+  
+  if (!search) {
+    return { success: false, message: 'Search term is required' }
+  }
+  
+  const results = state.stockLevels.filter(stock => {
+    const matchesSearch = 
+      stock.partNumber.toLowerCase().includes(search) ||
+      stock.name.toLowerCase().includes(search)
+    
+    const matchesLocation = !params.location || 
+      stock.location.toLowerCase().includes(String(params.location).toLowerCase())
+    
+    return matchesSearch && matchesLocation && stock.quantity > 0
+  })
+  
+  return {
+    success: true,
+    message: `Found ${results.length} item(s) in stock`,
+    data: results
+  }
+}
+
+function lowStockReport(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
+  const location = params.location ? String(params.location).toLowerCase() : null
+  
+  const lowStockItems = state.catalogue.filter(item => {
+    if (!item.isStocked || !item.minQuantity) return false
+    
+    const stockLevels = state.stockLevels.filter(s => {
+      const matchesCatalogue = s.catalogueItemId === item.id
+      const matchesLocation = !location || s.location.toLowerCase().includes(location)
+      return matchesCatalogue && matchesLocation
+    })
+    
+    const totalStock = stockLevels.reduce((sum, s) => sum + s.quantity, 0)
+    return totalStock < item.minQuantity
+  }).map(item => {
+    const stockLevels = state.stockLevels.filter(s => s.catalogueItemId === item.id)
+    const totalStock = stockLevels.reduce((sum, s) => sum + s.quantity, 0)
+    return { ...item, currentStock: totalStock, stockLevels }
+  })
+  
+  return {
+    success: true,
+    message: `Found ${lowStockItems.length} item(s) below minimum stock level`,
+    data: lowStockItems
+  }
+}
+
+function setMinStock(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
+  const partNumber = String(params.partNumber || '').trim()
+  const minQuantity = Number(params.minQuantity || 0)
+  
+  if (!partNumber) {
+    return { success: false, message: 'Part number is required' }
+  }
+  
+  const item = state.catalogue.find(i =>
+    i.partNumber.toLowerCase() === partNumber.toLowerCase()
+  )
+  
+  if (!item) {
+    return { success: false, message: `Catalogue item ${partNumber} not found` }
+  }
+  
+  state.setCatalogue((current) =>
+    current.map(i =>
+      i.id === item.id
+        ? {
+            ...i,
+            minQuantity,
+            reorderQuantity: params.reorderQuantity ? Number(params.reorderQuantity) : i.reorderQuantity,
+            updatedAt: Date.now(),
+          }
+        : i
+    )
+  )
+  
+  return {
+    success: true,
+    message: `Set minimum stock level for ${partNumber} to ${minQuantity} units`
+  }
+}
+
+// ===== CUSTOMER & EQUIPMENT =====
+
+function createCustomer(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
+  const name = String(params.name || '').trim()
+  const type = String(params.type || 'commercial')
+  
+  if (!name) {
+    return { success: false, message: 'Customer name is required' }
+  }
+  
+  const exists = state.customers.find(c =>
+    c.name.toLowerCase() === name.toLowerCase()
+  )
+  
+  if (exists) {
+    return { success: false, message: `Customer ${name} already exists` }
+  }
+  
+  const newCustomer: Customer = {
+    id: generateId(),
+    name,
+    type: type as 'commercial' | 'residential' | 'industrial',
+    contactName: params.contactName ? String(params.contactName) : undefined,
+    email: params.email ? String(params.email) : undefined,
+    phone: params.phone ? String(params.phone) : undefined,
+    billingAddress: params.billingAddress ? String(params.billingAddress) : undefined,
+    siteAddresses: [],
+    createdAt: Date.now(),
+  }
+  
+  state.setCustomers((current) => [...current, newCustomer])
+  
+  return {
+    success: true,
+    message: `Created customer: ${name}`,
+    data: newCustomer
+  }
+}
+
+function addSiteAddress(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
+  const customerName = String(params.customerName || '').trim()
+  const siteName = String(params.siteName || '').trim()
+  const address = String(params.address || '').trim()
+  
+  if (!customerName || !siteName || !address) {
+    return { success: false, message: 'Customer name, site name, and address are required' }
+  }
+  
+  const customer = state.customers.find(c =>
+    c.name.toLowerCase() === customerName.toLowerCase()
+  )
+  
+  if (!customer) {
+    return { success: false, message: `Customer ${customerName} not found` }
+  }
+  
+  const newSite = {
+    id: generateId(),
+    name: siteName,
+    address,
+    postcode: params.postcode ? String(params.postcode) : undefined,
+    accessNotes: params.accessNotes ? String(params.accessNotes) : undefined,
+  }
+  
+  state.setCustomers((current) =>
+    current.map(c =>
+      c.id === customer.id
+        ? { ...c, siteAddresses: [...c.siteAddresses, newSite] }
+        : c
+    )
+  )
+  
+  return {
+    success: true,
+    message: `Added site address "${siteName}" to customer ${customerName}`
+  }
+}
+
+function createEquipment(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
+  const customerName = String(params.customerName || '').trim()
+  const equipmentName = String(params.equipmentName || '').trim()
+  const type = String(params.type || '').trim()
+  
+  if (!customerName || !equipmentName || !type) {
+    return { success: false, message: 'Customer name, equipment name, and type are required' }
+  }
+  
+  const customer = state.customers.find(c =>
+    c.name.toLowerCase() === customerName.toLowerCase()
+  )
+  
+  if (!customer) {
+    return { success: false, message: `Customer ${customerName} not found` }
+  }
+  
+  const newEquipment: Equipment = {
+    id: generateId(),
+    customerId: customer.id,
+    customerName: customer.name,
+    name: equipmentName,
+    type,
+    manufacturer: params.manufacturer ? String(params.manufacturer) : undefined,
+    model: params.model ? String(params.model) : undefined,
+    serialNumber: params.serialNumber ? String(params.serialNumber) : undefined,
+    location: params.location ? String(params.location) : undefined,
+    createdAt: Date.now(),
+  }
+  
+  state.setEquipment((current) => [...current, newEquipment])
+  
+  return {
+    success: true,
+    message: `Created equipment: ${equipmentName} for ${customerName}`,
+    data: newEquipment
+  }
+}
+
+function updateEquipment(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
+  const customerName = String(params.customerName || '').trim()
+  const equipmentName = String(params.equipmentName || '').trim()
+  
+  if (!customerName || !equipmentName) {
+    return { success: false, message: 'Customer name and equipment name are required' }
+  }
+  
+  const equipment = state.equipment.find(e =>
+    e.customerName.toLowerCase() === customerName.toLowerCase() &&
+    e.name.toLowerCase() === equipmentName.toLowerCase()
+  )
+  
+  if (!equipment) {
+    return { success: false, message: `Equipment ${equipmentName} not found for ${customerName}` }
+  }
+  
+  state.setEquipment((current) =>
+    current.map(e =>
+      e.id === equipment.id
+        ? {
+            ...e,
+            lastServiceDate: params.lastServiceDate ? Number(params.lastServiceDate) : e.lastServiceDate,
+            nextServiceDue: params.nextServiceDue ? Number(params.nextServiceDue) : e.nextServiceDue,
+            technicalNotes: params.technicalNotes ? String(params.technicalNotes) : e.technicalNotes,
+          }
+        : e
+    )
+  )
+  
+  return {
+    success: true,
+    message: `Updated equipment: ${equipmentName}`
+  }
+}
+
+function listEquipment(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
+  const customerName = String(params.customerName || '').trim()
+  
+  if (!customerName) {
+    return { success: false, message: 'Customer name is required' }
+  }
+  
+  const equipment = state.equipment.filter(e =>
+    e.customerName.toLowerCase() === customerName.toLowerCase()
+  )
+  
+  return {
+    success: true,
+    message: `Found ${equipment.length} equipment item(s) for ${customerName}`,
+    data: equipment
+  }
+}
+
+// ===== PARTS INSTALLATION =====
+
+function installFromStock(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
+  const partNumber = String(params.partNumber || '').trim()
+  const quantity = Number(params.quantity || 0)
+  const customerName = String(params.customerName || '').trim()
+  const equipmentName = String(params.equipmentName || '').trim()
+  const location = String(params.location || '').trim()
+  
+  if (!partNumber || quantity <= 0 || !customerName || !equipmentName || !location) {
+    return { success: false, message: 'Part number, quantity, customer, equipment, and stock location are required' }
+  }
+  
+  // Find equipment
+  const equipment = state.equipment.find(e =>
+    e.customerName.toLowerCase() === customerName.toLowerCase() &&
+    e.name.toLowerCase() === equipmentName.toLowerCase()
+  )
+  
+  if (!equipment) {
+    return { success: false, message: `Equipment ${equipmentName} not found for ${customerName}` }
+  }
+  
+  // Check stock and decrement
+  const useResult = useStock({ partNumber, quantity, location, reason: 'installation' }, state)
+  if (!useResult.success) {
+    return useResult
+  }
+  
+  // Find catalogue item for details
+  const catalogueItem = state.catalogue.find(i =>
+    i.partNumber.toLowerCase() === partNumber.toLowerCase()
+  )
+  
+  // Create installed part record
+  const installedPart: InstalledPart = {
+    id: generateId(),
+    equipmentId: equipment.id,
+    equipmentName: equipment.name,
+    customerId: equipment.customerId,
+    customerName: equipment.customerName,
+    partNumber,
+    name: catalogueItem?.name || partNumber,
+    quantity,
+    source: 'stock',
+    unitCost: catalogueItem?.unitCost,
+    sellPrice: catalogueItem?.sellPrice,
+    installedDate: Date.now(),
+    jobNumber: params.jobNumber ? String(params.jobNumber) : undefined,
+  }
+  
+  state.setInstalledParts((current) => [...current, installedPart])
+  
+  return {
+    success: true,
+    message: `Installed ${quantity} units of ${partNumber} from ${location} on ${customerName}'s ${equipmentName}`,
+    data: installedPart
+  }
+}
+
+function installDirectOrder(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
+  const partNumber = String(params.partNumber || '').trim()
+  const name = String(params.name || '').trim()
+  const quantity = Number(params.quantity || 0)
+  const customerName = String(params.customerName || '').trim()
+  const equipmentName = String(params.equipmentName || '').trim()
+  const supplierName = String(params.supplierName || '').trim()
+  
+  if (!partNumber || !name || quantity <= 0 || !customerName || !equipmentName || !supplierName) {
+    return { success: false, message: 'Part number, name, quantity, customer, equipment, and supplier are required' }
+  }
+  
+  // Find equipment
+  const equipment = state.equipment.find(e =>
+    e.customerName.toLowerCase() === customerName.toLowerCase() &&
+    e.name.toLowerCase() === equipmentName.toLowerCase()
+  )
+  
+  if (!equipment) {
+    return { success: false, message: `Equipment ${equipmentName} not found for ${customerName}` }
+  }
+  
+  // Create installed part record
+  const installedPart: InstalledPart = {
+    id: generateId(),
+    equipmentId: equipment.id,
+    equipmentName: equipment.name,
+    customerId: equipment.customerId,
+    customerName: equipment.customerName,
+    partNumber,
+    name,
+    quantity,
+    source: 'direct_order',
+    supplierName,
+    unitCost: params.unitCost ? Number(params.unitCost) : undefined,
+    sellPrice: params.sellPrice ? Number(params.sellPrice) : undefined,
+    installedDate: Date.now(),
+  }
+  
+  state.setInstalledParts((current) => [...current, installedPart])
+  
+  return {
+    success: true,
+    message: `Installed ${quantity} units of ${partNumber} (direct from ${supplierName}) on ${customerName}'s ${equipmentName}`,
+    data: installedPart
+  }
+}
+
+function queryEquipmentParts(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
+  const customerName = String(params.customerName || '').trim()
+  const equipmentName = String(params.equipmentName || '').trim()
+  
+  if (!customerName || !equipmentName) {
+    return { success: false, message: 'Customer name and equipment name are required' }
+  }
+  
+  const parts = state.installedParts.filter(p =>
+    p.customerName.toLowerCase() === customerName.toLowerCase() &&
+    p.equipmentName.toLowerCase() === equipmentName.toLowerCase()
+  )
+  
+  return {
+    success: true,
+    message: `Found ${parts.length} part(s) installed on ${customerName}'s ${equipmentName}`,
+    data: parts
+  }
+}
+
+function queryCustomerParts(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
+  const customerName = String(params.customerName || '').trim()
+  
+  if (!customerName) {
+    return { success: false, message: 'Customer name is required' }
+  }
+  
+  const parts = state.installedParts.filter(p =>
+    p.customerName.toLowerCase() === customerName.toLowerCase()
+  )
+  
+  return {
+    success: true,
+    message: `Found ${parts.length} part(s) installed for ${customerName}`,
+    data: parts
+  }
+}
+
+// ===== JOBS =====
+
+function createJob(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
+  const customerName = String(params.customerName || '').trim()
+  const type = String(params.type || 'service')
+  
+  if (!customerName) {
+    return { success: false, message: 'Customer name is required' }
+  }
+  
+  const customer = state.customers.find(c =>
+    c.name.toLowerCase() === customerName.toLowerCase()
+  )
+  
+  if (!customer) {
+    return { success: false, message: `Customer ${customerName} not found` }
+  }
+  
+  // Generate job number
+  const jobCount = state.jobs.length + 1
+  const jobNumber = `JOB-${Date.now()}-${jobCount.toString().padStart(4, '0')}`
+  
+  const newJob: Job = {
+    id: generateId(),
+    jobNumber,
+    customerId: customer.id,
+    customerName: customer.name,
+    type: type as Job['type'],
+    priority: (params.priority as Job['priority']) || 'normal',
+    equipmentName: params.equipmentName ? String(params.equipmentName) : undefined,
+    description: params.description ? String(params.description) : undefined,
+    reportedFault: params.reportedFault ? String(params.reportedFault) : undefined,
+    status: 'quote',
+    partsUsed: [],
+    createdDate: Date.now(),
+    createdAt: Date.now(),
+  }
+  
+  state.setJobs((current) => [...current, newJob])
+  
+  return {
+    success: true,
+    message: `Created job ${jobNumber} for ${customerName}`,
+    data: newJob
+  }
+}
+
+function scheduleJob(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
+  const jobNumber = String(params.jobNumber || '').trim()
+  const scheduledDate = Number(params.scheduledDate || 0)
+  
+  if (!jobNumber || !scheduledDate) {
+    return { success: false, message: 'Job number and scheduled date are required' }
+  }
+  
+  const job = state.jobs.find(j => j.jobNumber === jobNumber)
+  
+  if (!job) {
+    return { success: false, message: `Job ${jobNumber} not found` }
+  }
+  
+  state.setJobs((current) =>
+    current.map(j =>
+      j.id === job.id
+        ? {
+            ...j,
+            scheduledDate,
+            assignedEngineerName: params.assignedEngineerName ? String(params.assignedEngineerName) : j.assignedEngineerName,
+            status: 'scheduled' as Job['status'],
+          }
+        : j
+    )
+  )
+  
+  return {
+    success: true,
+    message: `Scheduled job ${jobNumber}${params.assignedEngineerName ? ` for ${params.assignedEngineerName}` : ''}`
+  }
+}
+
+function startJob(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
+  const jobNumber = String(params.jobNumber || '').trim()
+  
+  if (!jobNumber) {
+    return { success: false, message: 'Job number is required' }
+  }
+  
+  const job = state.jobs.find(j => j.jobNumber === jobNumber)
+  
+  if (!job) {
+    return { success: false, message: `Job ${jobNumber} not found` }
+  }
+  
+  state.setJobs((current) =>
+    current.map(j =>
+      j.id === job.id
+        ? {
+            ...j,
+            status: 'in_progress' as Job['status'],
+            startedAt: Date.now(),
+          }
+        : j
+    )
+  )
+  
+  return {
+    success: true,
+    message: `Started job ${jobNumber}`
+  }
+}
+
+function completeJob(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
+  const jobNumber = String(params.jobNumber || '').trim()
+  const workCarriedOut = String(params.workCarriedOut || '').trim()
+  
+  if (!jobNumber || !workCarriedOut) {
+    return { success: false, message: 'Job number and work carried out are required' }
+  }
+  
+  const job = state.jobs.find(j => j.jobNumber === jobNumber)
+  
+  if (!job) {
+    return { success: false, message: `Job ${jobNumber} not found` }
+  }
+  
+  state.setJobs((current) =>
+    current.map(j =>
+      j.id === job.id
+        ? {
+            ...j,
+            status: 'completed' as Job['status'],
+            completedAt: Date.now(),
+            workCarriedOut,
+            findings: params.findings ? String(params.findings) : j.findings,
+            recommendations: params.recommendations ? String(params.recommendations) : j.recommendations,
+          }
+        : j
+    )
+  )
+  
+  return {
+    success: true,
+    message: `Completed job ${jobNumber}`
+  }
+}
+
+function addPartToJob(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
+  const jobNumber = String(params.jobNumber || '').trim()
+  const partNumber = String(params.partNumber || '').trim()
+  const quantity = Number(params.quantity || 0)
+  const source = String(params.source || 'stock')
+  
+  if (!jobNumber || !partNumber || quantity <= 0) {
+    return { success: false, message: 'Job number, part number, and quantity are required' }
+  }
+  
+  const job = state.jobs.find(j => j.jobNumber === jobNumber)
+  
+  if (!job) {
+    return { success: false, message: `Job ${jobNumber} not found` }
+  }
+  
+  const catalogueItem = state.catalogue.find(i =>
+    i.partNumber.toLowerCase() === partNumber.toLowerCase()
+  )
+  
+  const usedPart = {
+    id: generateId(),
+    partNumber,
+    name: catalogueItem?.name || partNumber,
+    quantity,
+    source: source as 'stock' | 'direct_order' | 'customer_supplied',
+    unitCost: catalogueItem?.unitCost,
+    sellPrice: catalogueItem?.sellPrice,
+  }
+  
+  state.setJobs((current) =>
+    current.map(j =>
+      j.id === job.id
+        ? { ...j, partsUsed: [...j.partsUsed, usedPart] }
+        : j
+    )
+  )
+  
+  return {
+    success: true,
+    message: `Added ${quantity} units of ${partNumber} to job ${jobNumber}`
+  }
+}
+
+function listJobs(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
+  let jobs = state.jobs
+  
+  if (params.customerName) {
+    const customerName = String(params.customerName).toLowerCase()
+    jobs = jobs.filter(j => j.customerName.toLowerCase() === customerName)
+  }
+  
+  if (params.status) {
+    const status = String(params.status)
+    jobs = jobs.filter(j => j.status === status)
+  }
+  
+  if (params.assignedEngineerName) {
+    const engineerName = String(params.assignedEngineerName).toLowerCase()
+    jobs = jobs.filter(j =>
+      j.assignedEngineerName?.toLowerCase() === engineerName
+    )
+  }
+  
+  return {
+    success: true,
+    message: `Found ${jobs.length} job(s)`,
+    data: jobs
+  }
+}
+
+// ===== SUPPLIERS & ORDERS =====
+
+function createSupplier(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
+  const name = String(params.name || '').trim()
+  
+  if (!name) {
+    return { success: false, message: 'Supplier name is required' }
+  }
+  
+  const exists = state.suppliers.find(s =>
+    s.name.toLowerCase() === name.toLowerCase()
+  )
+  
+  if (exists) {
+    return { success: false, message: `Supplier ${name} already exists` }
+  }
+  
+  const newSupplier: Supplier = {
+    id: generateId(),
+    name,
+    contactName: params.contactName ? String(params.contactName) : undefined,
+    email: params.email ? String(params.email) : undefined,
+    phone: params.phone ? String(params.phone) : undefined,
+    accountNumber: params.accountNumber ? String(params.accountNumber) : undefined,
+    createdAt: Date.now(),
+  }
+  
+  state.setSuppliers((current) => [...current, newSupplier])
+  
+  return {
+    success: true,
+    message: `Created supplier: ${name}`,
+    data: newSupplier
+  }
+}
+
+function createPurchaseOrder(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
+  const supplierName = String(params.supplierName || '').trim()
+  const items = params.items as any[] || []
+  
+  if (!supplierName || items.length === 0) {
+    return { success: false, message: 'Supplier name and items are required' }
+  }
+  
+  const supplier = state.suppliers.find(s =>
+    s.name.toLowerCase() === supplierName.toLowerCase()
+  )
+  
+  if (!supplier) {
+    return { success: false, message: `Supplier ${supplierName} not found` }
+  }
+  
+  const poNumber = `PO-${Date.now()}`
+  
+  const newPO: PurchaseOrder = {
+    id: generateId(),
+    poNumber,
+    supplierId: supplier.id,
+    supplierName: supplier.name,
+    items: items.map(item => ({
+      partNumber: String(item.partNumber),
+      name: String(item.name),
+      quantity: Number(item.quantity),
+      unitCost: Number(item.unitCost),
+      totalCost: Number(item.quantity) * Number(item.unitCost),
+    })),
+    status: 'draft',
+    jobNumber: params.jobNumber ? String(params.jobNumber) : undefined,
+    createdDate: Date.now(),
+  }
+  
+  state.setPurchaseOrders((current) => [...current, newPO])
+  
+  return {
+    success: true,
+    message: `Created purchase order ${poNumber} for ${supplierName}`,
+    data: newPO
+  }
+}
+
+function receivePurchaseOrder(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
+  const poNumber = String(params.poNumber || '').trim()
+  
+  if (!poNumber) {
+    return { success: false, message: 'Purchase order number is required' }
+  }
+  
+  const po = state.purchaseOrders.find(p => p.poNumber === poNumber)
+  
+  if (!po) {
+    return { success: false, message: `Purchase order ${poNumber} not found` }
+  }
+  
+  state.setPurchaseOrders((current) =>
+    current.map(p =>
+      p.id === po.id
+        ? {
+            ...p,
+            status: 'received' as PurchaseOrder['status'],
+            receivedDate: Date.now(),
+          }
+        : p
+    )
+  )
+  
+  return {
+    success: true,
+    message: `Marked purchase order ${poNumber} as received`
+  }
+}
+
+// ===== LEGACY FUNCTIONS =====
 
 function addItem(
   params: Record<string, unknown>,
@@ -316,7 +1520,7 @@ function createLocation(
   }
 }
 
-function stockCheck(
+function stockCheckLegacy(
   params: Record<string, unknown>,
   inventory: InventoryItem[],
   locations: Location[]
@@ -363,89 +1567,6 @@ function stockCheck(
   }
 
   return { success: false, message: 'Please specify a part number or location for stock check' }
-}
-
-function createJob(
-  params: Record<string, unknown>,
-  customers: Customer[],
-  setCustomers: (updater: (current: Customer[]) => Customer[]) => void,
-  jobs: Job[],
-  setJobs: (updater: (current: Job[]) => Job[]) => void
-): ExecutionResult {
-  const jobNumber = String(params.jobNumber || '').trim()
-  const customerName = String(params.customerName || '').trim()
-  const parts = params.parts as Array<{ partNumber: string; name: string; quantity: number }> || []
-
-  if (!jobNumber || !customerName || parts.length === 0) {
-    return { success: false, message: 'Job number, customer name, and parts list are required' }
-  }
-
-  let customer = customers.find(c => 
-    c.name.toLowerCase() === customerName.toLowerCase()
-  )
-
-  if (!customer) {
-    customer = {
-      id: generateId(),
-      name: customerName,
-      createdAt: Date.now()
-    }
-    setCustomers((current) => [...current, customer!])
-  }
-
-  const newJob: Job = {
-    id: generateId(),
-    jobNumber,
-    customerId: customer.id,
-    customerName: customer.name,
-    partsList: parts,
-    createdAt: Date.now(),
-    status: 'active'
-  }
-
-  setJobs((current) => [...current, newJob])
-
-  return { 
-    success: true, 
-    message: `Created job ${jobNumber} for ${customerName} with ${parts.length} parts`,
-    data: newJob
-  }
-}
-
-function createCustomer(
-  params: Record<string, unknown>,
-  customers: Customer[],
-  setCustomers: (updater: (current: Customer[]) => Customer[]) => void
-): ExecutionResult {
-  const name = String(params.name || '').trim()
-  const email = params.email ? String(params.email).trim() : undefined
-
-  if (!name) {
-    return { success: false, message: 'Customer name is required' }
-  }
-
-  const exists = customers.find(c => 
-    c.name.toLowerCase() === name.toLowerCase()
-  )
-
-  if (exists) {
-    return { success: false, message: `Customer ${name} already exists` }
-  }
-
-  const newCustomer: Customer = {
-    id: generateId(),
-    name,
-    email,
-    createdAt: Date.now()
-  }
-
-  setCustomers((current) => [...current, newCustomer])
-
-  return { 
-    success: true, 
-    message: `Created customer: ${name}${email ? ` (${email})` : ''}`,
-    data: newCustomer
-  }
 }
 
 function handleQuery(
