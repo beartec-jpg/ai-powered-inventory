@@ -39,7 +39,7 @@ This document tracks the phased implementation plan for the AI-Powered Inventory
 
 - **Test 1.2a**: Fuzzy part number matching
   - "Add 10 LMV37100" matches "LMV37.100"
-  - "Where is burner controler?" matches "burner controller"
+  - "Where is burner controller?" matches "burner controller"
 
 ### Phase 2 Checkpoints
 - **Test 2.1**: Action plan structure validation

@@ -135,10 +135,11 @@ function tryLocalParse(command: string, aiParams: Record<string, unknown>): { ac
     
     // Extract supplier if present ("bought from X" or "from X")
     // Note: Matches multi-word supplier names (e.g., "Acme Corp", "ABC Industries")
+    // Supports ampersands (&) common in company names (e.g., "Smith & Jones Ltd")
     const supplierMatch = itemDetails.match(/(?:bought\s+from|from)\s+([A-Za-z0-9\s&]+?)(?:\s*,|\s+add\s+to\s+|$)/i)
     const supplier = supplierMatch ? supplierMatch[1].trim() : undefined
     
-    // Remove supplier text from item name
+    // Remove supplier text from item name (uses same pattern as above for consistency)
     const itemName = itemDetails.replace(/(?:bought\s+from|from)\s+[A-Za-z0-9\s&]+?(?:\s*,|\s+add\s+to\s+|$)/i, '').trim()
     
     // Try to extract part number (alphanumeric sequences)
@@ -162,7 +163,8 @@ function tryLocalParse(command: string, aiParams: Record<string, unknown>): { ac
   // Matches: add item with supplier mention
   // Examples: "Add widget-123 bought from Acme Corp", "Add bolts from ABC Industries"
   // Note: Supports multi-word supplier names
-  // Item name is non-greedy but stops before "from" keyword
+  // Item names can include: letters, numbers, spaces, hyphens, underscores (e.g., "widget-123", "special_part")
+  // Supplier names can include: letters, numbers, spaces, ampersands (e.g., "Acme Corp", "Smith & Co")
   const addWithSupplierMatch = lower.match(
     /^add\s+([A-Za-z0-9\s\-_]+?)\s+(?:bought\s+)?from(?:\s+supplier)?\s+(.+?)(?:\s+to\s+|\s*$)/i
   )
