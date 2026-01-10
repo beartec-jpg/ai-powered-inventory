@@ -48,8 +48,11 @@ interface StateSetters {
  * Used when AI returns QUERY_INVENTORY but command matches known patterns
  * 
  * LIMITATIONS:
- * - Part number extraction uses first word from name, which may not be ideal
- *   for complex product names like "Siemens LMV37.100 burner controller"
+ * - Part number extraction is inconsistent across patterns:
+ *   * Some use regex matching for alphanumeric sequences
+ *   * Others use simple word splitting (first word)
+ *   * TODO: Create dedicated utility function for consistent extraction
+ * - Complex product names like "Siemens LMV37.100 burner controller" may not extract ideal part numbers
  * - The AI or backend should provide better part numbers when possible
  * - This is a safety fallback, not the primary parsing mechanism
  */
@@ -115,6 +118,67 @@ function tryLocalParse(command: string, aiParams: Record<string, unknown>): { ac
         partNumber: item,
         location: location,
         countedQuantity: quantity,
+        ...aiParams
+      }
+    }
+  }
+  
+  // Pattern: "Add new item [name/details] to [location]" (without cost)
+  // Matches: add item with details and location specification
+  // Examples: "Add a new item, details Siemens km3 123455 bought from comtherm, add to rack 1 bin 2"
+  const addItemToLocationMatch = lower.match(
+    /^(?:add\s+)?(?:a\s+)?(?:new\s+)?item[,\s]+(?:details?\s+)?(.+?)(?:\s+to\s+|,\s*add\s+to\s+)(.+)$/i
+  )
+  if (addItemToLocationMatch) {
+    const itemDetails = addItemToLocationMatch[1].trim()
+    const location = addItemToLocationMatch[2].trim()
+    
+    // Extract supplier if present ("bought from X" or "from X")
+    // Note: Matches multi-word supplier names (e.g., "Acme Corp", "ABC Industries")
+    // Supports ampersands (&) common in company names (e.g., "Smith & Jones Ltd")
+    const supplierMatch = itemDetails.match(/(?:bought\s+from|from)\s+([A-Za-z0-9\s&]+?)(?:\s*,|\s+add\s+to\s+|$)/i)
+    const supplier = supplierMatch ? supplierMatch[1].trim() : undefined
+    
+    // Remove supplier text from item name (uses same pattern as above for consistency)
+    const itemName = itemDetails.replace(/(?:bought\s+from|from)\s+[A-Za-z0-9\s&]+?(?:\s*,|\s+add\s+to\s+|$)/i, '').trim()
+    
+    // Try to extract part number (alphanumeric sequences)
+    const partNumberMatch = itemName.match(/\b([A-Z0-9]+-?[A-Z0-9]+|\d{4,})\b/i)
+    const partNumber = partNumberMatch ? partNumberMatch[1] : itemName.split(/\s+/)[0]
+    
+    return {
+      action: 'RECEIVE_STOCK',
+      parameters: {
+        name: itemName,
+        partNumber: partNumber,
+        location: location,
+        supplier: supplier,
+        quantity: 1,
+        ...aiParams
+      }
+    }
+  }
+  
+  // Pattern: "Add [item] bought from [supplier]"
+  // Matches: add item with supplier mention
+  // Examples: "Add widget-123 bought from Acme Corp", "Add bolts from ABC Industries"
+  // Note: Supports multi-word supplier names
+  // Item names can include: letters, numbers, spaces, hyphens, underscores (e.g., "widget-123", "special_part")
+  // Supplier names can include: letters, numbers, spaces, ampersands (e.g., "Acme Corp", "Smith & Co")
+  const addWithSupplierMatch = lower.match(
+    /^add\s+([A-Za-z0-9\s\-_]+?)\s+(?:bought\s+)?from(?:\s+supplier)?\s+(.+?)(?:\s+to\s+|\s*$)/i
+  )
+  if (addWithSupplierMatch) {
+    const itemDetails = addWithSupplierMatch[1].trim()
+    const supplier = addWithSupplierMatch[2].trim()
+    
+    return {
+      action: 'RECEIVE_STOCK', 
+      parameters: {
+        name: itemDetails,
+        partNumber: itemDetails.split(/\s+/)[0],
+        supplier: supplier,
+        quantity: 1,
         ...aiParams
       }
     }
@@ -259,6 +323,7 @@ export async function executeCommand(
   if (actionLower === 'create_location') return createLocation(parameters, locations, setLocations)
   if (actionLower === 'stock_check') return stockCheckLegacy(parameters, inventory, locations)
   if (actionLower === 'query') return handleQuery(parameters, inventory, locations, customers, jobs)
+  if (actionLower === 'query_inventory') return handleQuery(parameters, inventory, locations, customers, jobs)
   if (actionLower === 'list_items') return listItems(parameters, inventory)
   
   return { success: false, message: `Unknown action: ${action}` }
