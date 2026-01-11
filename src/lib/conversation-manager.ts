@@ -22,7 +22,9 @@ export class ConversationManager {
     action: string,
     parameters: Record<string, unknown>,
     missingFields: string[],
-    prompt: string
+    prompt: string,
+    pendingAction?: string,
+    context?: Record<string, unknown>
   ): PendingCommand {
     const now = Date.now()
     const pendingCommand: PendingCommand = {
@@ -32,7 +34,9 @@ export class ConversationManager {
       missingFields,
       prompt,
       createdAt: now,
-      expiresAt: now + CONTEXT_RETENTION_MS
+      expiresAt: now + CONTEXT_RETENTION_MS,
+      pendingAction,
+      context
     }
 
     this.context.pendingCommand = pendingCommand

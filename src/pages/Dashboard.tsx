@@ -185,10 +185,10 @@ export function Dashboard() {
           actionToExecute,
           paramsToExecute,
           result.missingFields,
-          result.prompt
+          result.prompt,
+          result.pendingAction,
+          result.context
         )
-        pending.pendingAction = result.pendingAction
-        pending.context = result.context
         setPendingCommand(pending)
         
         toast.info('Need more information')
