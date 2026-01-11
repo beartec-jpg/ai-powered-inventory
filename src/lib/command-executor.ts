@@ -351,8 +351,12 @@ export async function executeCommand(
   if (actionLower === 'search_catalogue') return searchCatalogue(parameters, state)
   
   // Stock Management - Support both old and new action names
+  console.log('[Executor] Checking stock management actions...')
   if (actionLower === 'receive_stock') return receiveStock(parameters, state)
-  if (actionLower === 'add_stock') return receiveStock(parameters, state)
+  if (actionLower === 'add_stock') {
+    console.log('[Executor] Matched ADD_STOCK action, calling receiveStock')
+    return receiveStock(parameters, state)
+  }
   if (actionLower === 'put_away_stock') return putAwayStock(parameters, state)
   if (actionLower === 'use_stock') return useStock(parameters, state)
   if (actionLower === 'remove_stock') return useStock(parameters, state)
@@ -408,9 +412,13 @@ export async function executeCommand(
   if (actionLower === 'create_location') return createLocation(parameters, locations, setLocations)
   if (actionLower === 'stock_check') return stockCheckLegacy(parameters, inventory, locations)
   if (actionLower === 'query') return handleQuery(parameters, inventory, locations, customers, jobs)
-  if (actionLower === 'query_inventory') return handleQuery(parameters, inventory, locations, customers, jobs)
+  if (actionLower === 'query_inventory') {
+    console.log('[Executor] Matched QUERY_INVENTORY action')
+    return handleQuery(parameters, inventory, locations, customers, jobs)
+  }
   if (actionLower === 'list_items') return listItems(parameters, inventory)
   
+  console.log('[Executor] No action match found for:', actionLower)
   return { success: false, message: `Unknown action: ${action}` }
 }
 
