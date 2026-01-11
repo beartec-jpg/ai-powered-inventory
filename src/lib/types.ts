@@ -419,3 +419,23 @@ export type CommandAction =
   | 'query'
   | 'list_items'
   | 'unknown'
+
+// CONVERSATIONAL FLOW - For handling multi-turn interactions
+export interface PendingCommand {
+  id: string
+  action: string
+  parameters: Record<string, unknown>
+  missingFields: string[]
+  prompt: string
+  createdAt: number
+  expiresAt: number
+  pendingAction?: string
+  context?: Record<string, unknown>
+}
+
+export interface ConversationContext {
+  pendingCommand: PendingCommand | null
+  lastCommand: string | null
+  lastResponse: string | null
+  updatedAt: number
+}
