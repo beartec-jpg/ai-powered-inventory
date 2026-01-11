@@ -69,6 +69,7 @@ export function findBestMatch(
 }
 
 // Parse natural language command using backend AI service
+// This now uses the new two-stage orchestrator for better reliability
 export async function interpretCommand(
   command: string,
   context?: Record<string, unknown>
@@ -80,6 +81,7 @@ export async function interpretCommand(
   clarificationNeeded?: string;
 }> {
   try {
+    // The backend parse-command endpoint now uses the two-stage approach internally
     const response = await fetch('/api/ai/parse-command', {
       method: 'POST',
       headers: {
@@ -98,7 +100,15 @@ export async function interpretCommand(
       throw new Error(result.message || 'Failed to parse command');
     }
 
-    return result.data;
+    // Map response to expected format
+    const data = result.data;
+    return {
+      action: data.action,
+      parameters: data.parameters,
+      confidence: data.confidence,
+      interpretation: data.reasoning || 'Command parsed',
+      clarificationNeeded: data.clarificationNeeded,
+    };
   } catch (error) {
     console.error('Error interpreting command:', error);
     return {

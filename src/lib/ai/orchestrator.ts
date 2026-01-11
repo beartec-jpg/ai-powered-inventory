@@ -1,0 +1,148 @@
+/**
+ * AI Orchestrator
+ * Coordinates the two-stage AI processing flow
+ */
+
+import { classifyIntent } from './classify';
+import { extractParameters } from './extract';
+import { tryFallbackParse } from './fallback-parser';
+import { conversationManager } from './conversation';
+import type { ParsedCommand } from '../actions/types';
+import { normalizeActionName } from '../actions/registry';
+
+const LOW_CONFIDENCE_THRESHOLD = 0.6;
+
+export async function parseCommand(command: string): Promise<ParsedCommand> {
+  try {
+    // Step 1: Add command to conversation context
+    const messageId = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    const contextSummary = conversationManager.getContextSummary();
+
+    // Step 2: Classify intent
+    console.log('[Orchestrator] Stage 1: Classifying intent...');
+    const classification = await classifyIntent(command, contextSummary);
+    console.log(
+      `[Orchestrator] Classification: ${classification.action} (confidence: ${classification.confidence})`
+    );
+
+    // Step 3: If confidence is too low, try local fallback
+    if (classification.confidence < LOW_CONFIDENCE_THRESHOLD) {
+      console.log('[Orchestrator] Low confidence, trying fallback parser...');
+      const fallbackResult = tryFallbackParse(command);
+
+      if (fallbackResult && fallbackResult.confidence > classification.confidence) {
+        console.log(
+          `[Orchestrator] Fallback parser matched: ${fallbackResult.action}`
+        );
+
+        // Use fallback result
+        const result: ParsedCommand = {
+          action: fallbackResult.action,
+          parameters: fallbackResult.parameters,
+          confidence: fallbackResult.confidence,
+          reasoning: 'Local regex fallback',
+        };
+
+        // Add to context
+        conversationManager.addMessage({
+          id: messageId,
+          timestamp: Date.now(),
+          userInput: command,
+          action: fallbackResult.action,
+          parameters: fallbackResult.parameters,
+          success: true,
+        });
+
+        return result;
+      }
+    }
+
+    // Normalize action name (handle aliases)
+    const normalizedAction = normalizeActionName(classification.action);
+
+    // Step 4: Extract parameters for the classified action
+    console.log('[Orchestrator] Stage 2: Extracting parameters...');
+    const extraction = await extractParameters(
+      command,
+      normalizedAction,
+      contextSummary
+    );
+    console.log(
+      `[Orchestrator] Extracted params:`,
+      extraction.parameters,
+      `(confidence: ${extraction.confidence})`
+    );
+
+    // Step 5: Resolve contextual references
+    const resolvedParams = conversationManager.resolveContextualReferences(
+      command,
+      extraction.parameters
+    );
+
+    // Step 6: Calculate overall confidence
+    const overallConfidence = Math.min(
+      classification.confidence,
+      extraction.confidence
+    );
+
+    // Step 7: Build result
+    const result: ParsedCommand = {
+      action: normalizedAction,
+      parameters: resolvedParams,
+      confidence: overallConfidence,
+      reasoning:
+        classification.reasoning ||
+        `Classified as ${normalizedAction} with ${Object.keys(resolvedParams).length} parameters`,
+      missingRequired: extraction.missingRequired,
+    };
+
+    // Add clarification if needed
+    if (
+      extraction.missingRequired &&
+      extraction.missingRequired.length > 0
+    ) {
+      result.clarificationNeeded = `Missing required information: ${extraction.missingRequired.join(', ')}. Please provide these details.`;
+    }
+
+    // Step 8: Add to conversation context
+    conversationManager.addMessage({
+      id: messageId,
+      timestamp: Date.now(),
+      userInput: command,
+      action: normalizedAction,
+      parameters: resolvedParams,
+      success: true,
+    });
+
+    return result;
+  } catch (error) {
+    console.error('[Orchestrator] Error parsing command:', error);
+
+    // Last resort: try fallback parser
+    const fallbackResult = tryFallbackParse(command);
+    if (fallbackResult) {
+      return {
+        action: fallbackResult.action,
+        parameters: fallbackResult.parameters,
+        confidence: fallbackResult.confidence,
+        reasoning: 'Fallback parser after error',
+      };
+    }
+
+    // Complete failure
+    return {
+      action: 'QUERY_INVENTORY',
+      parameters: { search: command },
+      confidence: 0.1,
+      reasoning: 'Failed to parse command',
+      clarificationNeeded: 'Sorry, I could not understand that command. Please try rephrasing.',
+    };
+  }
+}
+
+/**
+ * Clear conversation context
+ */
+export function clearContext(): void {
+  conversationManager.clear();
+}
