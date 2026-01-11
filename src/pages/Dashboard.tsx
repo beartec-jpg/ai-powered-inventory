@@ -116,7 +116,7 @@ export function Dashboard() {
           }
         } else {
           // Try to extract missing parameters from the user's response
-          const interpretation = await interpretCommand(command, conversationManager.getContext())
+          const interpretation = await interpretCommand(command)
           const completed = conversationManager.completePendingCommand(interpretation.parameters)
           
           if (completed) {
@@ -132,7 +132,7 @@ export function Dashboard() {
         setPendingCommand(null) // Clear UI pending command
       } else {
         // Normal new command flow
-        const interpretation = await interpretCommand(command, conversationManager.getContext())
+        const interpretation = await interpretCommand(command)
 
         // Store debug info if available
         if (interpretation.debug) {

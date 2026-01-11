@@ -439,15 +439,3 @@ export interface ConversationContext {
   lastResponse: string | null
   updatedAt: number
 }
-
-// Extended execution result with conversational support
-export interface ExecutionResultWithPrompt {
-  success: boolean
-  message: string
-  data?: unknown
-  needsInput?: boolean
-  missingFields?: string[]
-  prompt?: string
-  pendingAction?: string
-  context?: Record<string, unknown>
-}
