@@ -252,10 +252,13 @@ export async function executeCommand(
   
   const actionLower = action.toLowerCase()
   
-  // [TRACING] Log action routing
-  console.log('[Executor] Action lowercase:', actionLower)
-  console.log('[Executor] Catalogue items:', state.catalogue?.length || 0)
-  console.log('[Executor] Stock levels:', state.stockLevels?.length || 0)
+  // [TRACING] Log action routing with state info
+  console.log('[Executor] Action routing:', { 
+    original: action,
+    lowercase: actionLower,
+    catalogueItems: state.catalogue?.length || 0,
+    stockLevels: state.stockLevels?.length || 0
+  })
   
   // Handle special conversational actions
   if (actionLower === 'create_catalogue_item_and_add_stock') {
@@ -351,7 +354,6 @@ export async function executeCommand(
   if (actionLower === 'search_catalogue') return searchCatalogue(parameters, state)
   
   // Stock Management - Support both old and new action names
-  console.log('[Executor] Checking stock management actions...')
   if (actionLower === 'receive_stock') {
     console.log('[Executor] Matched RECEIVE_STOCK action, calling receiveStock')
     return receiveStock(parameters, state)
@@ -557,16 +559,17 @@ function searchCatalogue(params: Record<string, unknown>, state: StateSetters): 
 // ===== STOCK MANAGEMENT =====
 
 function receiveStock(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
-  // [TRACING] Log receiveStock entry with all relevant info
-  console.log('[receiveStock] Called with params:', params)
-  console.log('[receiveStock] Catalogue state:', { itemCount: state.catalogue.length, stockLevelCount: state.stockLevels.length })
-  
   // Handle both 'item' and 'partNumber' parameter names
   const item = String(params.item || params.partNumber || '').trim()
   const quantity = Number(params.quantity || 0)
   const location = String(params.location || '').trim()
   
-  console.log('[receiveStock] Extracted params:', { item, quantity, location })
+  // [TRACING] Log receiveStock entry with all relevant info
+  console.log('[receiveStock] Entry:', {
+    params: { item, quantity, location },
+    catalogueState: { itemCount: state.catalogue.length, stockLevelCount: state.stockLevels.length }
+  })
+
   
   // Check for missing required parameters
   const missingFields: string[] = []
