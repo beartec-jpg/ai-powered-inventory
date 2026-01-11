@@ -162,12 +162,13 @@ const ACTION_PARAMS: Record<
     ],
   },
   INSTALL_PART: {
-    required: ['partNumber', 'customerName', 'equipmentName'],
-    optional: ['quantity', 'location'],
+    required: ['partNumber', 'quantity', 'customerName', 'equipmentName'],
+    optional: ['location'],
     description:
-      'Installing part on equipment. Extract part, customer, equipment, optional quantity.',
+      'Installing part on equipment. Extract part, quantity, customer, equipment. Location is where stock is taken from.',
     examples: [
-      '"Install filter on Main Boiler for ABC" → { partNumber: "filter", customerName: "ABC", equipmentName: "Main Boiler" }',
+      '"Install 2 filters on Main Boiler for ABC" → { partNumber: "filter", quantity: 2, customerName: "ABC", equipmentName: "Main Boiler" }',
+      '"Install filter on Main Boiler for ABC" → { partNumber: "filter", quantity: 1, customerName: "ABC", equipmentName: "Main Boiler" }',
     ],
   },
   SEARCH_EQUIPMENT: {

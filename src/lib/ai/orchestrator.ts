@@ -15,7 +15,7 @@ const LOW_CONFIDENCE_THRESHOLD = 0.6;
 export async function parseCommand(command: string): Promise<ParsedCommand> {
   try {
     // Step 1: Add command to conversation context
-    const messageId = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    const messageId = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
     const contextSummary = conversationManager.getContextSummary();
 
     // Step 2: Classify intent
@@ -134,8 +134,8 @@ export async function parseCommand(command: string): Promise<ParsedCommand> {
       action: 'QUERY_INVENTORY',
       parameters: { search: command },
       confidence: 0.1,
-      reasoning: 'Failed to parse command',
-      clarificationNeeded: 'Sorry, I could not understand that command. Please try rephrasing.',
+      reasoning: 'Failed to parse command - all methods exhausted',
+      clarificationNeeded: 'Sorry, I could not understand that command. Please try rephrasing or provide more details.',
     };
   }
 }

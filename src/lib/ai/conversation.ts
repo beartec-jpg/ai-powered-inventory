@@ -104,16 +104,14 @@ class ConversationManager {
       resolved.item = this.context.lastItem;
     }
 
-    // Use last location if not specified
+    // Use last location if not specified and command is likely location-based
+    // Only infer location for ADD_STOCK, REMOVE_STOCK, TRANSFER_STOCK actions
     if (!parameters.location && this.context.lastLocation) {
-      // Only use if command seems to need a location
-      if (
-        lower.includes('to') ||
-        lower.includes('into') ||
-        lower.includes('at') ||
-        lower.includes('add') ||
-        lower.includes('put')
-      ) {
+      // Check if this is a stock-related command that needs a location
+      const needsLocation = 
+        lower.match(/\b(add|put|receive|use|take|remove|got|have|count)\b/);
+      
+      if (needsLocation) {
         resolved.location = this.context.lastLocation;
       }
     }

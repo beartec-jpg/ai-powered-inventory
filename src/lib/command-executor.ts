@@ -318,7 +318,7 @@ export async function executeCommand(
   if (actionLower === 'schedule_job') return scheduleJob(parameters, state)
   if (actionLower === 'start_job') return startJob(parameters, state)
   if (actionLower === 'complete_job') return completeJob(parameters, state)
-  if (actionLower === 'update_job') return completeJob(parameters, state)
+  if (actionLower === 'update_job') return updateJob(parameters, state)
   if (actionLower === 'add_part_to_job') return addPartToJob(parameters, state)
   if (actionLower === 'add_parts_to_job') return addPartToJob(parameters, state)
   if (actionLower === 'list_jobs') return listJobs(parameters, state)
@@ -1270,6 +1270,59 @@ function completeJob(params: Record<string, unknown>, state: StateSetters): Exec
   return {
     success: true,
     message: `Completed job ${jobNumber}`
+  }
+}
+
+function updateJob(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
+  const jobNumber = String(params.jobNumber || '').trim()
+  
+  if (!jobNumber) {
+    return { success: false, message: 'Job number is required' }
+  }
+  
+  const job = state.jobs.find(j => j.jobNumber === jobNumber)
+  
+  if (!job) {
+    return { success: false, message: `Job ${jobNumber} not found` }
+  }
+  
+  // Build update object from provided params
+  const updates: Partial<Job> = {}
+  
+  if (params.status) {
+    updates.status = String(params.status) as Job['status']
+  }
+  
+  if (params.priority) {
+    updates.priority = String(params.priority) as Job['priority']
+  }
+  
+  if (params.description) {
+    updates.description = String(params.description)
+  }
+  
+  if (params.notes) {
+    updates.notes = String(params.notes)
+  }
+  
+  if (params.findings) {
+    updates.findings = String(params.findings)
+  }
+  
+  if (params.recommendations) {
+    updates.recommendations = String(params.recommendations)
+  }
+  
+  state.setJobs((current) =>
+    current.map(j =>
+      j.id === job.id ? { ...j, ...updates } : j
+    )
+  )
+  
+  const updatedFields = Object.keys(updates).join(', ')
+  return {
+    success: true,
+    message: `Updated job ${jobNumber} (${updatedFields})`
   }
 }
 

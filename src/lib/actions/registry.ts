@@ -424,6 +424,8 @@ export function getActionsByCategory(category: string): ActionDefinition[] {
 }
 
 // Map of action name aliases (for backward compatibility)
+// Note: ADJUST_STOCK intentionally defaults to ADD_STOCK as the most common case
+// If users need to decrease, they should use REMOVE_STOCK explicitly
 export const ACTION_ALIASES: Record<string, ActionType> = {
   'RECEIVE_STOCK': 'ADD_STOCK',
   'USE_STOCK': 'REMOVE_STOCK',
@@ -442,7 +444,7 @@ export const ACTION_ALIASES: Record<string, ActionType> = {
   'CREATE_PURCHASE_ORDER': 'CREATE_ORDER',
   'RECEIVE_PURCHASE_ORDER': 'RECEIVE_ORDER',
   'CREATE_PRODUCT': 'ADD_PRODUCT',
-  'ADJUST_STOCK': 'ADD_STOCK',
+  'ADJUST_STOCK': 'ADD_STOCK', // Assumes positive adjustment; use REMOVE_STOCK for negative
 };
 
 // Normalize action name (handle aliases)
