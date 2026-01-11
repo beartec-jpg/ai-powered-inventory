@@ -32,7 +32,7 @@ export function MissingInfoPrompt({
         {missingFields.length > 0 && (
           <div className="text-sm">
             <span className="font-medium">Missing: </span>
-            {missingFields.map((field, i) => (
+            {missingFields.map((field) => (
               <Badge key={field} variant="secondary" className="mr-1">
                 {field}
               </Badge>

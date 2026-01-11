@@ -96,7 +96,9 @@ export function Dashboard() {
         const commandLower = command.toLowerCase().trim()
         
         if (existingPending.pendingAction === 'CREATE_CATALOGUE_ITEM_AND_ADD_STOCK') {
-          if (commandLower === 'yes' || commandLower === 'add it' || commandLower.includes('yes')) {
+          // More precise yes/no detection using word boundaries
+          if (commandLower === 'yes' || commandLower === 'add it' || 
+              /\byes\b/.test(commandLower) || /\badd\s+it\b/.test(commandLower)) {
             // User confirmed, execute the pending action
             actionToExecute = 'CREATE_CATALOGUE_ITEM_AND_ADD_STOCK'
             paramsToExecute = existingPending.context || {}

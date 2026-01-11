@@ -580,6 +580,7 @@ function receiveStock(params: Record<string, unknown>, state: StateSetters): Exe
         item,
         suggestedName: item,
         // Simple heuristic: use first word as part number
+        // Split on whitespace (spaces, tabs, newlines) and take first word
         // User can override by creating catalogue item explicitly first
         suggestedPartNumber: item.split(/\s+/)[0] || item,
         quantity,
