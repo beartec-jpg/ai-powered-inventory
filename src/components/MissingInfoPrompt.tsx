@@ -1,5 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Info } from '@phosphor-icons/react'
 
 interface MissingInfoPromptProps {
@@ -7,13 +8,19 @@ interface MissingInfoPromptProps {
   missingFields: string[]
   partialParams: Record<string, unknown>
   prompt: string
+  options?: string[]
+  pendingAction?: string
+  onOptionSelect?: (option: string) => void
 }
 
 export function MissingInfoPrompt({
   action,
   missingFields,
   partialParams,
-  prompt
+  prompt,
+  options,
+  pendingAction,
+  onOptionSelect
 }: MissingInfoPromptProps) {
   return (
     <Card className="border-blue-500/50 bg-blue-50/50 dark:bg-blue-950/20">
@@ -52,6 +59,21 @@ export function MissingInfoPrompt({
                   </div>
                 ))}
             </div>
+          </div>
+        )}
+        
+        {options && options.length > 0 && (
+          <div className="flex gap-2 mt-3">
+            {options.map(option => (
+              <Button 
+                key={option} 
+                variant="outline" 
+                size="sm" 
+                onClick={() => onOptionSelect?.(option)}
+              >
+                {option}
+              </Button>
+            ))}
           </div>
         )}
         

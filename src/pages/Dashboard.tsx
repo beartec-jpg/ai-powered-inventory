@@ -152,6 +152,23 @@ export function Dashboard() {
 
         actionToExecute = interpretation.action
         paramsToExecute = interpretation.parameters
+        
+        // Check if AI detected missing required parameters
+        const missingFromAI = interpretation.debug?.stage2?.missingRequired || []
+        if (missingFromAI.length > 0) {
+          const pending = conversationManager.createPendingCommand(
+            interpretation.action,
+            interpretation.parameters,
+            missingFromAI,
+            `Please provide the following to complete this action: ${missingFromAI.join(', ')}`,
+            undefined,
+            interpretation.parameters
+          )
+          setPendingCommand(pending)
+          toast.info(`Missing: ${missingFromAI.join(', ')}`)
+          setIsProcessing(false)
+          return // DON'T EXECUTE
+        }
       }
 
       const result = await executeCommand(
@@ -182,18 +199,19 @@ export function Dashboard() {
       )
 
       // Handle if command needs more input
-      if (result.needsInput && result.missingFields && result.missingFields.length > 0 && result.prompt) {
+      if (result.needsInput && result.prompt) {
         const pending = conversationManager.createPendingCommand(
           actionToExecute,
           paramsToExecute,
-          result.missingFields,
+          result.missingFields || [],
           result.prompt,
           result.pendingAction,
-          result.context
+          result.context,
+          result.options
         )
         setPendingCommand(pending)
         
-        toast.info('Need more information')
+        toast.info(result.pendingAction ? 'Confirmation needed' : 'Need more information')
         setIsProcessing(false)
         return
       }
@@ -299,6 +317,9 @@ export function Dashboard() {
               missingFields={pendingCommand.missingFields}
               partialParams={pendingCommand.context || pendingCommand.parameters}
               prompt={pendingCommand.prompt}
+              options={pendingCommand.options}
+              pendingAction={pendingCommand.pendingAction}
+              onOptionSelect={(option) => handleCommand(option)}
             />
           </div>
         )}
