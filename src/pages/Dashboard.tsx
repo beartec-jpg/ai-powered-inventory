@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { CommandInput } from '@/components/CommandInput'
 import { CommandResponse, AIClarification } from '@/components/CommandResponse'
 import { AIDebugPanel } from '@/components/AIDebugPanel'
+import { MissingInfoPrompt } from '@/components/MissingInfoPrompt'
 import { InventoryTable } from '@/components/InventoryView'
 import { JobsView } from '@/components/JobsView'
 import { CommandHistory } from '@/components/CommandHistory'
@@ -15,6 +16,7 @@ import { SuppliersView } from '@/components/SuppliersView'
 import { interpretCommand } from '@/lib/ai-commands'
 import { executeCommand } from '@/lib/command-executor'
 import { generateId } from '@/lib/ai-commands'
+import { conversationManager } from '@/lib/conversation-manager'
 import type { 
   InventoryItem, 
   Location, 
@@ -27,7 +29,8 @@ import type {
   Equipment,
   InstalledPart,
   PurchaseOrder,
-  DebugInfo
+  DebugInfo,
+  PendingCommand
 } from '@/lib/types'
 import { Package, FileText, ClockCounterClockwise, Sparkle, Gear, User, Bug } from '@phosphor-icons/react'
 
@@ -53,6 +56,7 @@ export function Dashboard() {
     message: string
     interpretation: string
   } | null>(null)
+  const [pendingCommand, setPendingCommand] = useState<PendingCommand | null>(null)
   const [debugMode, setDebugMode] = useState(false)
   const [latestDebugInfo, setLatestDebugInfo] = useState<DebugInfo | null>(null)
 
@@ -80,25 +84,77 @@ export function Dashboard() {
     setLatestDebugInfo(null)
 
     try {
-      const interpretation = await interpretCommand(command)
+      // Check if we have a pending command from a previous interaction
+      const existingPending = conversationManager.getPendingCommand()
+      
+      let actionToExecute: string
+      let paramsToExecute: Record<string, unknown>
+      
+      if (existingPending) {
+        // User is responding to a pending command
+        // Check if they're confirming to add to catalogue
+        const commandLower = command.toLowerCase().trim()
+        
+        if (existingPending.pendingAction === 'CREATE_CATALOGUE_ITEM_AND_ADD_STOCK') {
+          if (commandLower === 'yes' || commandLower === 'add it' || commandLower.includes('yes')) {
+            // User confirmed, execute the pending action
+            actionToExecute = 'CREATE_CATALOGUE_ITEM_AND_ADD_STOCK'
+            paramsToExecute = existingPending.context || {}
+            conversationManager.clearPendingCommand()
+          } else if (commandLower === 'no' || commandLower === 'cancel') {
+            // User cancelled
+            conversationManager.clearPendingCommand()
+            setPendingCommand(null)
+            toast.info('Operation cancelled')
+            setIsProcessing(false)
+            return
+          } else {
+            // Ambiguous response, re-prompt
+            toast.warning('Please reply with "yes" to add the item or "no" to cancel')
+            setIsProcessing(false)
+            return
+          }
+        } else {
+          // Try to extract missing parameters from the user's response
+          const interpretation = await interpretCommand(command, conversationManager.getContext())
+          const completed = conversationManager.completePendingCommand(interpretation.parameters)
+          
+          if (completed) {
+            actionToExecute = completed.action
+            paramsToExecute = completed.parameters
+          } else {
+            // Failed to complete, try as new command
+            actionToExecute = interpretation.action
+            paramsToExecute = interpretation.parameters
+          }
+        }
+        
+        setPendingCommand(null) // Clear UI pending command
+      } else {
+        // Normal new command flow
+        const interpretation = await interpretCommand(command, conversationManager.getContext())
 
-      // Store debug info if available
-      if (interpretation.debug) {
-        setLatestDebugInfo(interpretation.debug)
-      }
+        // Store debug info if available
+        if (interpretation.debug) {
+          setLatestDebugInfo(interpretation.debug)
+        }
 
-      if (interpretation.confidence < 0.7 && interpretation.clarificationNeeded) {
-        setNeedsClarification({
-          message: interpretation.clarificationNeeded,
-          interpretation: interpretation.interpretation
-        })
-        setIsProcessing(false)
-        return
+        if (interpretation.confidence < 0.7 && interpretation.clarificationNeeded) {
+          setNeedsClarification({
+            message: interpretation.clarificationNeeded,
+            interpretation: interpretation.interpretation
+          })
+          setIsProcessing(false)
+          return
+        }
+
+        actionToExecute = interpretation.action
+        paramsToExecute = interpretation.parameters
       }
 
       const result = await executeCommand(
-        interpretation.action,
-        interpretation.parameters,
+        actionToExecute,
+        paramsToExecute,
         inventory || [],
         setInventory,
         locations || [],
@@ -123,19 +179,39 @@ export function Dashboard() {
         command // Pass original command for fallback parsing
       )
 
+      // Handle if command needs more input
+      if (result.needsInput && result.missingFields && result.prompt) {
+        const pending = conversationManager.createPendingCommand(
+          actionToExecute,
+          paramsToExecute,
+          result.missingFields,
+          result.prompt
+        )
+        pending.pendingAction = result.pendingAction
+        pending.context = result.context
+        setPendingCommand(pending)
+        
+        toast.info('Need more information')
+        setIsProcessing(false)
+        return
+      }
+
       const log: CommandLog = {
         id: generateId(),
         command,
-        action: interpretation.action,
+        action: actionToExecute,
         timestamp: Date.now(),
         success: result.success,
         result: result.message,
         data: result.data,
-        debug: interpretation.debug
+        debug: latestDebugInfo || undefined
       }
 
       setCommandLogs((current) => [...(current || []), log])
       setLatestResponse(log)
+      
+      // Update conversation context
+      conversationManager.updateContext(command, result.message)
 
       if (result.success) {
         toast.success(result.message)
@@ -209,6 +285,17 @@ export function Dashboard() {
             <AIClarification
               message={needsClarification.message}
               interpretation={needsClarification.interpretation}
+            />
+          </div>
+        )}
+
+        {pendingCommand && (
+          <div className="mb-6">
+            <MissingInfoPrompt
+              action={pendingCommand.action}
+              missingFields={pendingCommand.missingFields}
+              partialParams={pendingCommand.context || pendingCommand.parameters}
+              prompt={pendingCommand.prompt}
             />
           </div>
         )}

@@ -18,6 +18,11 @@ interface ExecutionResult {
   success: boolean
   message: string
   data?: unknown
+  needsInput?: boolean
+  missingFields?: string[]
+  prompt?: string
+  pendingAction?: string
+  context?: Record<string, unknown>
 }
 
 interface StateSetters {
@@ -238,6 +243,56 @@ export async function executeCommand(
   }
   
   const actionLower = action.toLowerCase()
+  
+  // Handle special conversational actions
+  if (actionLower === 'create_catalogue_item_and_add_stock') {
+    // User confirmed adding to catalogue, create basic entry and add stock
+    const item = String(parameters.item || parameters.suggestedName || '').trim()
+    const partNumber = String(parameters.partNumber || parameters.suggestedPartNumber || item).trim()
+    const quantity = Number(parameters.quantity || 0)
+    const location = String(parameters.location || '').trim()
+    
+    if (!item || !partNumber) {
+      return { success: false, message: 'Item name and part number are required' }
+    }
+    
+    // Create basic catalogue entry
+    const newItem: CatalogueItem = {
+      id: generateId(),
+      partNumber,
+      name: item,
+      isStocked: true,
+      active: true,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    }
+    state.setCatalogue((current) => [...current, newItem])
+    
+    // Now add stock if quantity and location are provided
+    if (quantity > 0 && location) {
+      const newStock: StockLevel = {
+        id: generateId(),
+        catalogueItemId: newItem.id,
+        partNumber: newItem.partNumber,
+        name: newItem.name,
+        location,
+        quantity,
+        lastMovementAt: Date.now(),
+        updatedAt: Date.now(),
+      }
+      state.setStockLevels((current) => [...current, newStock])
+      
+      return {
+        success: true,
+        message: `Created catalogue item "${partNumber}" and added ${quantity} units to ${location}`
+      }
+    }
+    
+    return {
+      success: true,
+      message: `Created catalogue item "${partNumber}"`
+    }
+  }
   
   // If AI returned QUERY_INVENTORY, try local fallback parser
   if (actionLower === 'query_inventory' && originalCommand) {
@@ -478,32 +533,60 @@ function searchCatalogue(params: Record<string, unknown>, state: StateSetters): 
 // ===== STOCK MANAGEMENT =====
 
 function receiveStock(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
-  const partNumber = String(params.partNumber || '').trim()
+  // Handle both 'item' and 'partNumber' parameter names
+  const item = String(params.item || params.partNumber || '').trim()
   const quantity = Number(params.quantity || 0)
   const location = String(params.location || '').trim()
   
-  if (!partNumber || quantity <= 0 || !location) {
-    return { success: false, message: 'Part number, positive quantity, and location are required' }
+  // Check for missing required parameters
+  const missingFields: string[] = []
+  if (!item) missingFields.push('item')
+  if (!quantity || quantity <= 0) missingFields.push('quantity')
+  if (!location) missingFields.push('location')
+  
+  if (missingFields.length > 0) {
+    const fieldNames = missingFields.join(', ')
+    return {
+      success: false,
+      message: `Missing required information: ${fieldNames}`,
+      needsInput: true,
+      missingFields,
+      prompt: `Please provide the ${fieldNames} to complete adding stock.`,
+      context: { item, quantity, location }
+    }
   }
   
-  // Find catalogue item
+  // Search for item in catalogue by part number or name
   let catalogueItem = state.catalogue.find(i => 
-    i.partNumber.toLowerCase() === partNumber.toLowerCase()
+    i.partNumber.toLowerCase() === item.toLowerCase() ||
+    i.name.toLowerCase().includes(item.toLowerCase())
   )
   
-  // If not in catalogue, create it
+  // If not in catalogue, prompt to create it
   if (!catalogueItem) {
-    catalogueItem = {
-      id: generateId(),
-      partNumber,
-      name: partNumber,
-      isStocked: true,
-      active: true,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
+    return {
+      success: false,
+      message: `Item "${item}" not found in catalogue. Would you like to add it?`,
+      needsInput: true,
+      missingFields: ['confirm_add_to_catalogue'],
+      prompt: `The item "${item}" doesn't exist in the catalogue. You can:
+1. Reply "yes" or "add it" to create a basic catalogue entry and add the stock
+2. Reply "no" or "cancel" to cancel this operation
+3. Use "Add new item ${item} cost [price] markup [%]" to create it with pricing first`,
+      pendingAction: 'CREATE_CATALOGUE_ITEM_AND_ADD_STOCK',
+      context: { 
+        item,
+        suggestedName: item,
+        suggestedPartNumber: item.split(/\s+/)[0] || item,
+        quantity,
+        location,
+        supplier: params.supplier || params.supplierName
+      }
     }
-    state.setCatalogue((current) => [...current, catalogueItem!])
   }
+  
+  // Use the catalogue item's part number for consistency
+  const partNumber = catalogueItem.partNumber
   
   // Find or create stock level
   const existingStock = state.stockLevels.find(s => 
@@ -533,7 +616,7 @@ function receiveStock(params: Record<string, unknown>, state: StateSetters): Exe
     state.setStockLevels((current) => [...current, newStock])
   }
   
-  const supplierInfo = params.supplierName ? ` from ${params.supplierName}` : ''
+  const supplierInfo = params.supplier || params.supplierName ? ` from ${params.supplier || params.supplierName}` : ''
   return {
     success: true,
     message: `Received ${quantity} units of ${partNumber}${supplierInfo} into ${location}`
