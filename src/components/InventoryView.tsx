@@ -1,15 +1,17 @@
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import type { InventoryItem } from '@/lib/types'
+import type { InventoryItem, StockLevel } from '@/lib/types'
 import { Package, MapPin } from '@phosphor-icons/react'
 import { motion } from 'framer-motion'
 
 interface InventoryCardProps {
-  item: InventoryItem
+  item: InventoryItem | StockLevel
 }
 
 export function InventoryCard({ item }: InventoryCardProps) {
-  const isLowStock = item.minQuantity ? item.quantity < item.minQuantity : item.quantity < 10
+  // Support both InventoryItem (minQuantity) and StockLevel (no minQuantity)
+  const minQuantity = 'minQuantity' in item ? item.minQuantity : undefined
+  const isLowStock = minQuantity ? item.quantity < minQuantity : item.quantity < 10
   const isOutOfStock = item.quantity === 0
 
   return (
@@ -57,7 +59,7 @@ export function InventoryCard({ item }: InventoryCardProps) {
 }
 
 interface InventoryTableProps {
-  items: InventoryItem[]
+  items: (InventoryItem | StockLevel)[]
 }
 
 export function InventoryTable({ items }: InventoryTableProps) {
@@ -71,7 +73,12 @@ export function InventoryTable({ items }: InventoryTableProps) {
     )
   }
 
-  const sortedItems = [...items].sort((a, b) => b.lastUpdated - a.lastUpdated)
+  // Support both lastUpdated (InventoryItem) and updatedAt (StockLevel)
+  const sortedItems = [...items].sort((a, b) => {
+    const aTime = 'lastUpdated' in a ? a.lastUpdated : a.updatedAt
+    const bTime = 'lastUpdated' in b ? b.lastUpdated : b.updatedAt
+    return bTime - aTime
+  })
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
