@@ -7,6 +7,8 @@ import {
   setCorsHeaders,
   validateCommandResponse 
 } from '../lib/utils.js';
+import { classifyIntentCore } from './classify-intent.js';
+import { extractParametersCore } from './extract-params.js';
 
 // Initialize OpenAI client configured for xAI (Grok)
 const openai = new OpenAI({
@@ -1246,77 +1248,131 @@ export default async function handler(
   }
 
   try {
-    // Try grok-3-mini first (fast, cheap, 131k context)
     const startTime = Date.now();
-    let result: ParseCommandResponse;
-    let latency: number;
-    let model: string;
-
     console.log(`[AI Command] Parsing: "${command}"`);
 
-    try {
-      result = await tryParseCommand(command, context, 'grok-3-mini', GROK_3_MINI_TIMEOUT);
-      latency = Date.now() - startTime;
-      model = 'grok-3-mini';
-      
-      console.log(`[AI Command] grok-3-mini result: action=${result.action}, confidence=${result.confidence}`);
-    } catch (primaryError) {
-      console.error('grok-3-mini failed:', primaryError);
-      
-      // Fallback to grok-3 (powerful reasoning, slower)
-      console.log('[AI Command] Falling back to grok-3...');
-      const fallbackStartTime = Date.now();
-      
-      try {
-        result = await tryParseCommand(command, context, 'grok-3', GROK_3_TIMEOUT);
-        latency = Date.now() - fallbackStartTime;
-        model = 'grok-3';
-        
-        console.log(`[AI Command] grok-3 result: action=${result.action}, confidence=${result.confidence}`);
-      } catch (fallbackError) {
-        console.error('grok-3 also failed:', fallbackError);
-        throw new Error('Both primary and fallback models failed to parse command');
-      }
-    }
+    // NEW TWO-STAGE APPROACH
+    // Direct function calls instead of HTTP requests
+    
+    // Stage 1: Classify Intent
+    const classification = await classifyIntentCore(command, context);
+    const { action, confidence: classifyConfidence } = classification;
 
-    // If confidence is low from grok-3-mini, try grok-3 for better reasoning
-    if (model === 'grok-3-mini' && result.confidence < LOW_CONFIDENCE_THRESHOLD) {
-      console.log(
-        `[AI Command] Low confidence (${result.confidence}) from grok-3-mini, trying grok-3 for better reasoning...`
-      );
-      
-      const fallbackStartTime = Date.now();
-      try {
-        const fallbackResult = await tryParseCommand(command, context, 'grok-3', GROK_3_TIMEOUT);
-        const fallbackLatency = Date.now() - fallbackStartTime;
+    console.log(`[AI Command] Classified as: ${action} (confidence: ${classifyConfidence})`);
 
-        // Use grok-3 result if it has higher confidence
-        if (fallbackResult.confidence > result.confidence) {
-          result = fallbackResult;
-          latency = fallbackLatency;
-          model = 'grok-3';
-          console.log(`[AI Command] grok-3 provided better confidence: ${result.confidence}`);
-        }
-      } catch (fallbackError) {
-        console.error('Fallback to grok-3 failed:', fallbackError);
-        // Continue with grok-3-mini result
-      }
+    // Stage 2: Extract Parameters
+    const extraction = await extractParametersCore(command, action, context);
+    const { parameters, missingRequired, confidence: extractConfidence } = extraction;
+
+    console.log(`[AI Command] Extracted params:`, parameters);
+
+    // Calculate overall confidence
+    const overallConfidence = Math.min(classifyConfidence, extractConfidence);
+    const latency = Date.now() - startTime;
+
+    // Build result
+    const result: ParseCommandResponse = {
+      action,
+      parameters,
+      confidence: overallConfidence,
+      reasoning: `Two-stage parsing: ${action} with ${Object.keys(parameters).length} parameters`,
+      model: 'grok-3-mini',
+      latency,
+    };
+
+    if (missingRequired && missingRequired.length > 0) {
+      result.clarificationNeeded = `Missing required: ${missingRequired.join(', ')}`;
     }
 
     // Validate the response structure
     const validatedResult = validateCommandResponse(result);
 
-    return successResponse(res, {
-      ...validatedResult,
-      model,
-      latency,
-    });
+    return successResponse(res, validatedResult);
   } catch (error) {
     console.error('Error parsing command:', error);
     
-    return internalServerErrorResponse(
-      res,
-      error instanceof Error ? error.message : 'Failed to parse command'
-    );
+    // Try legacy parsing as final fallback
+    try {
+      return await handleLegacyParsing(command, context, res);
+    } catch (legacyError) {
+      return internalServerErrorResponse(
+        res,
+        error instanceof Error ? error.message : 'Failed to parse command'
+      );
+    }
   }
+}
+
+/**
+ * Legacy parsing method (kept for backward compatibility and as fallback)
+ */
+async function handleLegacyParsing(
+  command: string,
+  context: Record<string, unknown> | undefined,
+  res: VercelResponse
+): Promise<VercelResponse> {
+  const startTime = Date.now();
+  let result: ParseCommandResponse;
+  let latency: number;
+  let model: string;
+
+  console.log(`[AI Command] Using legacy parsing for: "${command}"`);
+
+  try {
+    result = await tryParseCommand(command, context, 'grok-3-mini', GROK_3_MINI_TIMEOUT);
+    latency = Date.now() - startTime;
+    model = 'grok-3-mini';
+    
+    console.log(`[AI Command] grok-3-mini result: action=${result.action}, confidence=${result.confidence}`);
+  } catch (primaryError) {
+    console.error('grok-3-mini failed:', primaryError);
+    
+    // Fallback to grok-3 (powerful reasoning, slower)
+    console.log('[AI Command] Falling back to grok-3...');
+    const fallbackStartTime = Date.now();
+    
+    try {
+      result = await tryParseCommand(command, context, 'grok-3', GROK_3_TIMEOUT);
+      latency = Date.now() - fallbackStartTime;
+      model = 'grok-3';
+      
+      console.log(`[AI Command] grok-3 result: action=${result.action}, confidence=${result.confidence}`);
+    } catch (fallbackError) {
+      console.error('grok-3 also failed:', fallbackError);
+      throw new Error('Both primary and fallback models failed to parse command');
+    }
+  }
+
+  // If confidence is low from grok-3-mini, try grok-3 for better reasoning
+  if (model === 'grok-3-mini' && result.confidence < LOW_CONFIDENCE_THRESHOLD) {
+    console.log(
+      `[AI Command] Low confidence (${result.confidence}) from grok-3-mini, trying grok-3 for better reasoning...`
+    );
+    
+    const fallbackStartTime = Date.now();
+    try {
+      const fallbackResult = await tryParseCommand(command, context, 'grok-3', GROK_3_TIMEOUT);
+      const fallbackLatency = Date.now() - fallbackStartTime;
+
+      // Use grok-3 result if it has higher confidence
+      if (fallbackResult.confidence > result.confidence) {
+        result = fallbackResult;
+        latency = fallbackLatency;
+        model = 'grok-3';
+        console.log(`[AI Command] grok-3 provided better confidence: ${result.confidence}`);
+      }
+    } catch (fallbackError) {
+      console.error('Fallback to grok-3 failed:', fallbackError);
+      // Continue with grok-3-mini result
+    }
+  }
+
+  // Validate the response structure
+  const validatedResult = validateCommandResponse(result);
+
+  return successResponse(res, {
+    ...validatedResult,
+    model,
+    latency,
+  });
 }
