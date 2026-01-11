@@ -136,6 +136,13 @@ export function Dashboard() {
         // Normal new command flow
         const interpretation = await interpretCommand(command)
 
+        // [TRACING] Log interpretation result
+        console.log('[Dashboard] Step 1 - Interpretation result:', {
+          action: interpretation.action,
+          parameters: interpretation.parameters,
+          confidence: interpretation.confidence
+        })
+
         // Store debug info if available
         if (interpretation.debug) {
           setLatestDebugInfo(interpretation.debug)
@@ -171,6 +178,14 @@ export function Dashboard() {
         }
       }
 
+      // [TRACING] Log before execution
+      console.log('[Dashboard] Step 2 - About to execute:', {
+        actionToExecute,
+        paramsToExecute,
+        catalogueLength: catalogue?.length || 0,
+        stockLevelsLength: stockLevels?.length || 0
+      })
+
       const result = await executeCommand(
         actionToExecute,
         paramsToExecute,
@@ -199,22 +214,27 @@ export function Dashboard() {
       )
 
       // Handle if command needs more input
-      if (result.needsInput && result.prompt && 
-          (result.missingFields && result.missingFields.length > 0 || result.options && result.options.length > 0)) {
-        const pending = conversationManager.createPendingCommand(
-          actionToExecute,
-          paramsToExecute,
-          result.missingFields || [],
-          result.prompt,
-          result.pendingAction,
-          result.context,
-          result.options
-        )
-        setPendingCommand(pending)
+      if (result.needsInput && result.prompt) {
+        // Show prompt if there are missing fields OR if there are options to choose from
+        const hasMissingFields = result.missingFields && result.missingFields.length > 0
+        const hasOptions = result.options && result.options.length > 0
         
-        toast.info(result.pendingAction ? 'Confirmation needed' : 'Need more information')
-        setIsProcessing(false)
-        return
+        if (hasMissingFields || hasOptions) {
+          const pending = conversationManager.createPendingCommand(
+            actionToExecute,
+            paramsToExecute,
+            result.missingFields || [],
+            result.prompt,
+            result.pendingAction,
+            result.context,
+            result.options
+          )
+          setPendingCommand(pending)
+          
+          toast.info(result.pendingAction ? 'Confirmation needed' : 'Need more information')
+          setIsProcessing(false)
+          return
+        }
       }
 
       const log: CommandLog = {
