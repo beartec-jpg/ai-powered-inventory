@@ -7,6 +7,8 @@ import {
   setCorsHeaders,
   validateCommandResponse 
 } from '../lib/utils.js';
+import { classifyIntentCore } from './classify-intent.js';
+import { extractParametersCore } from './extract-params.js';
 
 // Initialize OpenAI client configured for xAI (Grok)
 const openai = new OpenAI({
@@ -1250,54 +1252,17 @@ export default async function handler(
     console.log(`[AI Command] Parsing: "${command}"`);
 
     // NEW TWO-STAGE APPROACH
-    // This endpoint now acts as a wrapper for backward compatibility
-    // It calls the new classify-intent and extract-params endpoints
+    // Direct function calls instead of HTTP requests
     
     // Stage 1: Classify Intent
-    const classifyResponse = await fetch(`${req.headers.origin || 'http://localhost:3000'}/api/ai/classify-intent`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ command, context }),
-    });
-
-    if (!classifyResponse.ok) {
-      console.error('[AI Command] Classification failed');
-      // Fallback to old method
-      return handleLegacyParsing(command, context, res);
-    }
-
-    const classifyResult = await classifyResponse.json();
-    const { action, confidence: classifyConfidence } = classifyResult.data;
+    const classification = await classifyIntentCore(command, context);
+    const { action, confidence: classifyConfidence } = classification;
 
     console.log(`[AI Command] Classified as: ${action} (confidence: ${classifyConfidence})`);
 
     // Stage 2: Extract Parameters
-    const extractResponse = await fetch(`${req.headers.origin || 'http://localhost:3000'}/api/ai/extract-params`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ command, action, context }),
-    });
-
-    if (!extractResponse.ok) {
-      console.error('[AI Command] Parameter extraction failed');
-      // Use classification result with empty params
-      const latency = Date.now() - startTime;
-      return successResponse(res, {
-        action,
-        parameters: {},
-        confidence: classifyConfidence,
-        reasoning: `Classified as ${action}`,
-        model: 'grok-3-mini',
-        latency,
-      });
-    }
-
-    const extractResult = await extractResponse.json();
-    const { parameters, missingRequired, confidence: extractConfidence } = extractResult.data;
+    const extraction = await extractParametersCore(command, action, context);
+    const { parameters, missingRequired, confidence: extractConfidence } = extraction;
 
     console.log(`[AI Command] Extracted params:`, parameters);
 

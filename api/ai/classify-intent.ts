@@ -48,43 +48,20 @@ interface ClassificationResponse {
   reasoning?: string;
 }
 
-export default async function handler(
-  req: VercelRequest,
-  res: VercelResponse
-) {
-  // Handle CORS
-  setCorsHeaders(res);
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
-  if (req.method !== 'POST') {
-    return res.status(405).json({
-      success: false,
-      error: 'Method Not Allowed',
-      message: 'Only POST requests are allowed',
-    });
-  }
-
-  const { command, context } = req.body;
-
-  if (!command || typeof command !== 'string') {
-    return badRequestResponse(res, 'Command is required and must be a string');
-  }
-
+/**
+ * Core classification logic (can be called directly or via HTTP)
+ */
+export async function classifyIntentCore(
+  command: string,
+  context?: string
+): Promise<ClassificationResponse> {
   if (!isGrokConfigured()) {
-    return res.status(503).json({
-      success: false,
-      error: 'Service Unavailable',
-      message: 'AI service is not configured',
-    });
+    throw new Error('AI service is not configured');
   }
 
-  try {
-    const contextInfo = context ? `\n\nRecent context:\n${context}` : '';
+  const contextInfo = context ? `\n\nRecent context:\n${context}` : '';
 
-    const systemPrompt = `You are an expert at classifying user commands for a Field Service & Inventory Management system.
+  const systemPrompt = `You are an expert at classifying user commands for a Field Service & Inventory Management system.
 
 Your ONLY job is to identify the action type from the user's command. Return ONLY a JSON object with:
 - action: one of the supported actions (see list below)
@@ -127,36 +104,66 @@ EXAMPLES:
 
 Be confident when the intent is clear. Return lower confidence (<0.7) only when truly ambiguous.`;
 
-    const userPrompt = `Classify this command: "${command}"${contextInfo}`;
+  const userPrompt = `Classify this command: "${command}"${contextInfo}`;
 
-    console.log(`[Classify Intent] Command: "${command}"`);
+  console.log(`[Classify Intent] Command: "${command}"`);
 
-    const result = await callGrokJSON<ClassificationResponse>(
-      [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      {
-        model: 'grok-3-mini',
-        temperature: 0.1,
-        maxTokens: 200,
-        timeout: 10000,
-      }
-    );
-
-    console.log(
-      `[Classify Intent] Result: ${result.action} (confidence: ${result.confidence})`
-    );
-
-    // Validate action is in supported list
-    if (!ACTIONS.includes(result.action)) {
-      console.warn(
-        `[Classify Intent] Unknown action: ${result.action}, defaulting to QUERY_INVENTORY`
-      );
-      result.action = 'QUERY_INVENTORY';
-      result.confidence = 0.3;
+  const result = await callGrokJSON<ClassificationResponse>(
+    [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+    {
+      model: 'grok-3-mini',
+      temperature: 0.1,
+      maxTokens: 200,
+      timeout: 10000,
     }
+  );
 
+  console.log(
+    `[Classify Intent] Result: ${result.action} (confidence: ${result.confidence})`
+  );
+
+  // Validate action is in supported list
+  if (!ACTIONS.includes(result.action)) {
+    console.warn(
+      `[Classify Intent] Unknown action: ${result.action}, defaulting to QUERY_INVENTORY`
+    );
+    result.action = 'QUERY_INVENTORY';
+    result.confidence = 0.3;
+  }
+
+  return result;
+}
+
+export default async function handler(
+  req: VercelRequest,
+  res: VercelResponse
+) {
+  // Handle CORS
+  setCorsHeaders(res);
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  if (req.method !== 'POST') {
+    return res.status(405).json({
+      success: false,
+      error: 'Method Not Allowed',
+      message: 'Only POST requests are allowed',
+    });
+  }
+
+  const { command, context } = req.body;
+
+  if (!command || typeof command !== 'string') {
+    return badRequestResponse(res, 'Command is required and must be a string');
+  }
+
+  try {
+    const result = await classifyIntentCore(command, context);
     return successResponse(res, result);
   } catch (error) {
     console.error('[Classify Intent] Error:', error);

@@ -239,6 +239,82 @@ const ACTION_PARAMS: Record<
   },
 };
 
+/**
+ * Core extraction logic (can be called directly or via HTTP)
+ */
+export async function extractParametersCore(
+  command: string,
+  action: string,
+  context?: string
+): Promise<ExtractionResponse> {
+  if (!isGrokConfigured()) {
+    throw new Error('AI service is not configured');
+  }
+
+  // Get parameter definition for this action
+  const paramDef = ACTION_PARAMS[action];
+  if (!paramDef) {
+    console.warn(`[Extract Params] Unknown action: ${action}`);
+    return {
+      parameters: {},
+      missingRequired: [],
+      confidence: 0.5,
+    };
+  }
+
+  const contextInfo = context ? `\n\nRecent context:\n${context}` : '';
+
+  const systemPrompt = `You are an expert at extracting parameters from user commands for a ${action} action.
+
+ACTION: ${action}
+DESCRIPTION: ${paramDef.description}
+
+REQUIRED PARAMETERS: ${paramDef.required.length > 0 ? paramDef.required.join(', ') : 'none'}
+OPTIONAL PARAMETERS: ${paramDef.optional.length > 0 ? paramDef.optional.join(', ') : 'none'}
+
+EXAMPLES:
+${paramDef.examples.join('\n')}
+
+Your job is to extract these parameters from the user's command. Return ONLY a JSON object with:
+- parameters: object with extracted parameter values (use correct types: numbers for quantities, strings for names)
+- missingRequired: array of required parameter names that are missing
+- confidence: number between 0 and 1 indicating extraction confidence
+
+IMPORTANT:
+- Extract exact values from the command
+- For quantities, extract as numbers (not strings)
+- For item names, preserve the exact phrasing
+- For locations, preserve the exact location identifier
+- If a required parameter is clearly stated, include it
+- If a required parameter is not mentioned, add its name to missingRequired
+- Be confident (>0.8) when parameters are clearly stated`;
+
+  const userPrompt = `Extract parameters for ${action} from: "${command}"${contextInfo}`;
+
+  console.log(`[Extract Params] Action: ${action}, Command: "${command}"`);
+
+  const result = await callGrokJSON<ExtractionResponse>(
+    [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+    {
+      model: 'grok-3-mini',
+      temperature: 0.1,
+      maxTokens: 300,
+      timeout: 10000,
+    }
+  );
+
+  console.log(
+    `[Extract Params] Result:`,
+    result.parameters,
+    `Missing: ${result.missingRequired?.join(', ') || 'none'}`
+  );
+
+  return result;
+}
+
 export default async function handler(
   req: VercelRequest,
   res: VercelResponse
@@ -268,76 +344,8 @@ export default async function handler(
     return badRequestResponse(res, 'Action is required and must be a string');
   }
 
-  if (!isGrokConfigured()) {
-    return res.status(503).json({
-      success: false,
-      error: 'Service Unavailable',
-      message: 'AI service is not configured',
-    });
-  }
-
   try {
-    // Get parameter definition for this action
-    const paramDef = ACTION_PARAMS[action];
-    if (!paramDef) {
-      console.warn(`[Extract Params] Unknown action: ${action}`);
-      return successResponse(res, {
-        parameters: {},
-        missingRequired: [],
-        confidence: 0.5,
-      });
-    }
-
-    const contextInfo = context ? `\n\nRecent context:\n${context}` : '';
-
-    const systemPrompt = `You are an expert at extracting parameters from user commands for a ${action} action.
-
-ACTION: ${action}
-DESCRIPTION: ${paramDef.description}
-
-REQUIRED PARAMETERS: ${paramDef.required.length > 0 ? paramDef.required.join(', ') : 'none'}
-OPTIONAL PARAMETERS: ${paramDef.optional.length > 0 ? paramDef.optional.join(', ') : 'none'}
-
-EXAMPLES:
-${paramDef.examples.join('\n')}
-
-Your job is to extract these parameters from the user's command. Return ONLY a JSON object with:
-- parameters: object with extracted parameter values (use correct types: numbers for quantities, strings for names)
-- missingRequired: array of required parameter names that are missing
-- confidence: number between 0 and 1 indicating extraction confidence
-
-IMPORTANT:
-- Extract exact values from the command
-- For quantities, extract as numbers (not strings)
-- For item names, preserve the exact phrasing
-- For locations, preserve the exact location identifier
-- If a required parameter is clearly stated, include it
-- If a required parameter is not mentioned, add its name to missingRequired
-- Be confident (>0.8) when parameters are clearly stated`;
-
-    const userPrompt = `Extract parameters for ${action} from: "${command}"${contextInfo}`;
-
-    console.log(`[Extract Params] Action: ${action}, Command: "${command}"`);
-
-    const result = await callGrokJSON<ExtractionResponse>(
-      [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      {
-        model: 'grok-3-mini',
-        temperature: 0.1,
-        maxTokens: 300,
-        timeout: 10000,
-      }
-    );
-
-    console.log(
-      `[Extract Params] Result:`,
-      result.parameters,
-      `Missing: ${result.missingRequired?.join(', ') || 'none'}`
-    );
-
+    const result = await extractParametersCore(command, action, context);
     return successResponse(res, result);
   } catch (error) {
     console.error('[Extract Params] Error:', error);
