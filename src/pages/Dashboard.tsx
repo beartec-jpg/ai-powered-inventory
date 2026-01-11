@@ -161,7 +161,7 @@ export function Dashboard() {
             interpretation.parameters,
             missingFromAI,
             `Please provide the following to complete this action: ${missingFromAI.join(', ')}`,
-            undefined,
+            undefined, // pendingAction - not a pending action, just missing parameters
             interpretation.parameters
           )
           setPendingCommand(pending)
@@ -199,7 +199,8 @@ export function Dashboard() {
       )
 
       // Handle if command needs more input
-      if (result.needsInput && result.prompt) {
+      if (result.needsInput && result.prompt && 
+          (result.missingFields && result.missingFields.length > 0 || result.options && result.options.length > 0)) {
         const pending = conversationManager.createPendingCommand(
           actionToExecute,
           paramsToExecute,

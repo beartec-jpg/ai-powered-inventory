@@ -77,9 +77,11 @@ export function MissingInfoPrompt({
           </div>
         )}
         
-        <div className="text-xs text-muted-foreground mt-3">
-          💡 Tip: Just reply with the missing information in your next message
-        </div>
+        {(!options || options.length === 0) && (
+          <div className="text-xs text-muted-foreground mt-3">
+            💡 Tip: Just reply with the missing information in your next message
+          </div>
+        )}
       </CardContent>
     </Card>
   )
