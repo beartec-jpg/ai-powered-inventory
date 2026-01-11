@@ -329,6 +329,24 @@ export interface CommandLog {
   success: boolean
   result?: string
   data?: unknown
+  debug?: DebugInfo
+}
+
+// DEBUG INFO
+export interface DebugInfo {
+  stage1: {
+    action: string
+    confidence: number
+    reasoning?: string
+  }
+  stage2: {
+    parameters: Record<string, unknown>
+    missingRequired: string[]
+    confidence: number
+  }
+  usedFallback: boolean
+  fallbackReason?: string
+  rawCommand: string
 }
 
 // Legacy types for backwards compatibility
