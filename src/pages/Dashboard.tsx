@@ -214,8 +214,9 @@ export function Dashboard() {
       )
 
       // Handle if command needs more input
+      // Note: We check for both missing fields AND options because some actions (like catalogue confirmation)
+      // use options instead of missing fields to prompt the user for a decision
       if (result.needsInput && result.prompt) {
-        // Show prompt if there are missing fields OR if there are options to choose from
         const hasMissingFields = result.missingFields && result.missingFields.length > 0
         const hasOptions = result.options && result.options.length > 0
         

@@ -352,7 +352,10 @@ export async function executeCommand(
   
   // Stock Management - Support both old and new action names
   console.log('[Executor] Checking stock management actions...')
-  if (actionLower === 'receive_stock') return receiveStock(parameters, state)
+  if (actionLower === 'receive_stock') {
+    console.log('[Executor] Matched RECEIVE_STOCK action, calling receiveStock')
+    return receiveStock(parameters, state)
+  }
   if (actionLower === 'add_stock') {
     console.log('[Executor] Matched ADD_STOCK action, calling receiveStock')
     return receiveStock(parameters, state)
@@ -554,18 +557,16 @@ function searchCatalogue(params: Record<string, unknown>, state: StateSetters): 
 // ===== STOCK MANAGEMENT =====
 
 function receiveStock(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
-  // [TRACING] Log receiveStock entry
-  console.log('[receiveStock] Called with:', params)
-  console.log('[receiveStock] State catalogue:', state.catalogue.length)
-  console.log('[receiveStock] State stock levels:', state.stockLevels.length)
+  // [TRACING] Log receiveStock entry with all relevant info
+  console.log('[receiveStock] Called with params:', params)
+  console.log('[receiveStock] Catalogue state:', { itemCount: state.catalogue.length, stockLevelCount: state.stockLevels.length })
   
   // Handle both 'item' and 'partNumber' parameter names
   const item = String(params.item || params.partNumber || '').trim()
   const quantity = Number(params.quantity || 0)
   const location = String(params.location || '').trim()
   
-  // [TRACING] Log extracted parameters
-  console.log('[receiveStock] Looking for item:', item, 'quantity:', quantity, 'location:', location)
+  console.log('[receiveStock] Extracted params:', { item, quantity, location })
   
   // Check for missing required parameters
   const missingFields: string[] = []
@@ -588,13 +589,12 @@ function receiveStock(params: Record<string, unknown>, state: StateSetters): Exe
   // Search for item in catalogue by part number or name
   // - Exact match (case-insensitive) on part number for precision
   // - Partial match on name for flexibility (e.g., "M10" matches "M10 nuts")
-  console.log('[receiveStock] Searching catalogue for item:', item)
   let catalogueItem = state.catalogue.find(i => 
     i.partNumber.toLowerCase() === item.toLowerCase() ||
     i.name.toLowerCase().includes(item.toLowerCase())
   )
   
-  console.log('[receiveStock] Catalogue item found:', catalogueItem ? catalogueItem.partNumber : 'NOT FOUND')
+  console.log('[receiveStock] Catalogue lookup result:', catalogueItem ? `Found: ${catalogueItem.partNumber}` : 'NOT FOUND')
   
   // If not in catalogue, prompt to create it
   if (!catalogueItem) {
