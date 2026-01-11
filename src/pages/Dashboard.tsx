@@ -182,7 +182,7 @@ export function Dashboard() {
       )
 
       // Handle if command needs more input
-      if (result.needsInput && result.missingFields && result.prompt) {
+      if (result.needsInput && result.missingFields && result.missingFields.length > 0 && result.prompt) {
         const pending = conversationManager.createPendingCommand(
           actionToExecute,
           paramsToExecute,
