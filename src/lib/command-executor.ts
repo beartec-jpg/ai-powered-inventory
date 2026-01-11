@@ -557,6 +557,8 @@ function receiveStock(params: Record<string, unknown>, state: StateSetters): Exe
   }
   
   // Search for item in catalogue by part number or name
+  // - Exact match (case-insensitive) on part number for precision
+  // - Partial match on name for flexibility (e.g., "M10" matches "M10 nuts")
   let catalogueItem = state.catalogue.find(i => 
     i.partNumber.toLowerCase() === item.toLowerCase() ||
     i.name.toLowerCase().includes(item.toLowerCase())
@@ -577,6 +579,8 @@ function receiveStock(params: Record<string, unknown>, state: StateSetters): Exe
       context: { 
         item,
         suggestedName: item,
+        // Simple heuristic: use first word as part number
+        // User can override by creating catalogue item explicitly first
         suggestedPartNumber: item.split(/\s+/)[0] || item,
         quantity,
         location,

@@ -44,13 +44,13 @@ export function MissingInfoPrompt({
           <div className="text-sm">
             <span className="font-medium">Already have: </span>
             <div className="mt-1 space-y-1">
-              {Object.entries(partialParams).map(([key, value]) => (
-                value !== null && value !== undefined && value !== '' && (
+              {Object.entries(partialParams)
+                .filter(([_, value]) => value !== null && value !== undefined && value !== '')
+                .map(([key, value]) => (
                   <div key={key} className="text-xs text-muted-foreground">
                     <span className="font-mono">{key}:</span> {String(value)}
                   </div>
-                )
-              ))}
+                ))}
             </div>
           </div>
         )}
