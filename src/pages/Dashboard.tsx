@@ -240,6 +240,7 @@ export function Dashboard() {
   }
 
   const inventoryArray = inventory || []
+  const stockLevelsArray = stockLevels || []
   const jobsArray = jobs || []
   const customersArray = customers || []
   const commandLogsArray = commandLogs || []
@@ -344,10 +345,10 @@ export function Dashboard() {
             <div className="mb-4">
               <h2 className="text-xl font-bold mb-1">Inventory Overview</h2>
               <p className="text-sm text-muted-foreground">
-                {inventoryArray.length} items across {new Set(inventoryArray.map(i => i.location)).size} locations
+                {stockLevelsArray.length} items across {new Set(stockLevelsArray.map(i => i.location)).size} locations
               </p>
             </div>
-            <InventoryTable items={inventoryArray} />
+            <InventoryTable items={stockLevelsArray} />
           </TabsContent>
 
           <TabsContent value="equipment">
