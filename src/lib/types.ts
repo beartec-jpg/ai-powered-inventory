@@ -431,6 +431,7 @@ export interface PendingCommand {
   expiresAt: number
   pendingAction?: string
   context?: Record<string, unknown>
+  options?: string[]
 }
 
 export interface ConversationContext {

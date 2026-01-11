@@ -23,6 +23,7 @@ interface ExecutionResult {
   prompt?: string
   pendingAction?: string
   context?: Record<string, unknown>
+  options?: string[]
 }
 
 interface StateSetters {
@@ -571,11 +572,9 @@ function receiveStock(params: Record<string, unknown>, state: StateSetters): Exe
       message: `Item "${item}" not found in catalogue. Would you like to add it?`,
       needsInput: true,
       missingFields: ['confirm_add_to_catalogue'],
-      prompt: `The item "${item}" doesn't exist in the catalogue. You can:
-1. Reply "yes" or "add it" to create a basic catalogue entry and add the stock
-2. Reply "no" or "cancel" to cancel this operation
-3. Use "Add new item ${item} cost [price] markup [%]" to create it with pricing first`,
+      prompt: `The item "${item}" doesn't exist in the catalogue. Would you like to add it?`,
       pendingAction: 'CREATE_CATALOGUE_ITEM_AND_ADD_STOCK',
+      options: ['Yes', 'No'],
       context: { 
         item,
         suggestedName: item,
