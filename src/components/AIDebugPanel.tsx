@@ -193,7 +193,7 @@ export function AIDebugPanel({ debugInfo }: AIDebugPanelProps) {
               <ArrowRight size={16} className="mt-1 text-muted-foreground" />
               <div className="flex-1">
                 <span className="text-sm text-muted-foreground">Fallback Reason:</span>
-                <div className="text-sm bg-yellow-50 dark:bg-yellow-950 p-2 rounded border border-yellow-200 dark:border-yellow-800 mt-1">
+                <div className="text-sm bg-yellow-100 dark:bg-yellow-950 p-2 rounded border border-yellow-300 dark:border-yellow-700 mt-1">
                   {fallbackReason}
                 </div>
               </div>

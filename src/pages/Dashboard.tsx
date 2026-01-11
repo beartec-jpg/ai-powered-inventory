@@ -61,14 +61,17 @@ export function Dashboard() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
         e.preventDefault()
-        setDebugMode(prev => !prev)
-        toast.info(debugMode ? 'Debug mode disabled' : 'Debug mode enabled')
+        setDebugMode(prev => {
+          const newMode = !prev
+          toast.info(newMode ? 'Debug mode enabled' : 'Debug mode disabled')
+          return newMode
+        })
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [debugMode])
+  }, [])
 
   const handleCommand = async (command: string) => {
     setIsProcessing(true)
@@ -185,8 +188,9 @@ export function Dashboard() {
               variant={debugMode ? 'default' : 'outline'}
               size="sm"
               onClick={() => {
-                setDebugMode(!debugMode)
-                toast.info(debugMode ? 'Debug mode disabled' : 'Debug mode enabled')
+                const newMode = !debugMode
+                setDebugMode(newMode)
+                toast.info(newMode ? 'Debug mode enabled' : 'Debug mode disabled')
               }}
               className="gap-2"
             >
