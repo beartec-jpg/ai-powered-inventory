@@ -67,6 +67,22 @@ interface ParseCommandResponse {
   clarificationNeeded?: string;
   model?: string;
   latency?: number;
+  // Debug info
+  debug?: {
+    stage1: {
+      action: string;
+      confidence: number;
+      reasoning?: string;
+    };
+    stage2: {
+      parameters: Record<string, unknown>;
+      missingRequired: string[];
+      confidence: number;
+    };
+    usedFallback: boolean;
+    fallbackReason?: string;
+    rawCommand: string;
+  };
 }
 
 // Constants for confidence levels and timeouts
@@ -1256,21 +1272,24 @@ export default async function handler(
     
     // Stage 1: Classify Intent
     const classification = await classifyIntentCore(command, context);
-    const { action, confidence: classifyConfidence } = classification;
+    const { action, confidence: classifyConfidence, reasoning: classifyReasoning } = classification;
 
-    console.log(`[AI Command] Classified as: ${action} (confidence: ${classifyConfidence})`);
+    console.log(`[AI Command] Stage 1 - Classified as: ${action} (confidence: ${classifyConfidence})`);
+    console.log(`[AI Command] Stage 1 - Reasoning: ${classifyReasoning}`);
 
     // Stage 2: Extract Parameters
     const extraction = await extractParametersCore(command, action, context);
     const { parameters, missingRequired, confidence: extractConfidence } = extraction;
 
-    console.log(`[AI Command] Extracted params:`, parameters);
+    console.log(`[AI Command] Stage 2 - Extracted params:`, parameters);
+    console.log(`[AI Command] Stage 2 - Missing required: ${missingRequired?.join(', ') || 'none'}`);
+    console.log(`[AI Command] Stage 2 - Confidence: ${extractConfidence}`);
 
     // Calculate overall confidence
     const overallConfidence = Math.min(classifyConfidence, extractConfidence);
     const latency = Date.now() - startTime;
 
-    // Build result
+    // Build result with debug info
     const result: ParseCommandResponse = {
       action,
       parameters,
@@ -1278,11 +1297,27 @@ export default async function handler(
       reasoning: `Two-stage parsing: ${action} with ${Object.keys(parameters).length} parameters`,
       model: 'grok-3-mini',
       latency,
+      debug: {
+        stage1: {
+          action,
+          confidence: classifyConfidence,
+          reasoning: classifyReasoning,
+        },
+        stage2: {
+          parameters,
+          missingRequired: missingRequired || [],
+          confidence: extractConfidence,
+        },
+        usedFallback: false,
+        rawCommand: command,
+      },
     };
 
     if (missingRequired && missingRequired.length > 0) {
       result.clarificationNeeded = `Missing required: ${missingRequired.join(', ')}`;
     }
+
+    console.log(`[AI Command] Final result - Action: ${action}, Confidence: ${overallConfidence}, Latency: ${latency}ms`);
 
     // Validate the response structure
     const validatedResult = validateCommandResponse(result);
@@ -1293,6 +1328,7 @@ export default async function handler(
     
     // Try legacy parsing as final fallback
     try {
+      console.log('[AI Command] Two-stage parsing failed, falling back to legacy parsing');
       return await handleLegacyParsing(command, context, res);
     } catch (legacyError) {
       return internalServerErrorResponse(
@@ -1366,6 +1402,23 @@ async function handleLegacyParsing(
       // Continue with grok-3-mini result
     }
   }
+
+  // Add debug info to legacy parsing result
+  result.debug = {
+    stage1: {
+      action: result.action,
+      confidence: result.confidence,
+      reasoning: result.reasoning,
+    },
+    stage2: {
+      parameters: result.parameters,
+      missingRequired: [],
+      confidence: result.confidence,
+    },
+    usedFallback: true,
+    fallbackReason: 'Two-stage parsing failed, used legacy function calling approach',
+    rawCommand: command,
+  };
 
   // Validate the response structure
   const validatedResult = validateCommandResponse(result);

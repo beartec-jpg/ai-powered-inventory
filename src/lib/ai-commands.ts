@@ -79,6 +79,21 @@ export async function interpretCommand(
   confidence: number;
   interpretation: string;
   clarificationNeeded?: string;
+  debug?: {
+    stage1: {
+      action: string;
+      confidence: number;
+      reasoning?: string;
+    };
+    stage2: {
+      parameters: Record<string, unknown>;
+      missingRequired: string[];
+      confidence: number;
+    };
+    usedFallback: boolean;
+    fallbackReason?: string;
+    rawCommand: string;
+  };
 }> {
   try {
     // The backend parse-command endpoint now uses the two-stage approach internally
@@ -108,6 +123,7 @@ export async function interpretCommand(
       confidence: data.confidence,
       interpretation: data.reasoning || 'Command parsed',
       clarificationNeeded: data.clarificationNeeded,
+      debug: data.debug, // Pass through debug info
     };
   } catch (error) {
     console.error('Error interpreting command:', error);

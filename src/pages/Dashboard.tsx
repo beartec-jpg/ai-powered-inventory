@@ -1,10 +1,12 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useKV } from '@github/spark/hooks'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Separator } from '@/components/ui/separator'
+import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { CommandInput } from '@/components/CommandInput'
 import { CommandResponse, AIClarification } from '@/components/CommandResponse'
+import { AIDebugPanel } from '@/components/AIDebugPanel'
 import { InventoryTable } from '@/components/InventoryView'
 import { JobsView } from '@/components/JobsView'
 import { CommandHistory } from '@/components/CommandHistory'
@@ -24,9 +26,10 @@ import type {
   Supplier,
   Equipment,
   InstalledPart,
-  PurchaseOrder
+  PurchaseOrder,
+  DebugInfo
 } from '@/lib/types'
-import { Package, FileText, ClockCounterClockwise, Sparkle, Gear, User } from '@phosphor-icons/react'
+import { Package, FileText, ClockCounterClockwise, Sparkle, Gear, User, Bug } from '@phosphor-icons/react'
 
 export function Dashboard() {
   // Legacy state
@@ -50,14 +53,36 @@ export function Dashboard() {
     message: string
     interpretation: string
   } | null>(null)
+  const [debugMode, setDebugMode] = useState(false)
+  const [latestDebugInfo, setLatestDebugInfo] = useState<DebugInfo | null>(null)
+
+  // Keyboard shortcut to toggle debug mode (Ctrl/Cmd + D)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
+        e.preventDefault()
+        setDebugMode(prev => !prev)
+        toast.info(debugMode ? 'Debug mode disabled' : 'Debug mode enabled')
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [debugMode])
 
   const handleCommand = async (command: string) => {
     setIsProcessing(true)
     setNeedsClarification(null)
     setLatestResponse(null)
+    setLatestDebugInfo(null)
 
     try {
       const interpretation = await interpretCommand(command)
+
+      // Store debug info if available
+      if (interpretation.debug) {
+        setLatestDebugInfo(interpretation.debug)
+      }
 
       if (interpretation.confidence < 0.7 && interpretation.clarificationNeeded) {
         setNeedsClarification({
@@ -102,7 +127,8 @@ export function Dashboard() {
         timestamp: Date.now(),
         success: result.success,
         result: result.message,
-        data: result.data
+        data: result.data,
+        debug: interpretation.debug
       }
 
       setCommandLogs((current) => [...(current || []), log])
@@ -147,7 +173,7 @@ export function Dashboard() {
             <div className="p-2 rounded-lg bg-accent/20 text-accent">
               <Sparkle size={32} weight="fill" />
             </div>
-            <div>
+            <div className="flex-1">
               <h1 className="text-3xl font-bold tracking-tight">
                 Field Service Manager
               </h1>
@@ -155,6 +181,18 @@ export function Dashboard() {
                 AI-powered inventory & equipment tracking
               </p>
             </div>
+            <Button
+              variant={debugMode ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => {
+                setDebugMode(!debugMode)
+                toast.info(debugMode ? 'Debug mode disabled' : 'Debug mode enabled')
+              }}
+              className="gap-2"
+            >
+              <Bug size={16} weight={debugMode ? 'fill' : 'regular'} />
+              Debug {debugMode ? 'ON' : 'OFF'}
+            </Button>
           </div>
         </header>
 
@@ -168,6 +206,12 @@ export function Dashboard() {
               message={needsClarification.message}
               interpretation={needsClarification.interpretation}
             />
+          </div>
+        )}
+
+        {debugMode && latestDebugInfo && (
+          <div className="mb-6">
+            <AIDebugPanel debugInfo={latestDebugInfo} />
           </div>
         )}
 
