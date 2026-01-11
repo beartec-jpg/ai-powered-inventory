@@ -276,28 +276,39 @@ export async function executeCommand(
   
   // Catalogue Management
   if (actionLower === 'create_catalogue_item') return createCatalogueItem(parameters, state)
+  if (actionLower === 'add_product') return createCatalogueItem(parameters, state)
+  if (actionLower === 'create_product') return createCatalogueItem(parameters, state)
   if (actionLower === 'update_catalogue_item') return updateCatalogueItem(parameters, state)
+  if (actionLower === 'update_product') return updateCatalogueItem(parameters, state)
   if (actionLower === 'search_catalogue') return searchCatalogue(parameters, state)
   
-  // Stock Management
+  // Stock Management - Support both old and new action names
   if (actionLower === 'receive_stock') return receiveStock(parameters, state)
+  if (actionLower === 'add_stock') return receiveStock(parameters, state)
   if (actionLower === 'put_away_stock') return putAwayStock(parameters, state)
   if (actionLower === 'use_stock') return useStock(parameters, state)
+  if (actionLower === 'remove_stock') return useStock(parameters, state)
   if (actionLower === 'transfer_stock') return transferStock(parameters, state)
   if (actionLower === 'stock_count') return stockCount(parameters, state)
+  if (actionLower === 'count_stock') return stockCount(parameters, state)
   if (actionLower === 'search_stock') return searchStock(parameters, state)
   if (actionLower === 'low_stock_report') return lowStockReport(parameters, state)
   if (actionLower === 'set_min_stock') return setMinStock(parameters, state)
   
   // Customer & Equipment
   if (actionLower === 'create_customer') return createCustomer(parameters, state)
+  if (actionLower === 'add_customer') return createCustomer(parameters, state)
   if (actionLower === 'add_site_address') return addSiteAddress(parameters, state)
+  if (actionLower === 'add_site') return addSiteAddress(parameters, state)
   if (actionLower === 'create_equipment') return createEquipment(parameters, state)
+  if (actionLower === 'add_equipment') return createEquipment(parameters, state)
   if (actionLower === 'update_equipment') return updateEquipment(parameters, state)
   if (actionLower === 'list_equipment') return listEquipment(parameters, state)
+  if (actionLower === 'search_equipment') return listEquipment(parameters, state)
   
   // Parts Installation
   if (actionLower === 'install_from_stock') return installFromStock(parameters, state)
+  if (actionLower === 'install_part') return installFromStock(parameters, state)
   if (actionLower === 'install_direct_order') return installDirectOrder(parameters, state)
   if (actionLower === 'query_equipment_parts') return queryEquipmentParts(parameters, state)
   if (actionLower === 'query_customer_parts') return queryCustomerParts(parameters, state)
@@ -307,13 +318,19 @@ export async function executeCommand(
   if (actionLower === 'schedule_job') return scheduleJob(parameters, state)
   if (actionLower === 'start_job') return startJob(parameters, state)
   if (actionLower === 'complete_job') return completeJob(parameters, state)
+  if (actionLower === 'update_job') return completeJob(parameters, state)
   if (actionLower === 'add_part_to_job') return addPartToJob(parameters, state)
+  if (actionLower === 'add_parts_to_job') return addPartToJob(parameters, state)
   if (actionLower === 'list_jobs') return listJobs(parameters, state)
+  if (actionLower === 'search_jobs') return listJobs(parameters, state)
   
   // Suppliers & Orders
   if (actionLower === 'create_supplier') return createSupplier(parameters, state)
+  if (actionLower === 'add_supplier') return createSupplier(parameters, state)
   if (actionLower === 'create_purchase_order') return createPurchaseOrder(parameters, state)
+  if (actionLower === 'create_order') return createPurchaseOrder(parameters, state)
   if (actionLower === 'receive_purchase_order') return receivePurchaseOrder(parameters, state)
+  if (actionLower === 'receive_order') return receivePurchaseOrder(parameters, state)
   
   // Legacy actions
   if (actionLower === 'add_item') return addItem(parameters, inventory, setInventory)
