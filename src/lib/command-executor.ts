@@ -540,6 +540,43 @@ function createCatalogueItem(params: Record<string, unknown>, state: StateSetter
     return { success: false, message: `Catalogue item ${partNumber} already exists` }
   }
   
+  // Check if any optional fields are missing (to offer multi-step flow)
+  const hasUnitCost = params.unitCost !== undefined && params.unitCost !== null
+  const hasMarkup = params.markup !== undefined && params.markup !== null
+  const hasSupplier = params.preferredSupplierName !== undefined && params.preferredSupplierName !== null && String(params.preferredSupplierName).trim() !== ''
+  const hasManufacturer = params.manufacturer !== undefined && params.manufacturer !== null && String(params.manufacturer).trim() !== ''
+  const hasCategory = params.category !== undefined && params.category !== null && String(params.category).trim() !== ''
+  const hasMinQuantity = params.minQuantity !== undefined && params.minQuantity !== null
+  
+  // If all optional fields are provided, just create the item without prompting
+  const allOptionalProvided = hasUnitCost && hasMarkup && hasSupplier && hasManufacturer && hasCategory && hasMinQuantity
+  
+  // If some optional fields are missing, offer to collect them via multi-step flow
+  if (!allOptionalProvided) {
+    const missingFields: string[] = []
+    if (!hasUnitCost) missingFields.push('unitCost')
+    if (!hasMarkup) missingFields.push('markup')
+    if (!hasSupplier) missingFields.push('preferredSupplierName')
+    if (!hasManufacturer) missingFields.push('manufacturer')
+    if (!hasCategory) missingFields.push('category')
+    if (!hasMinQuantity) missingFields.push('minQuantity')
+    
+    return {
+      success: false,
+      message: `Catalogue item "${partNumber}" ready to create. Would you like to add more details (${missingFields.join(', ')})?`,
+      needsInput: true,
+      missingFields: ['confirm_add_details'],
+      prompt: `Would you like to add more details for "${partNumber}" (cost, markup, supplier, manufacturer, category, min stock)?`,
+      pendingAction: 'CREATE_CATALOGUE_ITEM_WITH_DETAILS',
+      options: ['Yes', 'No - Create Now'],
+      context: {
+        partNumber,
+        name,
+        ...params // Include any fields that were already provided
+      }
+    }
+  }
+  
   const unitCost = params.unitCost ? Number(params.unitCost) : undefined
   const markup = params.markup ? Number(params.markup) : undefined
   const sellPrice = params.sellPrice ? Number(params.sellPrice) : 

@@ -96,10 +96,12 @@ const ACTION_PARAMS: Record<
       'preferredSupplierName',
     ],
     description:
-      'Adding product to catalogue. Extract part number, name, cost, markup percentage.',
+      'Adding product to catalogue. Extract part number, name, cost, markup percentage. IMPORTANT: "from X" means preferredSupplierName (supplier), "by X" means manufacturer.',
     examples: [
       '"Add new item cable 0.75mm cost 25 markup 35%" → { partNumber: "cable", name: "cable 0.75mm", unitCost: 25, markup: 35 }',
       '"Create product LMV37 cost 450 markup 40%" → { partNumber: "LMV37", name: "LMV37", unitCost: 450, markup: 40 }',
+      '"Add Siemens LMV37 from Comtherm cost £423.45" → { partNumber: "Siemens LMV37", name: "Siemens LMV37", preferredSupplierName: "Comtherm", unitCost: 423.45 }',
+      '"Add LMV37 made by Siemens cost £450" → { partNumber: "LMV37", name: "LMV37", manufacturer: "Siemens", unitCost: 450 }',
     ],
   },
   UPDATE_PRODUCT: {
@@ -288,7 +290,12 @@ IMPORTANT:
 - For locations, preserve the exact location identifier
 - If a required parameter is clearly stated, include it
 - If a required parameter is not mentioned, add its name to missingRequired
-- Be confident (>0.8) when parameters are clearly stated`;
+- Be confident (>0.8) when parameters are clearly stated
+
+CRITICAL FOR SUPPLIER VS MANUFACTURER:
+- "from [company]" or "supplied by [company]" or "bought from [company]" → preferredSupplierName
+- "by [company]" or "made by [company]" or "manufactured by [company]" → manufacturer
+- These are DIFFERENT fields - never confuse them!`;
 
   const userPrompt = `Extract parameters for ${action} from: "${command}"${contextInfo}`;
 
