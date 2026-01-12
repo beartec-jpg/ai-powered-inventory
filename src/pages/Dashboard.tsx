@@ -112,7 +112,67 @@ export function Dashboard() {
         // Check if they're confirming to add to catalogue
         const commandLower = command.toLowerCase().trim()
         
-        if (existingPending.pendingAction === 'CREATE_CATALOGUE_ITEM_AND_ADD_STOCK') {
+        // IMPORTANT: Check for supplier confirmation FIRST, before checking CREATE_CATALOGUE_ITEM_AND_ADD_STOCK
+        // This prevents "Yes/No" responses from being captured as supplier names
+        if (existingPending.pendingAction === 'CONFIRM_ADD_SUPPLIER') {
+          // Handle supplier details confirmation
+          if (commandLower === 'yes' || /\byes\b/.test(commandLower)) {
+            // User wants to add supplier details, start sub-flow
+            const supplierName = String(existingPending.collectedData?.preferredSupplierName || '')
+            const firstSubStep = SUPPLIER_DETAILS_SUB_FLOW[0]
+            
+            const subFlowPending = conversationManager.createPendingCommand(
+              existingPending.action,
+              existingPending.parameters,
+              [],
+              firstSubStep.prompt(supplierName),
+              'CREATE_CATALOGUE_ITEM_AND_ADD_STOCK',
+              existingPending.context,
+              ['Skip'],
+              1, // First sub-flow step
+              SUPPLIER_DETAILS_SUB_FLOW.length, // Total sub-flow steps
+              existingPending.collectedData
+            )
+            subFlowPending.inSubFlow = true
+            subFlowPending.subFlowType = 'SUPPLIER_DETAILS'
+            subFlowPending.subFlowData = {}
+            subFlowPending.parentStep = 4 // Continue from step 4 (manufacturer) after sub-flow
+            
+            setPendingCommand(subFlowPending)
+            setIsProcessing(false)
+            return
+          } else {
+            // User declined to add supplier details, continue to next step
+            const flow = getFlow('CREATE_CATALOGUE_ITEM_AND_ADD_STOCK')
+            if (!flow) {
+              toast.error('Flow configuration error')
+              setIsProcessing(false)
+              return
+            }
+            
+            const nextStep = 4 // Step 4 is manufacturer
+            const nextStepIndex = nextStep - 1
+            const nextStepDef = flow.steps[nextStepIndex]
+            const itemName = String(existingPending.context?.item || existingPending.context?.suggestedName || '')
+            
+            const updatedPending = conversationManager.createPendingCommand(
+              existingPending.action,
+              existingPending.parameters,
+              [],
+              nextStepDef.prompt(itemName),
+              'CREATE_CATALOGUE_ITEM_AND_ADD_STOCK',
+              existingPending.context,
+              ['Skip'],
+              nextStep,
+              flow.steps.length,
+              existingPending.collectedData
+            )
+            
+            setPendingCommand(updatedPending)
+            setIsProcessing(false)
+            return
+          }
+        } else if (existingPending.pendingAction === 'CREATE_CATALOGUE_ITEM_AND_ADD_STOCK') {
           // Check if this is a multi-step flow in progress
           if (existingPending.currentStep !== undefined && existingPending.totalSteps !== undefined) {
             // Check if we're in a supplier details sub-flow
@@ -294,7 +354,6 @@ export function Dashboard() {
                   existingPending.totalSteps,
                   collectedData
                 )
-                confirmPending.pendingAction = 'CREATE_CATALOGUE_ITEM_AND_ADD_STOCK'
                 
                 setPendingCommand(confirmPending)
                 setIsProcessing(false)
@@ -337,64 +396,6 @@ export function Dashboard() {
               }
               conversationManager.clearPendingCommand()
               setPendingCommand(null)
-            }
-          } else if (existingPending.pendingAction === 'CONFIRM_ADD_SUPPLIER') {
-            // Handle supplier details confirmation
-            if (commandLower === 'yes' || /\byes\b/.test(commandLower)) {
-              // User wants to add supplier details, start sub-flow
-              const supplierName = String(existingPending.collectedData?.preferredSupplierName || '')
-              const firstSubStep = SUPPLIER_DETAILS_SUB_FLOW[0]
-              
-              const subFlowPending = conversationManager.createPendingCommand(
-                existingPending.action,
-                existingPending.parameters,
-                [],
-                firstSubStep.prompt(supplierName),
-                'CREATE_CATALOGUE_ITEM_AND_ADD_STOCK',
-                existingPending.context,
-                ['Skip'],
-                1, // First sub-flow step
-                SUPPLIER_DETAILS_SUB_FLOW.length, // Total sub-flow steps
-                existingPending.collectedData
-              )
-              subFlowPending.inSubFlow = true
-              subFlowPending.subFlowType = 'SUPPLIER_DETAILS'
-              subFlowPending.subFlowData = {}
-              subFlowPending.parentStep = 4 // Continue from step 4 (manufacturer) after sub-flow
-              
-              setPendingCommand(subFlowPending)
-              setIsProcessing(false)
-              return
-            } else {
-              // User declined to add supplier details, continue to next step
-              const flow = getFlow('CREATE_CATALOGUE_ITEM_AND_ADD_STOCK')
-              if (!flow) {
-                toast.error('Flow configuration error')
-                setIsProcessing(false)
-                return
-              }
-              
-              const nextStep = 4 // Step 4 is manufacturer
-              const nextStepIndex = nextStep - 1
-              const nextStepDef = flow.steps[nextStepIndex]
-              const itemName = String(existingPending.context?.item || existingPending.context?.suggestedName || '')
-              
-              const updatedPending = conversationManager.createPendingCommand(
-                existingPending.action,
-                existingPending.parameters,
-                [],
-                nextStepDef.prompt(itemName),
-                'CREATE_CATALOGUE_ITEM_AND_ADD_STOCK',
-                existingPending.context,
-                ['Skip'],
-                nextStep,
-                flow.steps.length,
-                existingPending.collectedData
-              )
-              
-              setPendingCommand(updatedPending)
-              setIsProcessing(false)
-              return
             }
           } else {
             // Initial confirmation (yes/no)
