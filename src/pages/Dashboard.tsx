@@ -40,18 +40,19 @@ export function Dashboard() {
   const { userId } = useAuth()
 
   // User-scoped KV keys - all data is isolated per user
-  // We use fallback empty string for userId to satisfy hook rules, but check below
-  const [inventory, setInventory] = useKV<InventoryItem[]>(`${userId || ''}-inventory`, [])
-  const [locations, setLocations] = useKV<Location[]>(`${userId || ''}-locations`, [])
-  const [customers, setCustomers] = useKV<Customer[]>(`${userId || ''}-customers`, [])
-  const [jobs, setJobs] = useKV<Job[]>(`${userId || ''}-jobs`, [])
-  const [commandLogs, setCommandLogs] = useKV<CommandLog[]>(`${userId || ''}-command-logs`, [])
-  const [catalogue, setCatalogue] = useKV<CatalogueItem[]>(`${userId || ''}-catalogue`, [])
-  const [stockLevels, setStockLevels] = useKV<StockLevel[]>(`${userId || ''}-stock-levels`, [])
-  const [suppliers, setSuppliers] = useKV<Supplier[]>(`${userId || ''}-suppliers`, [])
-  const [equipment, setEquipment] = useKV<Equipment[]>(`${userId || ''}-equipment`, [])
-  const [installedParts, setInstalledParts] = useKV<InstalledPart[]>(`${userId || ''}-installed-parts`, [])
-  const [purchaseOrders, setPurchaseOrders] = useKV<PurchaseOrder[]>(`${userId || ''}-purchase-orders`, [])
+  // Use actual userId when available, hooks require stable keys
+  const userPrefix = userId || 'temp'
+  const [inventory, setInventory] = useKV<InventoryItem[]>(`${userPrefix}-inventory`, [])
+  const [locations, setLocations] = useKV<Location[]>(`${userPrefix}-locations`, [])
+  const [customers, setCustomers] = useKV<Customer[]>(`${userPrefix}-customers`, [])
+  const [jobs, setJobs] = useKV<Job[]>(`${userPrefix}-jobs`, [])
+  const [commandLogs, setCommandLogs] = useKV<CommandLog[]>(`${userPrefix}-command-logs`, [])
+  const [catalogue, setCatalogue] = useKV<CatalogueItem[]>(`${userPrefix}-catalogue`, [])
+  const [stockLevels, setStockLevels] = useKV<StockLevel[]>(`${userPrefix}-stock-levels`, [])
+  const [suppliers, setSuppliers] = useKV<Supplier[]>(`${userPrefix}-suppliers`, [])
+  const [equipment, setEquipment] = useKV<Equipment[]>(`${userPrefix}-equipment`, [])
+  const [installedParts, setInstalledParts] = useKV<InstalledPart[]>(`${userPrefix}-installed-parts`, [])
+  const [purchaseOrders, setPurchaseOrders] = useKV<PurchaseOrder[]>(`${userPrefix}-purchase-orders`, [])
 
   const [isProcessing, setIsProcessing] = useState(false)
   const [latestResponse, setLatestResponse] = useState<CommandLog | null>(null)
@@ -279,7 +280,7 @@ export function Dashboard() {
               const supplierName = result.value as string
               
               // Only validate if supplier name was provided (not skipped)
-              if (supplierName && !result.skipped && !supplierExists(supplierName, suppliers || [])) {
+              if (supplierName && !result.skipped && !supplierExists(supplierName, suppliers)) {
                 // Supplier doesn't exist, ask if user wants to add details
                 const confirmPending = conversationManager.createPendingCommand(
                   existingPending.action,

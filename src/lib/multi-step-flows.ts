@@ -49,11 +49,13 @@ export const SUPPLIER_DETAILS_SUB_FLOW: FlowStep[] = [
 ]
 
 /**
- * Check if a supplier exists in the suppliers array
- * Case-insensitive match on supplier name
+ * Check if a supplier name should skip validation
+ * Returns true if supplier exists OR if no supplier name provided
+ * This allows the flow to continue without prompting for supplier details
  */
 export function supplierExists(supplierName: string, suppliers: Supplier[]): boolean {
-  if (!supplierName || !supplierName.trim()) return true // If no supplier provided, skip validation
+  // If no supplier name provided, skip validation
+  if (!supplierName || !supplierName.trim()) return true
   
   const normalizedName = supplierName.toLowerCase().trim()
   return suppliers.some(s => s.name.toLowerCase().trim() === normalizedName)
