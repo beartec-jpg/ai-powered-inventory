@@ -363,40 +363,61 @@ export function Dashboard() {
             
             // Move to next step or complete
             if (existingPending.currentStep < existingPending.totalSteps) {
-              // More steps to go
-              const nextStep = existingPending.currentStep + 1
-              const nextStepIndex = nextStep - 1
-              const nextStepDef = flow.steps[nextStepIndex]
-              const itemName = String(existingPending.context?.item || existingPending.context?.suggestedName || '')
-              
-              const updatedPending = conversationManager.createPendingCommand(
-                existingPending.action,
-                existingPending.parameters,
-                [],
-                nextStepDef.prompt(itemName),
-                existingPending.pendingAction,
-                existingPending.context,
-                ['Skip'], // Always offer skip option
-                nextStep,
-                existingPending.totalSteps,
-                collectedData
-              )
-              
-              setPendingCommand(updatedPending)
-              setIsProcessing(false)
-              return
-            } else {
-              // All steps completed, execute the action
-              actionToExecute = 'CREATE_CATALOGUE_ITEM_AND_ADD_STOCK'
-              paramsToExecute = {
-                ...existingPending.context,
-                collectedData,
-                currentStep: existingPending.currentStep,
-                totalSteps: existingPending.totalSteps
+              // FIX 3: Find next step that needs input (skip already-known fields)
+              let nextStep = existingPending.currentStep + 1
+              while (nextStep <= existingPending.totalSteps) {
+                const stepField = flow.steps[nextStep - 1].field
+                if (!(stepField in collectedData)) {
+                  break  // This step needs input
+                }
+                nextStep++  // Skip this step, we already have the value
               }
-              conversationManager.clearPendingCommand()
-              setPendingCommand(null)
+              
+              if (nextStep <= existingPending.totalSteps) {
+                // Found a step that needs input
+                const nextStepIndex = nextStep - 1
+                const nextStepDef = flow.steps[nextStepIndex]
+                const itemName = String(existingPending.context?.item || existingPending.context?.suggestedName || '')
+                
+                const updatedPending = conversationManager.createPendingCommand(
+                  existingPending.action,
+                  existingPending.parameters,
+                  [],
+                  nextStepDef.prompt(itemName),
+                  existingPending.pendingAction,
+                  existingPending.context,
+                  ['Skip'], // Always offer skip option
+                  nextStep,
+                  existingPending.totalSteps,
+                  collectedData
+                )
+                
+                setPendingCommand(updatedPending)
+                setIsProcessing(false)
+                return
+              }
+              // If nextStep > totalSteps, fall through to completion
             }
+            
+            // All steps completed (or skipped), execute the action
+            // FIX 4: Properly merge all data sources on final execution
+            actionToExecute = 'CREATE_CATALOGUE_ITEM_AND_ADD_STOCK'
+            paramsToExecute = {
+              // Original command parameters (item, quantity, location)
+              item: existingPending.context?.item || existingPending.context?.suggestedName || existingPending.context?.partNumber,
+              partNumber: existingPending.context?.partNumber || existingPending.context?.item,
+              name: existingPending.context?.name || existingPending.context?.item,
+              quantity: existingPending.context?.quantity,
+              location: existingPending.context?.location,
+              // Collected data from multi-step flow
+              collectedData,
+              currentStep: existingPending.currentStep,
+              totalSteps: existingPending.totalSteps,
+              // Ensure we don't lose any context
+              ...existingPending.context
+            }
+            conversationManager.clearPendingCommand()
+            setPendingCommand(null)
           } else {
             // Initial confirmation (yes/no)
             if (commandLower === 'yes' || commandLower === 'add it' || 
@@ -412,24 +433,62 @@ export function Dashboard() {
               }
               
               const itemName = String(existingPending.context?.item || existingPending.context?.suggestedName || '')
-              const firstStep = flow.steps[0]
               
-              const pending = conversationManager.createPendingCommand(
-                'CREATE_CATALOGUE_ITEM_AND_ADD_STOCK',
-                existingPending.parameters,
-                [],
-                firstStep.prompt(itemName),
-                'CREATE_CATALOGUE_ITEM_AND_ADD_STOCK',
-                existingPending.context,
-                ['Skip'], // Always offer skip option
-                1, // currentStep
-                flow.steps.length, // totalSteps
-                {} // collectedData
-              )
+              // FIX 2: Pre-populate collectedData with already-known values from context
+              const alreadyKnown: Record<string, unknown> = {}
+              if (existingPending.context?.unitCost !== undefined) alreadyKnown.unitCost = existingPending.context.unitCost
+              if (existingPending.context?.markup !== undefined) alreadyKnown.markup = existingPending.context.markup
+              if (existingPending.context?.preferredSupplierName) alreadyKnown.preferredSupplierName = existingPending.context.preferredSupplierName
+              if (existingPending.context?.manufacturer) alreadyKnown.manufacturer = existingPending.context.manufacturer
+              if (existingPending.context?.category) alreadyKnown.category = existingPending.context.category
+              if (existingPending.context?.minQuantity !== undefined) alreadyKnown.minQuantity = existingPending.context.minQuantity
               
-              setPendingCommand(pending)
-              setIsProcessing(false)
-              return
+              // FIX 3: Find first step that needs input (skip already-known fields)
+              let startStep = 1
+              for (let i = 0; i < flow.steps.length; i++) {
+                const stepField = flow.steps[i].field
+                if (!(stepField in alreadyKnown)) {
+                  startStep = i + 1 // Steps are 1-indexed
+                  break
+                }
+                // If we've skipped all steps, startStep will be beyond totalSteps
+                if (i === flow.steps.length - 1) {
+                  startStep = flow.steps.length + 1
+                }
+              }
+              
+              // If all steps are already completed, execute immediately
+              if (startStep > flow.steps.length) {
+                actionToExecute = 'CREATE_CATALOGUE_ITEM_AND_ADD_STOCK'
+                paramsToExecute = {
+                  ...existingPending.context,
+                  collectedData: alreadyKnown,
+                  currentStep: flow.steps.length,
+                  totalSteps: flow.steps.length
+                }
+                conversationManager.clearPendingCommand()
+                setPendingCommand(null)
+                // Continue to execution below
+              } else {
+                const currentStepDef = flow.steps[startStep - 1]
+                
+                const pending = conversationManager.createPendingCommand(
+                  'CREATE_CATALOGUE_ITEM_AND_ADD_STOCK',
+                  existingPending.parameters,
+                  [],
+                  currentStepDef.prompt(itemName),
+                  'CREATE_CATALOGUE_ITEM_AND_ADD_STOCK',
+                  existingPending.context,
+                  ['Skip'], // Always offer skip option
+                  startStep, // currentStep
+                  flow.steps.length, // totalSteps
+                  alreadyKnown // Start with known values instead of empty {}
+                )
+                
+                setPendingCommand(pending)
+                setIsProcessing(false)
+                return
+              }
             } else if (commandLower === 'no' || commandLower === 'cancel') {
               // User cancelled
               conversationManager.clearPendingCommand()
@@ -623,41 +682,60 @@ export function Dashboard() {
             
             // Move to next step or complete
             if (existingPending.currentStep < existingPending.totalSteps) {
-              const nextStep = existingPending.currentStep + 1
-              const nextStepIndex = nextStep - 1
-              const nextStepDef = flow.steps[nextStepIndex]
-              const itemName = String(existingPending.context?.partNumber || existingPending.context?.name || '')
-              
-              const updatedPending = conversationManager.createPendingCommand(
-                existingPending.action,
-                existingPending.parameters,
-                [],
-                nextStepDef.prompt(itemName),
-                existingPending.pendingAction,
-                existingPending.context,
-                ['Skip'],
-                nextStep,
-                existingPending.totalSteps,
-                collectedData
-              )
-              
-              setPendingCommand(updatedPending)
-              setIsProcessing(false)
-              return
-            } else {
-              // All steps completed, create the catalogue item
-              actionToExecute = 'CREATE_CATALOGUE_ITEM'
-              paramsToExecute = {
-                ...existingPending.context,
-                ...collectedData,
-                // Calculate sell price if both unitCost and markup are provided
-                sellPrice: collectedData.unitCost && collectedData.markup 
-                  ? Number(collectedData.unitCost) * (1 + Number(collectedData.markup) / 100)
-                  : undefined
+              // FIX 3: Find next step that needs input (skip already-known fields)
+              let nextStep = existingPending.currentStep + 1
+              while (nextStep <= existingPending.totalSteps) {
+                const stepField = flow.steps[nextStep - 1].field
+                if (!(stepField in collectedData)) {
+                  break  // This step needs input
+                }
+                nextStep++  // Skip this step, we already have the value
               }
-              conversationManager.clearPendingCommand()
-              setPendingCommand(null)
+              
+              if (nextStep <= existingPending.totalSteps) {
+                // Found a step that needs input
+                const nextStepIndex = nextStep - 1
+                const nextStepDef = flow.steps[nextStepIndex]
+                const itemName = String(existingPending.context?.partNumber || existingPending.context?.name || '')
+                
+                const updatedPending = conversationManager.createPendingCommand(
+                  existingPending.action,
+                  existingPending.parameters,
+                  [],
+                  nextStepDef.prompt(itemName),
+                  existingPending.pendingAction,
+                  existingPending.context,
+                  ['Skip'],
+                  nextStep,
+                  existingPending.totalSteps,
+                  collectedData
+                )
+                
+                setPendingCommand(updatedPending)
+                setIsProcessing(false)
+                return
+              }
+              // If nextStep > totalSteps, fall through to completion
             }
+            
+            // All steps completed (or skipped), execute the action
+            // FIX 4: Properly merge all data sources on final execution
+            actionToExecute = 'CREATE_CATALOGUE_ITEM'
+            paramsToExecute = {
+              // Original command parameters
+              partNumber: existingPending.context?.partNumber || existingPending.context?.item,
+              name: existingPending.context?.name || existingPending.context?.item,
+              // Collected data from multi-step flow (spread first so context can override)
+              ...collectedData,
+              // Calculate sell price if both unitCost and markup are provided
+              sellPrice: collectedData.unitCost && collectedData.markup 
+                ? Number(collectedData.unitCost) * (1 + Number(collectedData.markup) / 100)
+                : undefined,
+              // Ensure we don't lose any context
+              ...existingPending.context
+            }
+            conversationManager.clearPendingCommand()
+            setPendingCommand(null)
           } else {
             // Initial confirmation (yes/no)
             if (commandLower === 'yes' || /\byes\b/.test(commandLower)) {
@@ -672,24 +750,64 @@ export function Dashboard() {
               }
               
               const itemName = String(existingPending.context?.partNumber || existingPending.context?.name || '')
-              const firstStep = flow.steps[0]
               
-              const pending = conversationManager.createPendingCommand(
-                'CREATE_CATALOGUE_ITEM',
-                existingPending.parameters,
-                [],
-                firstStep.prompt(itemName),
-                'CREATE_CATALOGUE_ITEM_WITH_DETAILS',
-                existingPending.context,
-                ['Skip'],
-                1,
-                flow.steps.length,
-                {}
-              )
+              // FIX 2: Pre-populate collectedData with already-known values from context
+              const alreadyKnown: Record<string, unknown> = {}
+              if (existingPending.context?.unitCost !== undefined) alreadyKnown.unitCost = existingPending.context.unitCost
+              if (existingPending.context?.markup !== undefined) alreadyKnown.markup = existingPending.context.markup
+              if (existingPending.context?.preferredSupplierName) alreadyKnown.preferredSupplierName = existingPending.context.preferredSupplierName
+              if (existingPending.context?.manufacturer) alreadyKnown.manufacturer = existingPending.context.manufacturer
+              if (existingPending.context?.category) alreadyKnown.category = existingPending.context.category
+              if (existingPending.context?.minQuantity !== undefined) alreadyKnown.minQuantity = existingPending.context.minQuantity
               
-              setPendingCommand(pending)
-              setIsProcessing(false)
-              return
+              // FIX 3: Find first step that needs input (skip already-known fields)
+              let startStep = 1
+              for (let i = 0; i < flow.steps.length; i++) {
+                const stepField = flow.steps[i].field
+                if (!(stepField in alreadyKnown)) {
+                  startStep = i + 1 // Steps are 1-indexed
+                  break
+                }
+                // If we've skipped all steps, startStep will be beyond totalSteps
+                if (i === flow.steps.length - 1) {
+                  startStep = flow.steps.length + 1
+                }
+              }
+              
+              // If all steps are already completed, execute immediately
+              if (startStep > flow.steps.length) {
+                actionToExecute = 'CREATE_CATALOGUE_ITEM'
+                paramsToExecute = {
+                  ...existingPending.context,
+                  ...alreadyKnown,
+                  // Calculate sell price if both unitCost and markup are provided
+                  sellPrice: alreadyKnown.unitCost && alreadyKnown.markup 
+                    ? Number(alreadyKnown.unitCost) * (1 + Number(alreadyKnown.markup) / 100)
+                    : undefined
+                }
+                conversationManager.clearPendingCommand()
+                setPendingCommand(null)
+                // Continue to execution below
+              } else {
+                const currentStepDef = flow.steps[startStep - 1]
+                
+                const pending = conversationManager.createPendingCommand(
+                  'CREATE_CATALOGUE_ITEM',
+                  existingPending.parameters,
+                  [],
+                  currentStepDef.prompt(itemName),
+                  'CREATE_CATALOGUE_ITEM_WITH_DETAILS',
+                  existingPending.context,
+                  ['Skip'],
+                  startStep,
+                  flow.steps.length,
+                  alreadyKnown // Start with known values instead of empty {}
+                )
+                
+                setPendingCommand(pending)
+                setIsProcessing(false)
+                return
+              }
             } else if (commandLower === 'no' || commandLower === 'cancel' || /create\s+now/.test(commandLower)) {
               // User declined details, create item with what we have
               actionToExecute = 'CREATE_CATALOGUE_ITEM'
