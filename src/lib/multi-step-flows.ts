@@ -3,6 +3,8 @@
  * Handles complex flows that require collecting multiple pieces of information
  */
 
+import type { Supplier } from './types'
+
 export interface FlowStep {
   field: string
   prompt: (itemName: string) => string
@@ -14,6 +16,47 @@ export interface FlowStep {
 export interface MultiStepFlow {
   id: string
   steps: FlowStep[]
+}
+
+/**
+ * Sub-flow for collecting supplier details
+ */
+export const SUPPLIER_DETAILS_SUB_FLOW: FlowStep[] = [
+  {
+    field: 'address',
+    prompt: (supplierName) => `(Supplier Details 1/4) What is the address for "${supplierName}"? (Enter address or type 'skip')`,
+    optional: true,
+    skipText: 'No address provided'
+  },
+  {
+    field: 'email',
+    prompt: (supplierName) => `(Supplier Details 2/4) What is the email for "${supplierName}"? (Enter email or type 'skip')`,
+    optional: true,
+    skipText: 'No email provided'
+  },
+  {
+    field: 'website',
+    prompt: (supplierName) => `(Supplier Details 3/4) What is the website for "${supplierName}"? (Enter website or type 'skip')`,
+    optional: true,
+    skipText: 'No website provided'
+  },
+  {
+    field: 'phone',
+    prompt: (supplierName) => `(Supplier Details 4/4) What is the phone number for "${supplierName}"? (Enter phone or type 'skip')`,
+    optional: true,
+    skipText: 'No phone provided'
+  }
+]
+
+/**
+ * Check if a supplier exists in the suppliers array
+ * Case-insensitive match on supplier name
+ */
+export function supplierExists(supplierName: string, suppliers: Supplier[]): boolean {
+  if (!supplierName || !supplierName.trim()) return true // If no supplier provided, skip validation
+  
+  const normalizedName = supplierName.toLowerCase().trim()
+  return suppliers.some(s => s.name.toLowerCase().trim() === normalizedName)
 }
 
 /**
