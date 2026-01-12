@@ -175,16 +175,80 @@ export function validateCommandResponse(response: Record<string, any>): Record<s
   // Create a copy to avoid mutating the input
   const validated = { ...response };
 
-  // Ensure action is valid
+  // Complete list of all valid actions from classify-intent.ts and parse-command.ts
   const validActions = [
-    'ADJUST_STOCK',
+    // Stock Management (from classify-intent)
+    'ADD_STOCK',
+    'REMOVE_STOCK',
     'TRANSFER_STOCK',
-    'CREATE_PRODUCT',
+    'COUNT_STOCK',
+    'SEARCH_STOCK',
+    'LOW_STOCK_REPORT',
+    
+    // Stock Management (from parse-command / executor)
+    'RECEIVE_STOCK',
+    'PUT_AWAY_STOCK',
+    'USE_STOCK',
+    'STOCK_COUNT',
+    'SET_MIN_STOCK',
+    
+    // Catalogue Management
+    'ADD_PRODUCT',
     'UPDATE_PRODUCT',
+    'CREATE_PRODUCT',
+    'CREATE_CATALOGUE_ITEM',
+    'UPDATE_CATALOGUE_ITEM',
+    'SEARCH_CATALOGUE',
+    
+    // Customer Management
+    'ADD_CUSTOMER',
+    'UPDATE_CUSTOMER',
+    'CREATE_CUSTOMER',
+    'ADD_SITE',
+    'ADD_SITE_ADDRESS',
+    'SEARCH_CUSTOMERS',
+    
+    // Equipment Management
+    'ADD_EQUIPMENT',
+    'CREATE_EQUIPMENT',
+    'UPDATE_EQUIPMENT',
+    'LIST_EQUIPMENT',
+    'SEARCH_EQUIPMENT',
+    'INSTALL_PART',
+    'INSTALL_FROM_STOCK',
+    'INSTALL_DIRECT_ORDER',
+    'QUERY_EQUIPMENT_PARTS',
+    'QUERY_CUSTOMER_PARTS',
+    
+    // Job Management
+    'CREATE_JOB',
+    'UPDATE_JOB',
+    'SCHEDULE_JOB',
+    'START_JOB',
+    'COMPLETE_JOB',
+    'ADD_PARTS_TO_JOB',
+    'ADD_PART_TO_JOB',
+    'LIST_JOBS',
+    'SEARCH_JOBS',
+    
+    // Supplier & Order Management
+    'ADD_SUPPLIER',
+    'CREATE_SUPPLIER',
+    'CREATE_ORDER',
+    'CREATE_PURCHASE_ORDER',
+    'RECEIVE_ORDER',
+    'RECEIVE_PURCHASE_ORDER',
+    
+    // Special Actions
+    'CREATE_CATALOGUE_ITEM_AND_ADD_STOCK',
+    
+    // Legacy & Fallback
+    'ADJUST_STOCK',
     'QUERY_INVENTORY',
   ];
 
   if (!validActions.includes(validated.action)) {
+    console.warn(`[validateCommandResponse] Unknown action: ${validated.action}, defaulting to QUERY_INVENTORY`);
     validated.action = 'QUERY_INVENTORY';
   }
 
