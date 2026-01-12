@@ -220,6 +220,13 @@ export async function executeCommand(
   originalCommand?: string
 ): Promise<ExecutionResult> {
   
+  // [TRACING] Log execution entry point
+  console.log('[Executor] Received:', { 
+    action, 
+    parameters,
+    originalCommand: originalCommand || 'N/A'
+  })
+  
   const state: StateSetters = {
     inventory,
     setInventory,
@@ -244,6 +251,14 @@ export async function executeCommand(
   }
   
   const actionLower = action.toLowerCase()
+  
+  // [TRACING] Log action routing with state info
+  console.log('[Executor] Action routing:', { 
+    original: action,
+    lowercase: actionLower,
+    catalogueItems: state.catalogue?.length || 0,
+    stockLevels: state.stockLevels?.length || 0
+  })
   
   // Handle special conversational actions
   if (actionLower === 'create_catalogue_item_and_add_stock') {
@@ -339,8 +354,14 @@ export async function executeCommand(
   if (actionLower === 'search_catalogue') return searchCatalogue(parameters, state)
   
   // Stock Management - Support both old and new action names
-  if (actionLower === 'receive_stock') return receiveStock(parameters, state)
-  if (actionLower === 'add_stock') return receiveStock(parameters, state)
+  if (actionLower === 'receive_stock') {
+    console.log('[Executor] Matched RECEIVE_STOCK action, calling receiveStock')
+    return receiveStock(parameters, state)
+  }
+  if (actionLower === 'add_stock') {
+    console.log('[Executor] Matched ADD_STOCK action, calling receiveStock')
+    return receiveStock(parameters, state)
+  }
   if (actionLower === 'put_away_stock') return putAwayStock(parameters, state)
   if (actionLower === 'use_stock') return useStock(parameters, state)
   if (actionLower === 'remove_stock') return useStock(parameters, state)
@@ -396,9 +417,13 @@ export async function executeCommand(
   if (actionLower === 'create_location') return createLocation(parameters, locations, setLocations)
   if (actionLower === 'stock_check') return stockCheckLegacy(parameters, inventory, locations)
   if (actionLower === 'query') return handleQuery(parameters, inventory, locations, customers, jobs)
-  if (actionLower === 'query_inventory') return handleQuery(parameters, inventory, locations, customers, jobs)
+  if (actionLower === 'query_inventory') {
+    console.log('[Executor] Matched QUERY_INVENTORY action')
+    return handleQuery(parameters, inventory, locations, customers, jobs)
+  }
   if (actionLower === 'list_items') return listItems(parameters, inventory)
   
+  console.log('[Executor] No action match found for:', actionLower)
   return { success: false, message: `Unknown action: ${action}` }
 }
 
@@ -539,6 +564,13 @@ function receiveStock(params: Record<string, unknown>, state: StateSetters): Exe
   const quantity = Number(params.quantity || 0)
   const location = String(params.location || '').trim()
   
+  // [TRACING] Log receiveStock entry with all relevant info
+  console.log('[receiveStock] Entry:', {
+    params: { item, quantity, location },
+    catalogueState: { itemCount: state.catalogue.length, stockLevelCount: state.stockLevels.length }
+  })
+
+  
   // Check for missing required parameters
   const missingFields: string[] = []
   if (!item) missingFields.push('item')
@@ -564,6 +596,8 @@ function receiveStock(params: Record<string, unknown>, state: StateSetters): Exe
     i.partNumber.toLowerCase() === item.toLowerCase() ||
     i.name.toLowerCase().includes(item.toLowerCase())
   )
+  
+  console.log('[receiveStock] Catalogue lookup result:', catalogueItem ? `Found: ${catalogueItem.partNumber}` : 'NOT FOUND')
   
   // If not in catalogue, prompt to create it
   if (!catalogueItem) {
