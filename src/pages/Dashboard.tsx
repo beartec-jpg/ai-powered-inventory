@@ -17,6 +17,7 @@ import { interpretCommand } from '@/lib/ai-commands'
 import { executeCommand } from '@/lib/command-executor'
 import { generateId } from '@/lib/ai-commands'
 import { conversationManager } from '@/lib/conversation-manager'
+import { getFlow, processStepInput } from '@/lib/multi-step-flows'
 import type { 
   InventoryItem, 
   Location, 
@@ -96,25 +97,132 @@ export function Dashboard() {
         const commandLower = command.toLowerCase().trim()
         
         if (existingPending.pendingAction === 'CREATE_CATALOGUE_ITEM_AND_ADD_STOCK') {
-          // More precise yes/no detection using word boundaries
-          if (commandLower === 'yes' || commandLower === 'add it' || 
-              /\byes\b/.test(commandLower) || /\badd\s+it\b/.test(commandLower)) {
-            // User confirmed, execute the pending action
-            actionToExecute = 'CREATE_CATALOGUE_ITEM_AND_ADD_STOCK'
-            paramsToExecute = existingPending.context || {}
-            conversationManager.clearPendingCommand()
-          } else if (commandLower === 'no' || commandLower === 'cancel') {
-            // User cancelled
-            conversationManager.clearPendingCommand()
-            setPendingCommand(null)
-            toast.info('Operation cancelled')
-            setIsProcessing(false)
-            return
+          // Check if this is a multi-step flow in progress
+          if (existingPending.currentStep !== undefined && existingPending.totalSteps !== undefined) {
+            // Multi-step flow in progress
+            const flow = getFlow('CREATE_CATALOGUE_ITEM_AND_ADD_STOCK')
+            if (!flow) {
+              toast.error('Flow configuration error')
+              conversationManager.clearPendingCommand()
+              setPendingCommand(null)
+              setIsProcessing(false)
+              return
+            }
+            
+            const currentStepIndex = existingPending.currentStep - 1
+            const step = flow.steps[currentStepIndex]
+            
+            // Check for cancel
+            if (commandLower === 'cancel') {
+              conversationManager.clearPendingCommand()
+              setPendingCommand(null)
+              toast.info('Operation cancelled')
+              setIsProcessing(false)
+              return
+            }
+            
+            // Process the step input
+            const result = processStepInput(step, command)
+            
+            if (result.error) {
+              toast.error(result.error)
+              setIsProcessing(false)
+              return
+            }
+            
+            // Collect the data
+            const collectedData = { ...(existingPending.collectedData || {}) }
+            if (!result.skipped && result.value !== null) {
+              collectedData[step.field] = result.value
+            }
+            
+            // Show skip confirmation if skipped
+            if (result.skipped && step.skipText) {
+              toast.info(step.skipText)
+            }
+            
+            // Move to next step or complete
+            if (existingPending.currentStep < existingPending.totalSteps) {
+              // More steps to go
+              const nextStep = existingPending.currentStep + 1
+              const nextStepIndex = nextStep - 1
+              const nextStepDef = flow.steps[nextStepIndex]
+              const itemName = String(existingPending.context?.item || existingPending.context?.suggestedName || '')
+              
+              const updatedPending = conversationManager.createPendingCommand(
+                existingPending.action,
+                existingPending.parameters,
+                [],
+                nextStepDef.prompt(itemName),
+                existingPending.pendingAction,
+                existingPending.context,
+                ['Skip'], // Always offer skip option
+                nextStep,
+                existingPending.totalSteps,
+                collectedData
+              )
+              
+              setPendingCommand(updatedPending)
+              setIsProcessing(false)
+              return
+            } else {
+              // All steps completed, execute the action
+              actionToExecute = 'CREATE_CATALOGUE_ITEM_AND_ADD_STOCK'
+              paramsToExecute = {
+                ...existingPending.context,
+                collectedData,
+                currentStep: existingPending.currentStep,
+                totalSteps: existingPending.totalSteps
+              }
+              conversationManager.clearPendingCommand()
+              setPendingCommand(null)
+            }
           } else {
-            // Ambiguous response, re-prompt
-            toast.warning('Please reply with "yes" to add the item or "no" to cancel')
-            setIsProcessing(false)
-            return
+            // Initial confirmation (yes/no)
+            if (commandLower === 'yes' || commandLower === 'add it' || 
+                /\byes\b/.test(commandLower) || /\badd\s+it\b/.test(commandLower)) {
+              // User confirmed, start multi-step flow
+              const flow = getFlow('CREATE_CATALOGUE_ITEM_AND_ADD_STOCK')
+              if (!flow) {
+                toast.error('Flow configuration error')
+                conversationManager.clearPendingCommand()
+                setPendingCommand(null)
+                setIsProcessing(false)
+                return
+              }
+              
+              const itemName = String(existingPending.context?.item || existingPending.context?.suggestedName || '')
+              const firstStep = flow.steps[0]
+              
+              const pending = conversationManager.createPendingCommand(
+                'CREATE_CATALOGUE_ITEM_AND_ADD_STOCK',
+                existingPending.parameters,
+                [],
+                firstStep.prompt(itemName),
+                'CREATE_CATALOGUE_ITEM_AND_ADD_STOCK',
+                existingPending.context,
+                ['Skip'], // Always offer skip option
+                1, // currentStep
+                flow.steps.length, // totalSteps
+                {} // collectedData
+              )
+              
+              setPendingCommand(pending)
+              setIsProcessing(false)
+              return
+            } else if (commandLower === 'no' || commandLower === 'cancel') {
+              // User cancelled
+              conversationManager.clearPendingCommand()
+              setPendingCommand(null)
+              toast.info('Operation cancelled')
+              setIsProcessing(false)
+              return
+            } else {
+              // Ambiguous response, re-prompt
+              toast.warning('Please reply with "yes" to add the item or "no" to cancel')
+              setIsProcessing(false)
+              return
+            }
           }
         } else {
           // Try to extract missing parameters from the user's response
@@ -131,7 +239,7 @@ export function Dashboard() {
           }
         }
         
-        setPendingCommand(null) // Clear UI pending command
+        setPendingCommand(null) // Clear UI pending command only if not continuing multi-step
       } else {
         // Normal new command flow
         const interpretation = await interpretCommand(command)
@@ -342,6 +450,9 @@ export function Dashboard() {
               options={pendingCommand.options}
               pendingAction={pendingCommand.pendingAction}
               onOptionSelect={(option) => handleCommand(option)}
+              currentStep={pendingCommand.currentStep}
+              totalSteps={pendingCommand.totalSteps}
+              collectedData={pendingCommand.collectedData}
             />
           </div>
         )}

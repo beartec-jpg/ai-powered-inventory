@@ -11,6 +11,9 @@ interface MissingInfoPromptProps {
   options?: string[]
   pendingAction?: string
   onOptionSelect?: (option: string) => void
+  currentStep?: number
+  totalSteps?: number
+  collectedData?: Record<string, unknown>
 }
 
 export function MissingInfoPrompt({
@@ -20,23 +23,37 @@ export function MissingInfoPrompt({
   prompt,
   options,
   pendingAction,
-  onOptionSelect
+  onOptionSelect,
+  currentStep,
+  totalSteps,
+  collectedData
 }: MissingInfoPromptProps) {
+  const isMultiStep = currentStep !== undefined && totalSteps !== undefined
+  
   return (
     <Card className="border-blue-500/50 bg-blue-50/50 dark:bg-blue-950/20">
       <CardHeader>
         <div className="flex items-center gap-2">
           <Info size={20} className="text-blue-500" weight="fill" />
-          <CardTitle className="text-lg">More Information Needed</CardTitle>
+          <CardTitle className="text-lg">
+            {isMultiStep ? `Collecting Information` : 'More Information Needed'}
+          </CardTitle>
+          {isMultiStep && (
+            <Badge variant="secondary" className="ml-auto">
+              Step {currentStep}/{totalSteps}
+            </Badge>
+          )}
         </div>
-        <CardDescription>
-          Action: <Badge variant="outline">{action}</Badge>
-        </CardDescription>
+        {!isMultiStep && (
+          <CardDescription>
+            Action: <Badge variant="outline">{action}</Badge>
+          </CardDescription>
+        )}
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="text-sm whitespace-pre-wrap">{prompt}</div>
         
-        {missingFields.length > 0 && (
+        {missingFields.length > 0 && !isMultiStep && (
           <div className="text-sm">
             <span className="font-medium">Missing: </span>
             {missingFields.map((field) => (
@@ -47,7 +64,22 @@ export function MissingInfoPrompt({
           </div>
         )}
         
-        {Object.keys(partialParams).length > 0 && (
+        {collectedData && Object.keys(collectedData).length > 0 && (
+          <div className="text-sm">
+            <span className="font-medium">Collected so far: </span>
+            <div className="mt-1 space-y-1">
+              {Object.entries(collectedData)
+                .filter(([_, value]) => value !== null && value !== undefined && value !== '')
+                .map(([key, value]) => (
+                  <div key={key} className="text-xs text-muted-foreground">
+                    <span className="font-mono">{key}:</span> {String(value)}
+                  </div>
+                ))}
+            </div>
+          </div>
+        )}
+        
+        {!isMultiStep && Object.keys(partialParams).length > 0 && (
           <div className="text-sm">
             <span className="font-medium">Already have: </span>
             <div className="mt-1 space-y-1">
@@ -67,19 +99,35 @@ export function MissingInfoPrompt({
             {options.map(option => (
               <Button 
                 key={option} 
-                variant="outline" 
+                variant={option.toLowerCase() === 'skip' ? 'outline' : 'default'}
                 size="sm" 
                 onClick={() => onOptionSelect?.(option)}
               >
                 {option}
               </Button>
             ))}
+            {isMultiStep && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => onOptionSelect?.('cancel')}
+                className="ml-auto text-muted-foreground"
+              >
+                Cancel
+              </Button>
+            )}
           </div>
         )}
         
-        {(!options || options.length === 0) && (
+        {(!options || options.length === 0) && !isMultiStep && (
           <div className="text-xs text-muted-foreground mt-3">
             💡 Tip: Just reply with the missing information in your next message
+          </div>
+        )}
+        
+        {isMultiStep && (!options || options.length === 0) && (
+          <div className="text-xs text-muted-foreground mt-3">
+            💡 Type your answer or "skip" to leave blank • Type "cancel" to stop
           </div>
         )}
       </CardContent>

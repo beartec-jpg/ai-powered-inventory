@@ -432,6 +432,10 @@ export interface PendingCommand {
   pendingAction?: string
   context?: Record<string, unknown>
   options?: string[]
+  // Multi-step flow support
+  currentStep?: number
+  totalSteps?: number
+  collectedData?: Record<string, unknown>
 }
 
 export interface ConversationContext {
