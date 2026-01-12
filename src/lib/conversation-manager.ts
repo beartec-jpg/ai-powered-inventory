@@ -25,7 +25,10 @@ export class ConversationManager {
     prompt: string,
     pendingAction?: string,
     context?: Record<string, unknown>,
-    options?: string[]
+    options?: string[],
+    currentStep?: number,
+    totalSteps?: number,
+    collectedData?: Record<string, unknown>
   ): PendingCommand {
     const now = Date.now()
     const pendingCommand: PendingCommand = {
@@ -38,7 +41,10 @@ export class ConversationManager {
       expiresAt: now + CONTEXT_RETENTION_MS,
       pendingAction,
       context,
-      options
+      options,
+      currentStep,
+      totalSteps,
+      collectedData
     }
 
     this.context.pendingCommand = pendingCommand
@@ -99,6 +105,27 @@ export class ConversationManager {
   clearPendingCommand(): void {
     this.context.pendingCommand = null
     this.context.updatedAt = Date.now()
+  }
+
+  /**
+   * Update the pending command with new data (for multi-step flows)
+   */
+  updatePendingCommand(updates: Partial<PendingCommand>): PendingCommand | null {
+    const pending = this.getPendingCommand()
+    if (!pending) {
+      return null
+    }
+
+    const updatedCommand: PendingCommand = {
+      ...pending,
+      ...updates,
+      expiresAt: Date.now() + CONTEXT_RETENTION_MS // Reset expiration
+    }
+
+    this.context.pendingCommand = updatedCommand
+    this.context.updatedAt = Date.now()
+
+    return updatedCommand
   }
 
   /**

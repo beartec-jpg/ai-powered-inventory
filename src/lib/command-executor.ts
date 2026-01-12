@@ -13,6 +13,7 @@ import type {
   StockTake
 } from './types'
 import { generateId, findBestMatchItem } from './ai-commands'
+import { getFlow, processStepInput } from './multi-step-flows'
 
 interface ExecutionResult {
   success: boolean
@@ -262,7 +263,101 @@ export async function executeCommand(
   
   // Handle special conversational actions
   if (actionLower === 'create_catalogue_item_and_add_stock') {
-    // User confirmed adding to catalogue, create basic entry and add stock
+    // Check if this is a multi-step flow in progress
+    const currentStep = parameters.currentStep as number | undefined
+    const totalSteps = parameters.totalSteps as number | undefined
+    const collectedData = parameters.collectedData as Record<string, unknown> | undefined
+    
+    // If we have step info, this is mid-flow
+    if (currentStep !== undefined && totalSteps !== undefined && collectedData) {
+      // This should not happen here - flow progression is handled by Dashboard
+      // If we reach here with all data collected, create the item
+      const flow = getFlow('CREATE_CATALOGUE_ITEM_AND_ADD_STOCK')
+      if (!flow) {
+        return { success: false, message: 'Flow configuration not found' }
+      }
+      
+      // All steps completed, create the complete catalogue item
+      const item = String(collectedData.item || parameters.item || parameters.suggestedName || '').trim()
+      const partNumber = String(collectedData.partNumber || parameters.partNumber || parameters.suggestedPartNumber || item).trim()
+      const quantity = Number(collectedData.quantity || parameters.quantity || 0)
+      const location = String(collectedData.location || parameters.location || '').trim()
+      
+      if (!item || !partNumber) {
+        return { success: false, message: 'Item name and part number are required' }
+      }
+      
+      // Calculate sell price if both unitCost and markup are provided
+      const unitCost = collectedData.unitCost ? Number(collectedData.unitCost) : undefined
+      const markup = collectedData.markup ? Number(collectedData.markup) : undefined
+      const sellPrice = unitCost && markup ? unitCost * (1 + markup / 100) : undefined
+      
+      // Create complete catalogue entry with all collected data
+      const newItem: CatalogueItem = {
+        id: generateId(),
+        partNumber,
+        name: item,
+        unitCost,
+        markup,
+        sellPrice,
+        manufacturer: collectedData.manufacturer ? String(collectedData.manufacturer) : undefined,
+        preferredSupplierName: collectedData.preferredSupplierName ? String(collectedData.preferredSupplierName) : undefined,
+        category: collectedData.category ? String(collectedData.category) : undefined,
+        minQuantity: collectedData.minQuantity ? Number(collectedData.minQuantity) : undefined,
+        isStocked: true,
+        active: true,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      }
+      state.setCatalogue((current) => [...current, newItem])
+      
+      // Now add stock if quantity and location are provided
+      if (quantity > 0 && location) {
+        const newStock: StockLevel = {
+          id: generateId(),
+          catalogueItemId: newItem.id,
+          partNumber: newItem.partNumber,
+          name: newItem.name,
+          location,
+          quantity,
+          lastMovementAt: Date.now(),
+          updatedAt: Date.now(),
+        }
+        state.setStockLevels((current) => [...current, newStock])
+        
+        // Build success message with summary
+        const details: string[] = []
+        if (unitCost && markup && sellPrice) {
+          details.push(`Cost: £${unitCost.toFixed(2)}, Markup: ${markup}%, Sell Price: £${sellPrice.toFixed(2)}`)
+        }
+        if (collectedData.manufacturer) {
+          details.push(`Manufacturer: ${collectedData.manufacturer}`)
+        }
+        if (collectedData.preferredSupplierName) {
+          details.push(`Supplier: ${collectedData.preferredSupplierName}`)
+        }
+        if (collectedData.category) {
+          details.push(`Category: ${collectedData.category}`)
+        }
+        if (collectedData.minQuantity) {
+          details.push(`Min Stock: ${collectedData.minQuantity}`)
+        }
+        
+        const summary = details.length > 0 ? `\n  - ${details.join('\n  - ')}` : ''
+        
+        return {
+          success: true,
+          message: `✓ Created catalogue item "${partNumber}":${summary}\n✓ Added ${quantity} units to ${location}`
+        }
+      }
+      
+      return {
+        success: true,
+        message: `Created catalogue item "${partNumber}"`
+      }
+    }
+    
+    // Initial creation (old simple flow or fallback)
     const item = String(parameters.item || parameters.suggestedName || '').trim()
     const partNumber = String(parameters.partNumber || parameters.suggestedPartNumber || item).trim()
     const quantity = Number(parameters.quantity || 0)
@@ -272,7 +367,7 @@ export async function executeCommand(
       return { success: false, message: 'Item name and part number are required' }
     }
     
-    // Create basic catalogue entry
+    // Create basic catalogue entry (for backwards compatibility)
     const newItem: CatalogueItem = {
       id: generateId(),
       partNumber,
