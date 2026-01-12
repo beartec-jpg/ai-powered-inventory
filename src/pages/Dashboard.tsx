@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useKV } from '@github/spark/hooks'
+import { useAuth } from '@clerk/clerk-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Separator } from '@/components/ui/separator'
 import { Button } from '@/components/ui/button'
@@ -36,20 +37,21 @@ import type {
 import { Package, FileText, ClockCounterClockwise, Sparkle, Gear, User, Bug } from '@phosphor-icons/react'
 
 export function Dashboard() {
-  // Legacy state
-  const [inventory, setInventory] = useKV<InventoryItem[]>('inventory', [])
-  const [locations, setLocations] = useKV<Location[]>('locations', [])
-  const [customers, setCustomers] = useKV<Customer[]>('customers', [])
-  const [jobs, setJobs] = useKV<Job[]>('jobs', [])
-  const [commandLogs, setCommandLogs] = useKV<CommandLog[]>('command-logs', [])
-  
-  // New comprehensive state
-  const [catalogue, setCatalogue] = useKV<CatalogueItem[]>('catalogue', [])
-  const [stockLevels, setStockLevels] = useKV<StockLevel[]>('stock-levels', [])
-  const [suppliers, setSuppliers] = useKV<Supplier[]>('suppliers', [])
-  const [equipment, setEquipment] = useKV<Equipment[]>('equipment', [])
-  const [installedParts, setInstalledParts] = useKV<InstalledPart[]>('installed-parts', [])
-  const [purchaseOrders, setPurchaseOrders] = useKV<PurchaseOrder[]>('purchase-orders', [])
+  const { userId } = useAuth()
+
+  // User-scoped KV keys - all data is isolated per user
+  // We use fallback empty string for userId to satisfy hook rules, but check below
+  const [inventory, setInventory] = useKV<InventoryItem[]>(`${userId || ''}-inventory`, [])
+  const [locations, setLocations] = useKV<Location[]>(`${userId || ''}-locations`, [])
+  const [customers, setCustomers] = useKV<Customer[]>(`${userId || ''}-customers`, [])
+  const [jobs, setJobs] = useKV<Job[]>(`${userId || ''}-jobs`, [])
+  const [commandLogs, setCommandLogs] = useKV<CommandLog[]>(`${userId || ''}-command-logs`, [])
+  const [catalogue, setCatalogue] = useKV<CatalogueItem[]>(`${userId || ''}-catalogue`, [])
+  const [stockLevels, setStockLevels] = useKV<StockLevel[]>(`${userId || ''}-stock-levels`, [])
+  const [suppliers, setSuppliers] = useKV<Supplier[]>(`${userId || ''}-suppliers`, [])
+  const [equipment, setEquipment] = useKV<Equipment[]>(`${userId || ''}-equipment`, [])
+  const [installedParts, setInstalledParts] = useKV<InstalledPart[]>(`${userId || ''}-installed-parts`, [])
+  const [purchaseOrders, setPurchaseOrders] = useKV<PurchaseOrder[]>(`${userId || ''}-purchase-orders`, [])
 
   const [isProcessing, setIsProcessing] = useState(false)
   const [latestResponse, setLatestResponse] = useState<CommandLog | null>(null)
@@ -77,6 +79,19 @@ export function Dashboard() {
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
+
+  // Show loading state while userId is being retrieved
+  // This should rarely happen since ProtectedLayout already checks auth
+  if (!userId) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading user data...</p>
+        </div>
+      </div>
+    )
+  }
 
   const handleCommand = async (command: string) => {
     setIsProcessing(true)
