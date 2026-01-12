@@ -436,6 +436,11 @@ export interface PendingCommand {
   currentStep?: number
   totalSteps?: number
   collectedData?: Record<string, unknown>
+  // Sub-flow support for nested flows (e.g., supplier details within catalogue item creation)
+  inSubFlow?: boolean
+  subFlowType?: string
+  subFlowData?: Record<string, unknown>
+  parentStep?: number
 }
 
 export interface ConversationContext {
