@@ -63,6 +63,7 @@ export function supplierExists(supplierName: string, suppliers: Supplier[]): boo
 
 /**
  * Flow for creating a catalogue item with complete details
+ * Used by both CREATE_CATALOGUE_ITEM_AND_ADD_STOCK and CREATE_CATALOGUE_ITEM_WITH_DETAILS
  */
 export const CREATE_CATALOGUE_ITEM_FLOW: MultiStepFlow = {
   id: 'CREATE_CATALOGUE_ITEM_AND_ADD_STOCK',
@@ -134,6 +135,15 @@ export const CREATE_CATALOGUE_ITEM_FLOW: MultiStepFlow = {
 }
 
 /**
+ * Flow for creating a catalogue item with details (without adding stock)
+ * Same as CREATE_CATALOGUE_ITEM_AND_ADD_STOCK but without quantity/location steps
+ */
+export const CREATE_CATALOGUE_ITEM_WITH_DETAILS_FLOW: MultiStepFlow = {
+  id: 'CREATE_CATALOGUE_ITEM_WITH_DETAILS',
+  steps: CREATE_CATALOGUE_ITEM_FLOW.steps // Reuse the same steps
+}
+
+/**
  * Process user input for a flow step
  * Returns parsed value or null if skipped
  */
@@ -176,6 +186,9 @@ export function processStepInput(step: FlowStep, userInput: string): {
 export function getFlow(flowId: string): MultiStepFlow | null {
   if (flowId === CREATE_CATALOGUE_ITEM_FLOW.id) {
     return CREATE_CATALOGUE_ITEM_FLOW
+  }
+  if (flowId === CREATE_CATALOGUE_ITEM_WITH_DETAILS_FLOW.id) {
+    return CREATE_CATALOGUE_ITEM_WITH_DETAILS_FLOW
   }
   return null
 }

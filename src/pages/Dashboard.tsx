@@ -444,6 +444,265 @@ export function Dashboard() {
               return
             }
           }
+        } else if (existingPending.pendingAction === 'CREATE_CATALOGUE_ITEM_WITH_DETAILS') {
+          // Handle CREATE_CATALOGUE_ITEM_WITH_DETAILS flow (similar to CREATE_CATALOGUE_ITEM_AND_ADD_STOCK but without stock)
+          if (existingPending.currentStep !== undefined && existingPending.totalSteps !== undefined) {
+            // Check if we're in a supplier details sub-flow
+            if (existingPending.inSubFlow && existingPending.subFlowType === 'SUPPLIER_DETAILS') {
+              // Handle supplier details sub-flow (same logic as above)
+              const subFlowStepIndex = (existingPending.currentStep || 1) - 1
+              const subFlowStep = SUPPLIER_DETAILS_SUB_FLOW[subFlowStepIndex]
+              
+              if (!subFlowStep) {
+                toast.error('Sub-flow configuration error')
+                setIsProcessing(false)
+                return
+              }
+              
+              if (commandLower === 'cancel') {
+                conversationManager.clearPendingCommand()
+                setPendingCommand(null)
+                toast.info('Operation cancelled')
+                setIsProcessing(false)
+                return
+              }
+              
+              const result = processStepInput(subFlowStep, command)
+              
+              if (result.error) {
+                toast.error(result.error)
+                setIsProcessing(false)
+                return
+              }
+              
+              const subFlowData = { ...(existingPending.subFlowData || {}) }
+              if (!result.skipped && result.value !== null) {
+                subFlowData[subFlowStep.field] = result.value
+              }
+              
+              if (result.skipped && subFlowStep.skipText) {
+                toast.info(subFlowStep.skipText)
+              }
+              
+              if ((existingPending.currentStep || 0) < SUPPLIER_DETAILS_SUB_FLOW.length) {
+                // More sub-flow steps to go
+                const nextSubStep = (existingPending.currentStep || 0) + 1
+                const nextSubStepDef = SUPPLIER_DETAILS_SUB_FLOW[nextSubStep - 1]
+                const supplierName = String(existingPending.collectedData?.preferredSupplierName || '')
+                
+                const updatedPending = conversationManager.createPendingCommand(
+                  existingPending.action,
+                  existingPending.parameters,
+                  [],
+                  nextSubStepDef.prompt(supplierName),
+                  existingPending.pendingAction,
+                  existingPending.context,
+                  ['Skip'],
+                  nextSubStep,
+                  SUPPLIER_DETAILS_SUB_FLOW.length,
+                  existingPending.collectedData
+                )
+                updatedPending.inSubFlow = true
+                updatedPending.subFlowType = 'SUPPLIER_DETAILS'
+                updatedPending.subFlowData = subFlowData
+                updatedPending.parentStep = existingPending.parentStep
+                
+                setPendingCommand(updatedPending)
+                setIsProcessing(false)
+                return
+              } else {
+                // Sub-flow complete, create the supplier and continue main flow
+                const supplierName = String(existingPending.collectedData?.preferredSupplierName || '')
+                
+                const newSupplier: Supplier = {
+                  id: generateId(),
+                  name: supplierName,
+                  address: subFlowData.address ? String(subFlowData.address) : undefined,
+                  email: subFlowData.email ? String(subFlowData.email) : undefined,
+                  website: subFlowData.website ? String(subFlowData.website) : undefined,
+                  phone: subFlowData.phone ? String(subFlowData.phone) : undefined,
+                  createdAt: Date.now(),
+                }
+                
+                setSuppliers((current) => [...current, newSupplier])
+                toast.success(`Supplier "${supplierName}" created`)
+                
+                // Continue main flow from where we left off (step 4 - manufacturer)
+                const flow = getFlow('CREATE_CATALOGUE_ITEM_WITH_DETAILS')
+                if (!flow) {
+                  toast.error('Flow configuration error')
+                  setIsProcessing(false)
+                  return
+                }
+                
+                const parentStep = existingPending.parentStep || 4
+                const nextStepIndex = parentStep - 1
+                const nextStepDef = flow.steps[nextStepIndex]
+                const itemName = String(existingPending.context?.partNumber || existingPending.context?.name || '')
+                
+                const updatedPending = conversationManager.createPendingCommand(
+                  existingPending.action,
+                  existingPending.parameters,
+                  [],
+                  nextStepDef.prompt(itemName),
+                  existingPending.pendingAction,
+                  existingPending.context,
+                  ['Skip'],
+                  parentStep,
+                  flow.steps.length,
+                  existingPending.collectedData
+                )
+                
+                setPendingCommand(updatedPending)
+                setIsProcessing(false)
+                return
+              }
+            }
+            
+            // Multi-step flow in progress (main flow)
+            const flow = getFlow('CREATE_CATALOGUE_ITEM_WITH_DETAILS')
+            if (!flow) {
+              toast.error('Flow configuration error')
+              conversationManager.clearPendingCommand()
+              setPendingCommand(null)
+              setIsProcessing(false)
+              return
+            }
+            
+            const currentStepIndex = existingPending.currentStep - 1
+            const step = flow.steps[currentStepIndex]
+            
+            if (commandLower === 'cancel') {
+              conversationManager.clearPendingCommand()
+              setPendingCommand(null)
+              toast.info('Operation cancelled')
+              setIsProcessing(false)
+              return
+            }
+            
+            const result = processStepInput(step, command)
+            
+            if (result.error) {
+              toast.error(result.error)
+              setIsProcessing(false)
+              return
+            }
+            
+            const collectedData = { ...(existingPending.collectedData || {}) }
+            if (!result.skipped && result.value !== null) {
+              collectedData[step.field] = result.value
+            }
+            
+            if (result.skipped && step.skipText) {
+              toast.info(step.skipText)
+            }
+            
+            // SUPPLIER VALIDATION: After step 3 (preferredSupplierName), check if supplier exists
+            if (existingPending.currentStep === 3 && step.field === 'preferredSupplierName') {
+              const supplierName = result.value as string
+              
+              if (supplierName && !result.skipped && !supplierExists(supplierName, suppliers)) {
+                const confirmPending = conversationManager.createPendingCommand(
+                  existingPending.action,
+                  existingPending.parameters,
+                  [],
+                  `Supplier "${supplierName}" not found. Would you like to add their details?`,
+                  'CONFIRM_ADD_SUPPLIER',
+                  existingPending.context,
+                  ['Yes', 'No/Skip'],
+                  existingPending.currentStep,
+                  existingPending.totalSteps,
+                  collectedData
+                )
+                
+                setPendingCommand(confirmPending)
+                setIsProcessing(false)
+                return
+              }
+            }
+            
+            // Move to next step or complete
+            if (existingPending.currentStep < existingPending.totalSteps) {
+              const nextStep = existingPending.currentStep + 1
+              const nextStepIndex = nextStep - 1
+              const nextStepDef = flow.steps[nextStepIndex]
+              const itemName = String(existingPending.context?.partNumber || existingPending.context?.name || '')
+              
+              const updatedPending = conversationManager.createPendingCommand(
+                existingPending.action,
+                existingPending.parameters,
+                [],
+                nextStepDef.prompt(itemName),
+                existingPending.pendingAction,
+                existingPending.context,
+                ['Skip'],
+                nextStep,
+                existingPending.totalSteps,
+                collectedData
+              )
+              
+              setPendingCommand(updatedPending)
+              setIsProcessing(false)
+              return
+            } else {
+              // All steps completed, create the catalogue item
+              actionToExecute = 'CREATE_CATALOGUE_ITEM'
+              paramsToExecute = {
+                ...existingPending.context,
+                ...collectedData,
+                // Calculate sell price if both unitCost and markup are provided
+                sellPrice: collectedData.unitCost && collectedData.markup 
+                  ? Number(collectedData.unitCost) * (1 + Number(collectedData.markup) / 100)
+                  : undefined
+              }
+              conversationManager.clearPendingCommand()
+              setPendingCommand(null)
+            }
+          } else {
+            // Initial confirmation (yes/no)
+            if (commandLower === 'yes' || /\byes\b/.test(commandLower)) {
+              // User confirmed, start multi-step flow
+              const flow = getFlow('CREATE_CATALOGUE_ITEM_WITH_DETAILS')
+              if (!flow) {
+                toast.error('Flow configuration error')
+                conversationManager.clearPendingCommand()
+                setPendingCommand(null)
+                setIsProcessing(false)
+                return
+              }
+              
+              const itemName = String(existingPending.context?.partNumber || existingPending.context?.name || '')
+              const firstStep = flow.steps[0]
+              
+              const pending = conversationManager.createPendingCommand(
+                'CREATE_CATALOGUE_ITEM',
+                existingPending.parameters,
+                [],
+                firstStep.prompt(itemName),
+                'CREATE_CATALOGUE_ITEM_WITH_DETAILS',
+                existingPending.context,
+                ['Skip'],
+                1,
+                flow.steps.length,
+                {}
+              )
+              
+              setPendingCommand(pending)
+              setIsProcessing(false)
+              return
+            } else if (commandLower === 'no' || commandLower === 'cancel' || /create\s+now/.test(commandLower)) {
+              // User declined details, create item with what we have
+              actionToExecute = 'CREATE_CATALOGUE_ITEM'
+              paramsToExecute = existingPending.context || {}
+              conversationManager.clearPendingCommand()
+              setPendingCommand(null)
+            } else {
+              // Ambiguous response, re-prompt
+              toast.warning('Please reply with "yes" to add details or "no"/"create now" to create the item as-is')
+              setIsProcessing(false)
+              return
+            }
+          }
         } else {
           // Try to extract missing parameters from the user's response
           const interpretation = await interpretCommand(command)

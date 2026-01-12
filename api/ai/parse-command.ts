@@ -118,7 +118,7 @@ const inventoryTools = [
           },
           manufacturer: {
             type: 'string',
-            description: 'Manufacturer name',
+            description: 'Manufacturer name - ONLY extract if command says "by [name]", "made by [name]", "manufactured by [name]", or "manufacturer: [name]". Do NOT extract from "from [name]" which refers to supplier.',
           },
           category: {
             type: 'string',
@@ -150,7 +150,7 @@ const inventoryTools = [
           },
           preferredSupplierName: {
             type: 'string',
-            description: 'Preferred supplier name',
+            description: 'Preferred supplier name - Extract from "from [name]", "supplied by [name]", "supplier: [name]", or "bought from [name]". This is where you source/purchase the item, NOT who manufactures it.',
           },
           attributes: {
             type: 'object',
@@ -1057,6 +1057,14 @@ Key Concepts:
 - "I've got 5 LMV37 on rack12" → stock_count (verify/update quantity)
 - "Used 2 sensors on job 1234" → use_stock + add_part_to_job
 
+CRITICAL: SUPPLIER VS MANUFACTURER DISTINCTION:
+- "from [company]" or "supplied by [company]" or "bought from [company]" → preferredSupplierName (this is where you buy/source the item)
+- "by [company]" or "made by [company]" or "manufactured by [company]" or "manufacturer: [company]" → manufacturer (this is who makes the item)
+- These are DIFFERENT fields - do NOT confuse supplier with manufacturer!
+- Example: "Siemens LMV37 from Comtherm cost £423" → partNumber: "Siemens LMV37", preferredSupplierName: "Comtherm" (NOT manufacturer)
+- Example: "LMV37 made by Siemens cost £423" → partNumber: "LMV37", manufacturer: "Siemens"
+- Example: "Siemens LMV37 by Siemens from Comtherm" → manufacturer: "Siemens", preferredSupplierName: "Comtherm"
+
 Guidelines:
 - ALWAYS use create_catalogue_item when user says "Add new item", "Add to catalogue", "Create product", or "New part" with pricing info
 - Distinguish between catalogue operations (products) and stock operations (physical inventory)
@@ -1066,7 +1074,8 @@ Guidelines:
 - Infer reasonable defaults when information is implied
 - Be confident when the command is clear
 - Set confidence lower (<0.7) when information is ambiguous or clarification needed
-- Do NOT default to QUERY_INVENTORY unless the command is truly ambiguous`;
+- Do NOT default to QUERY_INVENTORY unless the command is truly ambiguous
+- ALWAYS distinguish supplier from manufacturer based on the keywords used`;
 
   const userPrompt = `Parse this inventory command: "${command}"${contextStr}`;
 
