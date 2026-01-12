@@ -400,27 +400,24 @@ export function Dashboard() {
             }
             
             // All steps completed (or skipped), execute the action
-            if (existingPending.currentStep >= existingPending.totalSteps || 
-                existingPending.currentStep < existingPending.totalSteps) {
-              // FIX 4: Properly merge all data sources on final execution
-              actionToExecute = 'CREATE_CATALOGUE_ITEM_AND_ADD_STOCK'
-              paramsToExecute = {
-                // Original command parameters (item, quantity, location)
-                item: existingPending.context?.item || existingPending.context?.suggestedName || existingPending.context?.partNumber,
-                partNumber: existingPending.context?.partNumber || existingPending.context?.item,
-                name: existingPending.context?.name || existingPending.context?.item,
-                quantity: existingPending.context?.quantity,
-                location: existingPending.context?.location,
-                // Collected data from multi-step flow
-                collectedData,
-                currentStep: existingPending.currentStep,
-                totalSteps: existingPending.totalSteps,
-                // Ensure we don't lose any context
-                ...existingPending.context
-              }
-              conversationManager.clearPendingCommand()
-              setPendingCommand(null)
+            // FIX 4: Properly merge all data sources on final execution
+            actionToExecute = 'CREATE_CATALOGUE_ITEM_AND_ADD_STOCK'
+            paramsToExecute = {
+              // Original command parameters (item, quantity, location)
+              item: existingPending.context?.item || existingPending.context?.suggestedName || existingPending.context?.partNumber,
+              partNumber: existingPending.context?.partNumber || existingPending.context?.item,
+              name: existingPending.context?.name || existingPending.context?.item,
+              quantity: existingPending.context?.quantity,
+              location: existingPending.context?.location,
+              // Collected data from multi-step flow
+              collectedData,
+              currentStep: existingPending.currentStep,
+              totalSteps: existingPending.totalSteps,
+              // Ensure we don't lose any context
+              ...existingPending.context
             }
+            conversationManager.clearPendingCommand()
+            setPendingCommand(null)
           } else {
             // Initial confirmation (yes/no)
             if (commandLower === 'yes' || commandLower === 'add it' || 
@@ -722,26 +719,23 @@ export function Dashboard() {
             }
             
             // All steps completed (or skipped), execute the action
-            if (existingPending.currentStep >= existingPending.totalSteps || 
-                existingPending.currentStep < existingPending.totalSteps) {
-              // FIX 4: Properly merge all data sources on final execution
-              actionToExecute = 'CREATE_CATALOGUE_ITEM'
-              paramsToExecute = {
-                // Original command parameters
-                partNumber: existingPending.context?.partNumber || existingPending.context?.item,
-                name: existingPending.context?.name || existingPending.context?.item,
-                // Collected data from multi-step flow (spread first so context can override)
-                ...collectedData,
-                // Calculate sell price if both unitCost and markup are provided
-                sellPrice: collectedData.unitCost && collectedData.markup 
-                  ? Number(collectedData.unitCost) * (1 + Number(collectedData.markup) / 100)
-                  : undefined,
-                // Ensure we don't lose any context
-                ...existingPending.context
-              }
-              conversationManager.clearPendingCommand()
-              setPendingCommand(null)
+            // FIX 4: Properly merge all data sources on final execution
+            actionToExecute = 'CREATE_CATALOGUE_ITEM'
+            paramsToExecute = {
+              // Original command parameters
+              partNumber: existingPending.context?.partNumber || existingPending.context?.item,
+              name: existingPending.context?.name || existingPending.context?.item,
+              // Collected data from multi-step flow (spread first so context can override)
+              ...collectedData,
+              // Calculate sell price if both unitCost and markup are provided
+              sellPrice: collectedData.unitCost && collectedData.markup 
+                ? Number(collectedData.unitCost) * (1 + Number(collectedData.markup) / 100)
+                : undefined,
+              // Ensure we don't lose any context
+              ...existingPending.context
             }
+            conversationManager.clearPendingCommand()
+            setPendingCommand(null)
           } else {
             // Initial confirmation (yes/no)
             if (commandLower === 'yes' || /\byes\b/.test(commandLower)) {
