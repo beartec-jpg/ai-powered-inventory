@@ -278,8 +278,16 @@ export async function executeCommand(
       }
       
       // All steps completed, create the complete catalogue item
-      const item = String(collectedData.item || parameters.item || parameters.suggestedName || '').trim()
-      const partNumber = String(collectedData.partNumber || parameters.partNumber || parameters.suggestedPartNumber || item).trim()
+      // FIX 4: Check both collectedData and parameters for values (parameters now includes context)
+      const item = String(
+        collectedData.item || parameters.item || 
+        collectedData.name || parameters.name || 
+        parameters.suggestedName || ''
+      ).trim()
+      const partNumber = String(
+        collectedData.partNumber || parameters.partNumber || 
+        parameters.suggestedPartNumber || item
+      ).trim()
       const quantity = Number(collectedData.quantity || parameters.quantity || 0)
       const location = String(collectedData.location || parameters.location || '').trim()
       
@@ -288,8 +296,10 @@ export async function executeCommand(
       }
       
       // Calculate sell price if both unitCost and markup are provided
-      const unitCost = collectedData.unitCost ? Number(collectedData.unitCost) : undefined
-      const markup = collectedData.markup ? Number(collectedData.markup) : undefined
+      const unitCost = collectedData.unitCost !== undefined ? Number(collectedData.unitCost) : 
+                       parameters.unitCost !== undefined ? Number(parameters.unitCost) : undefined
+      const markup = collectedData.markup !== undefined ? Number(collectedData.markup) : 
+                     parameters.markup !== undefined ? Number(parameters.markup) : undefined
       const sellPrice = unitCost && markup ? unitCost * (1 + markup / 100) : undefined
       
       // Create complete catalogue entry with all collected data
@@ -300,10 +310,14 @@ export async function executeCommand(
         unitCost,
         markup,
         sellPrice,
-        manufacturer: collectedData.manufacturer ? String(collectedData.manufacturer) : undefined,
-        preferredSupplierName: collectedData.preferredSupplierName ? String(collectedData.preferredSupplierName) : undefined,
-        category: collectedData.category ? String(collectedData.category) : undefined,
-        minQuantity: collectedData.minQuantity ? Number(collectedData.minQuantity) : undefined,
+        manufacturer: collectedData.manufacturer ? String(collectedData.manufacturer) : 
+                      parameters.manufacturer ? String(parameters.manufacturer) : undefined,
+        preferredSupplierName: collectedData.preferredSupplierName ? String(collectedData.preferredSupplierName) : 
+                                parameters.preferredSupplierName ? String(parameters.preferredSupplierName) : undefined,
+        category: collectedData.category ? String(collectedData.category) : 
+                  parameters.category ? String(parameters.category) : undefined,
+        minQuantity: collectedData.minQuantity !== undefined ? Number(collectedData.minQuantity) : 
+                     parameters.minQuantity !== undefined ? Number(parameters.minQuantity) : undefined,
         isStocked: true,
         active: true,
         createdAt: Date.now(),
@@ -717,7 +731,13 @@ function receiveStock(params: Record<string, unknown>, state: StateSetters): Exe
       needsInput: true,
       missingFields,
       prompt: `Please provide the ${fieldNames} to complete adding stock.`,
-      context: { item, quantity, location }
+      context: { 
+        item, 
+        quantity, 
+        location,
+        // Include ALL original parameters to preserve extracted data
+        ...params
+      }
     }
   }
   
@@ -750,7 +770,9 @@ function receiveStock(params: Record<string, unknown>, state: StateSetters): Exe
         suggestedPartNumber: item.split(/\s+/)[0] || item,
         quantity,
         location,
-        supplier: params.supplier || params.supplierName
+        supplier: params.supplier || params.supplierName,
+        // Include ALL original parameters to preserve extracted data
+        ...params
       }
     }
   }
