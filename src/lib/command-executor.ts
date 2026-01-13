@@ -763,7 +763,7 @@ function receiveStock(params: Record<string, unknown>, state: StateSetters): Exe
       context: { 
         item,
         partNumber: item,  // Use item name as default part number
-        suggestedName: item,
+        suggestedName: item,  // Keep for backwards compatibility with existing fallback chains
         quantity,
         location,
         supplier: params.supplier || params.supplierName,
