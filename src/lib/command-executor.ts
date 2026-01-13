@@ -564,8 +564,13 @@ function createCatalogueItem(params: Record<string, unknown>, state: StateSetter
   // If all optional fields are provided, just create the item without prompting
   const allOptionalProvided = hasUnitCost && hasMarkup && hasSupplier && hasManufacturer && hasCategory && hasMinQuantity
   
+  // FIX 2: Check if user already went through the multi-step flow
+  // If flowCompleted is true, skip the secondary prompt and create the item with whatever data we have
+  const flowCompleted = params.flowCompleted === true
+  
   // If some optional fields are missing, offer to collect them via multi-step flow
-  if (!allOptionalProvided) {
+  // BUT only if the flow hasn't already been completed
+  if (!allOptionalProvided && !flowCompleted) {
     const missingFields: string[] = []
     if (!hasUnitCost) missingFields.push('unitCost')
     if (!hasMarkup) missingFields.push('markup')
