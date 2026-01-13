@@ -175,7 +175,7 @@ export function Dashboard() {
         } else if (existingPending && existingPending.currentStep === undefined && existingPending.pendingAction) {
           // FIX 3: Handle post-flow secondary prompts where currentStep is undefined
           // This happens when the flow completed but command executor returned needsInput for optional fields
-          if (commandLower === 'no' || /no.*create.*now/i.test(commandLower) || /create.*now/i.test(commandLower)) {
+          if (commandLower === 'no' || commandLower === 'no - create now' || commandLower === 'create now') {
             // User declined to add more info, create item with current data
             actionToExecute = existingPending.pendingAction || existingPending.action
             paramsToExecute = {
@@ -187,8 +187,9 @@ export function Dashboard() {
             setPendingCommand(null)
             // Continue to execute the action below
           } else if (commandLower === 'yes') {
-            // User wants to add more info - but we just completed the flow
-            // This shouldn't normally happen, but handle gracefully
+            // User wants to add more info after flow already completed
+            // This is unexpected - log a warning and proceed with creation
+            console.warn('[Dashboard] User said "yes" to add more info after flow completed. This is unexpected.')
             toast.info('All optional fields have been collected. Creating item...')
             actionToExecute = existingPending.pendingAction || existingPending.action
             paramsToExecute = {
