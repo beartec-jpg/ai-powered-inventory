@@ -285,8 +285,7 @@ export async function executeCommand(
         parameters.suggestedName || ''
       ).trim()
       const partNumber = String(
-        collectedData.partNumber || parameters.partNumber || 
-        parameters.suggestedPartNumber || item
+        collectedData.partNumber || parameters.partNumber || item
       ).trim()
       const quantity = Number(collectedData.quantity || parameters.quantity || 0)
       const location = String(collectedData.location || parameters.location || '').trim()
