@@ -3,7 +3,7 @@
  * 
  * This module provides a defensive wrapper around the Spark KV system that:
  * 1. Tries window.ho.setKey if available (Spark native)
- * 2. Falls back to HTTP PUT to /_spark/kv/:key (server endpoint)
+ * 2. Falls back to HTTP POST to /_spark/kv/:key (server endpoint)
  * 3. Falls back to localStorage if both fail
  * 4. Always returns a resolved value and never allows uncaught rejections
  * 
@@ -35,10 +35,11 @@ export async function setKeySafe(key: string, value: unknown): Promise<SetKeyRes
     // Continue to next fallback
   }
 
-  // Strategy 2: Try HTTP PUT to /_spark/kv/:key
+  // Strategy 2: Try HTTP POST to /_spark/kv/:key
+  // Note: Using POST to match Spark KV convention
   try {
     const response = await fetch(`/_spark/kv/${encodeURIComponent(key)}`, {
-      method: 'PUT',
+      method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
@@ -48,11 +49,11 @@ export async function setKeySafe(key: string, value: unknown): Promise<SetKeyRes
     if (response.ok) {
       return { ok: true, fallback: 'http' }
     } else {
-      console.warn('[kv-safe] HTTP PUT failed with status:', response.status)
+      console.warn('[kv-safe] HTTP POST failed with status:', response.status)
       // Continue to next fallback
     }
   } catch (error) {
-    console.warn('[kv-safe] HTTP PUT error:', error)
+    console.warn('[kv-safe] HTTP POST error:', error)
     // Continue to next fallback
   }
 

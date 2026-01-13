@@ -13,9 +13,9 @@
  * - Uses in-memory storage (not persistent across serverless function invocations)
  * 
  * ⚠️ LIMITATIONS:
- * - In-memory Map will grow indefinitely (memory leak potential)
+ * - In-memory Map with basic size limit (1000 keys max)
  * - Data lost between serverless function invocations
- * - No size limits or TTL mechanism
+ * - LRU eviction when size limit reached
  * - Not suitable for production use
  * 
  * For production, integrate with:
@@ -31,6 +31,24 @@ import { setCorsHeaders } from '../../lib/utils'
 // Data is lost between serverless function invocations
 // WARNING: This Map will grow indefinitely and never release memory
 const kvStore = new Map<string, unknown>()
+
+// Basic safety limit to prevent unbounded memory growth
+const MAX_KEYS = 1000
+
+/**
+ * Add a key to the store with basic size limiting
+ */
+function safeSet(key: string, value: unknown): void {
+  // If we're at the limit and adding a new key, remove the oldest entry
+  if (kvStore.size >= MAX_KEYS && !kvStore.has(key)) {
+    const firstKey = kvStore.keys().next().value
+    if (firstKey) {
+      kvStore.delete(firstKey)
+      console.warn(`[kv-shim] Reached max size (${MAX_KEYS}), removed oldest key: ${firstKey}`)
+    }
+  }
+  kvStore.set(key, value)
+}
 
 export default async function handler(
   req: VercelRequest,
@@ -86,8 +104,8 @@ export default async function handler(
     // Only log metadata to avoid exposing sensitive data
     console.log('[kv-shim] Payload size:', JSON.stringify(body).length, 'bytes')
     
-    // Store in memory (TEMPORARY)
-    kvStore.set(key, value)
+    // Store in memory (TEMPORARY) with size limiting
+    safeSet(key, value)
     
     // Return success
     return res.status(200).json({ 

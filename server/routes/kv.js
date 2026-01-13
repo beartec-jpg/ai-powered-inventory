@@ -62,7 +62,8 @@ function handleKVRequest(req, res) {
     const value = body?.value
     
     console.log(`[kv-shim] ${req.method} /_spark/kv/${key}`)
-    console.log('[kv-shim] Payload:', JSON.stringify(body).substring(0, 200))
+    // Only log metadata to avoid exposing sensitive data
+    console.log('[kv-shim] Payload size:', JSON.stringify(body).length, 'bytes')
     
     // Store in memory (TEMPORARY)
     kvStore.set(key, value)
