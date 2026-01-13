@@ -436,6 +436,7 @@ export interface PendingCommand {
   currentStep?: number
   totalSteps?: number
   collectedData?: Record<string, unknown>
+  flowCompleted?: boolean  // Signal that the multi-step flow has already been completed
   // Sub-flow support for nested flows (e.g., supplier details within catalogue item creation)
   inSubFlow?: boolean
   subFlowType?: string

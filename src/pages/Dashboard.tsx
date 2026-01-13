@@ -172,6 +172,40 @@ export function Dashboard() {
             setIsProcessing(false)
             return
           }
+        } else if (existingPending && existingPending.currentStep === undefined && existingPending.pendingAction) {
+          // FIX 3: Handle post-flow secondary prompts where currentStep is undefined
+          // This happens when the flow completed but command executor returned needsInput for optional fields
+          if (commandLower === 'no' || commandLower === 'no - create now' || commandLower === 'create now') {
+            // User declined to add more info, create item with current data
+            actionToExecute = existingPending.pendingAction || existingPending.action
+            paramsToExecute = {
+              ...existingPending.context,
+              ...existingPending.parameters,
+              flowCompleted: true  // Force creation without further prompts
+            }
+            conversationManager.clearPendingCommand()
+            setPendingCommand(null)
+            // Continue to execute the action below
+          } else if (commandLower === 'yes') {
+            // User wants to add more info after flow already completed
+            // This is unexpected - log a warning and proceed with creation
+            console.warn('[Dashboard] User said "yes" to add more info after flow completed. This is unexpected.')
+            toast.info('All optional fields have been collected. Creating item...')
+            actionToExecute = existingPending.pendingAction || existingPending.action
+            paramsToExecute = {
+              ...existingPending.context,
+              ...existingPending.parameters,
+              flowCompleted: true
+            }
+            conversationManager.clearPendingCommand()
+            setPendingCommand(null)
+            // Continue to execute the action below
+          } else {
+            // Ambiguous response, re-prompt
+            toast.warning('Please reply with "yes" to add more details or "no" to create the item as-is')
+            setIsProcessing(false)
+            return
+          }
         } else if (existingPending.pendingAction === 'CREATE_CATALOGUE_ITEM_AND_ADD_STOCK') {
           // Check if this is a multi-step flow in progress
           if (existingPending.currentStep !== undefined && existingPending.totalSteps !== undefined) {
@@ -414,7 +448,8 @@ export function Dashboard() {
               // Collected data from multi-step flow
               collectedData,
               currentStep: existingPending.currentStep,
-              totalSteps: existingPending.totalSteps
+              totalSteps: existingPending.totalSteps,
+              flowCompleted: true  // Signal that user already went through the flow
             }
             conversationManager.clearPendingCommand()
             setPendingCommand(null)
@@ -464,7 +499,8 @@ export function Dashboard() {
                   ...existingPending.context,
                   collectedData: alreadyKnown,
                   currentStep: flow.steps.length,
-                  totalSteps: flow.steps.length
+                  totalSteps: flow.steps.length,
+                  flowCompleted: true  // Signal that user already went through the flow
                 }
                 conversationManager.clearPendingCommand()
                 setPendingCommand(null)
@@ -732,7 +768,8 @@ export function Dashboard() {
                 ? Number(collectedData.unitCost) * (1 + Number(collectedData.markup) / 100)
                 : undefined,
               // Ensure we don't lose any context
-              ...existingPending.context
+              ...existingPending.context,
+              flowCompleted: true  // Signal that user already went through the flow
             }
             conversationManager.clearPendingCommand()
             setPendingCommand(null)
@@ -783,7 +820,8 @@ export function Dashboard() {
                   // Calculate sell price if both unitCost and markup are provided
                   sellPrice: alreadyKnown.unitCost && alreadyKnown.markup 
                     ? Number(alreadyKnown.unitCost) * (1 + Number(alreadyKnown.markup) / 100)
-                    : undefined
+                    : undefined,
+                  flowCompleted: true  // Signal that user already went through the flow
                 }
                 conversationManager.clearPendingCommand()
                 setPendingCommand(null)
