@@ -29,7 +29,7 @@ import { setCorsHeaders } from '../../lib/utils'
 
 // In-memory storage (TEMPORARY - not suitable for production)
 // Data is lost between serverless function invocations
-// WARNING: This Map will grow indefinitely and never release memory
+// Note: Size limited to MAX_KEYS (1000) with LRU eviction
 const kvStore = new Map<string, unknown>()
 
 // Basic safety limit to prevent unbounded memory growth
