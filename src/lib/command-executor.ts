@@ -372,7 +372,7 @@ export async function executeCommand(
     
     // Initial creation (old simple flow or fallback)
     const item = String(parameters.item || parameters.suggestedName || '').trim()
-    const partNumber = String(parameters.partNumber || parameters.suggestedPartNumber || item).trim()
+    const partNumber = String(parameters.partNumber || item).trim()
     const quantity = Number(parameters.quantity || 0)
     const location = String(parameters.location || '').trim()
     
