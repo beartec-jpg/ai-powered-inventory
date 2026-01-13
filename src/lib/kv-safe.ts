@@ -113,7 +113,14 @@ export async function getKeySafe(key: string): Promise<unknown> {
     if (typeof window !== 'undefined' && window.localStorage) {
       const serialized = window.localStorage.getItem(key)
       if (serialized !== null) {
-        return JSON.parse(serialized)
+        try {
+          return JSON.parse(serialized)
+        } catch (parseError) {
+          console.error('[kv-safe] Failed to parse localStorage data:', parseError)
+          // Data is corrupted, remove it and return null
+          window.localStorage.removeItem(key)
+          return null
+        }
       }
     }
   } catch (error) {

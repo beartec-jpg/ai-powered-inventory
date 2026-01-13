@@ -12,6 +12,12 @@
  * - Returns 200 OK to allow the client flow to continue
  * - Uses in-memory storage (not persistent across serverless function invocations)
  * 
+ * ⚠️ LIMITATIONS:
+ * - In-memory Map will grow indefinitely (memory leak potential)
+ * - Data lost between serverless function invocations
+ * - No size limits or TTL mechanism
+ * - Not suitable for production use
+ * 
  * For production, integrate with:
  * - Vercel KV (@vercel/kv)
  * - Neon PostgreSQL (add a kv_storage table)
@@ -19,10 +25,11 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { setCorsHeaders } from '../../lib/utils.js'
+import { setCorsHeaders } from '../../lib/utils'
 
 // In-memory storage (TEMPORARY - not suitable for production)
 // Data is lost between serverless function invocations
+// WARNING: This Map will grow indefinitely and never release memory
 const kvStore = new Map<string, unknown>()
 
 export default async function handler(
@@ -46,6 +53,17 @@ export default async function handler(
     })
   }
 
+  // Validate key to prevent path traversal attacks
+  // Allow only alphanumeric characters, hyphens, underscores, and dots
+  const keyPattern = /^[a-zA-Z0-9_.-]+$/
+  if (!keyPattern.test(key)) {
+    console.warn(`[kv-shim] Invalid key format: ${key}`)
+    return res.status(400).json({
+      ok: false,
+      error: 'Key must contain only alphanumeric characters, hyphens, underscores, and dots'
+    })
+  }
+
   // Handle GET requests (retrieve value)
   if (req.method === 'GET') {
     const value = kvStore.get(key)
@@ -65,7 +83,8 @@ export default async function handler(
     const value = body?.value
     
     console.log(`[kv-shim] ${req.method} /_spark/kv/${key}`)
-    console.log('[kv-shim] Payload:', JSON.stringify(body).substring(0, 200))
+    // Only log metadata to avoid exposing sensitive data
+    console.log('[kv-shim] Payload size:', JSON.stringify(body).length, 'bytes')
     
     // Store in memory (TEMPORARY)
     kvStore.set(key, value)

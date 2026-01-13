@@ -5,6 +5,20 @@
  * to prevent uncaught promise rejections when the KV endpoint is missing.
  * 
  * The patch is idempotent and can be called multiple times safely.
+ * 
+ * Custom Events:
+ * - 'kv-operation-failed': Dispatched when all KV strategies fail
+ *   - detail: { key: string, error: string, fallback?: string }
+ * - 'kv-operation-success': Dispatched when a fallback strategy succeeds
+ *   - detail: { key: string, fallback: 'http' | 'localStorage' }
+ * 
+ * Example usage to listen for failures:
+ * ```typescript
+ * window.addEventListener('kv-operation-failed', (e: CustomEvent) => {
+ *   console.error('KV operation failed:', e.detail)
+ *   // Show user notification or take corrective action
+ * })
+ * ```
  */
 
 import { setKeySafe } from './kv-safe'
@@ -58,11 +72,28 @@ export function installKVPatch(): void {
     const result = await setKeySafe(key, value)
     
     if (!result.ok) {
-      // Even the safe implementation had issues, but we log instead of throwing
+      // Even the safe implementation had issues
+      // We log the error but don't throw to prevent uncaught rejections
       console.error('[kv-patch] setKeySafe returned error:', result.error)
-      // We don't throw here to prevent uncaught rejections
+      console.error('[kv-patch] KV operation failed for key:', key)
+      
+      // Dispatch a custom event so UI components can react to failures if needed
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('kv-operation-failed', {
+          detail: { key, error: result.error, fallback: result.fallback }
+        }))
+      }
+      
+      // We still don't throw here to maintain the defensive contract
     } else if (result.fallback) {
       console.log(`[kv-patch] Using fallback storage: ${result.fallback}`)
+      
+      // Dispatch success event with fallback info
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('kv-operation-success', {
+          detail: { key, fallback: result.fallback }
+        }))
+      }
     }
   }
 
