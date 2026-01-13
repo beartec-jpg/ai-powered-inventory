@@ -403,8 +403,10 @@ export function Dashboard() {
             // FIX 4: Properly merge all data sources on final execution
             actionToExecute = 'CREATE_CATALOGUE_ITEM_AND_ADD_STOCK'
             paramsToExecute = {
-              // Original command parameters (item, quantity, location)
-              item: existingPending.context?.item || existingPending.context?.suggestedName || existingPending.context?.partNumber,
+              // Start with all context to preserve everything
+              ...existingPending.context,
+              // Ensure critical fields are explicitly set with proper fallbacks
+              item: existingPending.context?.item || existingPending.context?.suggestedName,
               partNumber: existingPending.context?.partNumber || existingPending.context?.item,
               name: existingPending.context?.name || existingPending.context?.item,
               quantity: existingPending.context?.quantity,
@@ -412,9 +414,7 @@ export function Dashboard() {
               // Collected data from multi-step flow
               collectedData,
               currentStep: existingPending.currentStep,
-              totalSteps: existingPending.totalSteps,
-              // Ensure we don't lose any context
-              ...existingPending.context
+              totalSteps: existingPending.totalSteps
             }
             conversationManager.clearPendingCommand()
             setPendingCommand(null)

@@ -285,8 +285,7 @@ export async function executeCommand(
         parameters.suggestedName || ''
       ).trim()
       const partNumber = String(
-        collectedData.partNumber || parameters.partNumber || 
-        parameters.suggestedPartNumber || item
+        collectedData.partNumber || parameters.partNumber || item
       ).trim()
       const quantity = Number(collectedData.quantity || parameters.quantity || 0)
       const location = String(collectedData.location || parameters.location || '').trim()
@@ -373,7 +372,7 @@ export async function executeCommand(
     
     // Initial creation (old simple flow or fallback)
     const item = String(parameters.item || parameters.suggestedName || '').trim()
-    const partNumber = String(parameters.partNumber || parameters.suggestedPartNumber || item).trim()
+    const partNumber = String(parameters.partNumber || item).trim()
     const quantity = Number(parameters.quantity || 0)
     const location = String(parameters.location || '').trim()
     
@@ -763,11 +762,8 @@ function receiveStock(params: Record<string, unknown>, state: StateSetters): Exe
       options: ['Yes', 'No'],
       context: { 
         item,
-        suggestedName: item,
-        // Simple heuristic: use first word as part number
-        // Split on whitespace (spaces, tabs, newlines) and take first word
-        // User can override by creating catalogue item explicitly first
-        suggestedPartNumber: item.split(/\s+/)[0] || item,
+        partNumber: item,  // Use item name as default part number
+        suggestedName: item,  // Keep for backwards compatibility with existing fallback chains
         quantity,
         location,
         supplier: params.supplier || params.supplierName,
