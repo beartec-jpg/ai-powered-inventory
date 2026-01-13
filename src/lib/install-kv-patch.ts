@@ -1,113 +1,142 @@
 /**
  * KV Patch Installer
  * 
- * This module installs a defensive wrapper around window.ho.setKey
- * to prevent uncaught promise rejections when the KV endpoint is missing.
+ * Patches window.ho.setKey and window.ho.getKey at app startup to use safe wrappers
+ * that never throw uncaught promise rejections.
  * 
- * The patch is idempotent and can be called multiple times safely.
+ * WHY THIS IS NEEDED:
+ * - GitHub Spark's useKV hook internally calls window.ho.setKey/getKey
+ * - These methods throw when /_spark/kv/* endpoints return 404
+ * - By patching at startup, we intercept ALL KV calls throughout the app
+ * - This prevents crashes without requiring changes to every file that uses useKV
  * 
- * Custom Events:
- * - 'kv-operation-failed': Dispatched when all KV strategies fail
- *   - detail: { key: string, error: string, fallback?: string }
- * - 'kv-operation-success': Dispatched when a fallback strategy succeeds
- *   - detail: { key: string, fallback: 'http' | 'localStorage' }
- * 
- * Example usage to listen for failures:
- * ```typescript
- * window.addEventListener('kv-operation-failed', (e: CustomEvent) => {
- *   console.error('KV operation failed:', e.detail)
- *   // Show user notification or take corrective action
- * })
- * ```
+ * USAGE:
+ * Call installKVPatch() once at app startup (in main.tsx) before rendering
  */
 
-import { setKeySafe } from './kv-safe'
-
-// Track if patch is already installed to avoid double-wrapping
-let patchInstalled = false
+import { safeSetKey, safeGetKey } from './kv-safe'
 
 /**
- * Install defensive KV patch on window.ho.setKey
+ * Install the safe KV wrapper by patching window.ho
  * 
- * This function wraps or creates window.ho.setKey to use setKeySafe
- * as a fallback when the original implementation fails.
- * 
- * The patch is idempotent and safe to call multiple times.
+ * This function:
+ * - Waits for window.ho to be available (GitHub Spark may load it asynchronously)
+ * - Patches setKey and getKey with safe wrappers
+ * - Preserves the original functions as fallback
+ * - Marks patched functions to prevent double-patching
  */
 export function installKVPatch(): void {
-  // Skip if already installed
-  if (patchInstalled) {
-    console.log('[kv-patch] Already installed, skipping')
-    return
-  }
-
-  // Ensure window is available (client-side only)
   if (typeof window === 'undefined') {
-    console.warn('[kv-patch] Not in browser environment, skipping')
+    console.warn('[KV Patch] Cannot install - not in browser environment')
     return
   }
 
-  // Initialize window.ho if it doesn't exist
-  if (!window.ho) {
-    window.ho = {}
-  }
+  // Function to apply the patch
+  const applyPatch = () => {
+    const ho = (window as any).ho
 
-  // Store original setKey if it exists
-  const originalSetKey = window.ho.setKey
-
-  // Install patched setKey
-  window.ho.setKey = async function patchedSetKey(key: string, value: unknown): Promise<void> {
-    try {
-      // If there's an original implementation, try it first
-      if (originalSetKey && typeof originalSetKey === 'function') {
-        await originalSetKey.call(window.ho, key, value)
-        return
-      }
-    } catch (error) {
-      // Original failed, log and fall through to safe implementation
-      console.warn('[kv-patch] Original setKey failed, using safe fallback:', error)
+    if (!ho) {
+      console.warn('[KV Patch] window.ho not found - waiting...')
+      return false
     }
 
-    // Use safe implementation as fallback
-    const result = await setKeySafe(key, value)
-    
-    if (!result.ok) {
-      // Even the safe implementation had issues
-      // We log the error but don't throw to prevent uncaught rejections
-      console.error('[kv-patch] setKeySafe returned error:', result.error)
-      console.error('[kv-patch] KV operation failed for key:', key)
-      
-      // Dispatch a custom event so UI components can react to failures if needed
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('kv-operation-failed', {
-          detail: { key, error: result.error, fallback: result.fallback }
-        }))
-      }
-      
-      // We still don't throw here to maintain the defensive contract
-    } else if (result.fallback) {
-      console.log(`[kv-patch] Using fallback storage: ${result.fallback}`)
-      
-      // Dispatch success event with fallback info
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('kv-operation-success', {
-          detail: { key, fallback: result.fallback }
-        }))
+    // Check if already patched
+    if (ho.setKey?._isPatched) {
+      console.debug('[KV Patch] Already installed')
+      return true
+    }
+
+    // Store original functions if they exist
+    const originalSetKey = ho.setKey
+    const originalGetKey = ho.getKey
+
+    console.info('[KV Patch] Installing safe KV wrappers...')
+
+    // Patch setKey
+    ho.setKey = async function(key: string, value: any) {
+      try {
+        // Try original first if it exists
+        if (originalSetKey && typeof originalSetKey === 'function') {
+          try {
+            await originalSetKey.call(ho, key, value)
+            return
+          } catch (error) {
+            console.warn('[KV Patch] Original setKey failed, using safe fallback:', error)
+          }
+        }
+
+        // Use safe wrapper
+        const result = await safeSetKey(key, value)
+        if (!result.success) {
+          console.error('[KV Patch] Safe setKey failed:', result.error)
+          // Don't throw - just log the error
+        }
+      } catch (error) {
+        // This should never happen since safeSetKey doesn't throw,
+        // but catch it anyway to be absolutely safe
+        console.error('[KV Patch] Unexpected error in patched setKey:', error)
       }
     }
-  }
+    // Mark as patched to prevent double-patching and identify in safe wrappers
+    ho.setKey._isPatched = true
 
-  // Mark as installed
-  patchInstalled = true
-  console.log('[kv-patch] KV patch installed successfully')
-}
+    // Patch getKey
+    ho.getKey = async function(key: string) {
+      try {
+        // Try original first if it exists
+        if (originalGetKey && typeof originalGetKey === 'function') {
+          try {
+            return await originalGetKey.call(ho, key)
+          } catch (error) {
+            console.warn('[KV Patch] Original getKey failed, using safe fallback:', error)
+          }
+        }
 
-// Type augmentation for window.ho
-declare global {
-  interface Window {
-    ho?: {
-      setKey?: (key: string, value: unknown) => Promise<void>
-      getKey?: (key: string) => Promise<unknown>
+        // Use safe wrapper
+        return await safeGetKey(key)
+      } catch (error) {
+        // This should never happen since safeGetKey doesn't throw,
+        // but catch it anyway to be absolutely safe
+        console.error('[KV Patch] Unexpected error in patched getKey:', error)
+        return null
+      }
     }
+    // Mark as patched
+    ho.getKey._isPatched = true
+
+    console.info('[KV Patch] ✓ Safe KV wrappers installed successfully')
+    return true
   }
+
+  // Try to apply patch immediately
+  if (applyPatch()) {
+    return
+  }
+
+  // If window.ho isn't ready yet, wait for it
+  // GitHub Spark may load asynchronously, so we poll with exponential backoff
+  let attempts = 0
+  const maxAttempts = 10
+  const baseDelay = 100 // ms
+
+  const pollForHo = () => {
+    attempts++
+
+    if (applyPatch()) {
+      return // Success!
+    }
+
+    if (attempts >= maxAttempts) {
+      console.warn('[KV Patch] window.ho never became available - patch not installed')
+      console.warn('[KV Patch] KV operations may fail if /_spark/kv/* endpoints are missing')
+      return
+    }
+
+    // Exponential backoff: 100ms, 200ms, 400ms, 800ms, ...
+    const delay = baseDelay * Math.pow(2, attempts - 1)
+    setTimeout(pollForHo, delay)
+  }
+
+  // Start polling
+  setTimeout(pollForHo, baseDelay)
 }
