@@ -27,7 +27,7 @@
  */
 
 import { VercelRequest, VercelResponse } from '@vercel/node';
-import { setCorsHeaders } from '../../lib/utils';
+import { setCorsHeaders } from '../../lib/utils.js';
 
 /**
  * In-memory store for development
