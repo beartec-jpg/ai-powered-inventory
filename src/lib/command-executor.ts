@@ -2102,40 +2102,94 @@ function handleQuery(
   customers: Customer[],
   jobs: Job[]
 ): ExecutionResult {
-  const query = String(params.query || '').toLowerCase()
+  // Prefer params.search, then params.query, params.searchTerm, params.q as the query term
+  const query = String(
+    params.search || params.query || params.searchTerm || params.q || ''
+  ).toLowerCase().trim();
 
-  if (query.includes('low') || query.includes('under')) {
-    const threshold = 10
-    const lowStock = inventory.filter(item => item.quantity < threshold)
+  // If no query term, fall back to legacy behavior
+  if (!query) {
+    if (query.includes('low') || query.includes('under')) {
+      const threshold = 10
+      const lowStock = inventory.filter(item => item.quantity < threshold)
+      return { 
+        success: true, 
+        message: `Found ${lowStock.length} items with low stock (under ${threshold} units)`,
+        data: lowStock
+      }
+    }
+
+    if (query.includes('where') || query.includes('location')) {
+      const results = inventory.filter(item => 
+        query.includes(item.partNumber.toLowerCase()) || 
+        query.includes(item.name.toLowerCase())
+      )
+      
+      if (results.length > 0) {
+        const locationInfo = results.map(item => 
+          `${item.partNumber}: ${item.quantity} at ${item.location}`
+        ).join(', ')
+        return { 
+          success: true, 
+          message: locationInfo,
+          data: results
+        }
+      }
+    }
+
     return { 
       success: true, 
-      message: `Found ${lowStock.length} items with low stock (under ${threshold} units)`,
-      data: lowStock
+      message: `Searching for: ${query}`,
+      data: { inventory, locations, customers, jobs }
     }
   }
 
-  if (query.includes('where') || query.includes('location')) {
-    const results = inventory.filter(item => 
-      query.includes(item.partNumber.toLowerCase()) || 
-      query.includes(item.name.toLowerCase())
-    )
+  // Perform case-insensitive contains matching across item fields
+  const results = inventory.filter(item => {
+    const itemName = (item.name || '').toLowerCase();
+    const itemPartNumber = (item.partNumber || '').toLowerCase();
+    // Note: sku and manufacturer may not exist on legacy InventoryItem
+    // @ts-ignore - sku may not exist on InventoryItem type
+    const itemSku = (item.sku || '').toLowerCase();
+    // @ts-ignore - manufacturer may not exist on InventoryItem type
+    const itemManufacturer = (item.manufacturer || '').toLowerCase();
     
-    if (results.length > 0) {
-      const locationInfo = results.map(item => 
-        `${item.partNumber}: ${item.quantity} at ${item.location}`
-      ).join(', ')
-      return { 
-        success: true, 
-        message: locationInfo,
-        data: results
-      }
+    // Standard contains matching
+    const containsMatch = 
+      itemName.includes(query) ||
+      itemPartNumber.includes(query) ||
+      itemSku.includes(query) ||
+      itemManufacturer.includes(query);
+    
+    if (containsMatch) return true;
+    
+    // For short queries (<=4 chars), attempt token startsWith matching
+    // This catches short codes like "lmv" in "Siemens LMV37.100"
+    if (query.length <= 4) {
+      const nameTokens = itemName.split(/[\s\-._]+/);
+      const partTokens = itemPartNumber.split(/[\s\-._]+/);
+      const skuTokens = itemSku.split(/[\s\-._]+/);
+      const manufacturerTokens = itemManufacturer.split(/[\s\-._]+/);
+      
+      const allTokens = [...nameTokens, ...partTokens, ...skuTokens, ...manufacturerTokens];
+      return allTokens.some(token => token.toLowerCase().startsWith(query));
     }
+    
+    return false;
+  });
+
+  if (results.length > 0) {
+    return {
+      success: true,
+      message: `Searching for: ${query}`,
+      data: results
+    };
   }
 
   return { 
     success: true, 
     message: `Searching for: ${query}`,
-    data: { inventory, locations, customers, jobs }
+    data: []
   }
 }
 
