@@ -14,6 +14,7 @@ import { JobsView } from '@/components/JobsView'
 import { CommandHistory } from '@/components/CommandHistory'
 import { EquipmentView } from '@/components/EquipmentView'
 import { SuppliersView } from '@/components/SuppliersView'
+import { CatalogueView } from '@/components/CatalogueView'
 import { interpretCommand } from '@/lib/ai-commands'
 import { executeCommand } from '@/lib/command-executor'
 import { generateId } from '@/lib/ai-commands'
@@ -34,7 +35,7 @@ import type {
   DebugInfo,
   PendingCommand
 } from '@/lib/types'
-import { Package, FileText, ClockCounterClockwise, Sparkle, Gear, User, Bug } from '@phosphor-icons/react'
+import { Package, FileText, ClockCounterClockwise, Sparkle, Gear, User, Bug, BookOpen } from '@phosphor-icons/react'
 
 export function Dashboard() {
   const { userId } = useAuth()
@@ -172,34 +173,57 @@ export function Dashboard() {
             setIsProcessing(false)
             return
           }
-        } else if (existingPending && existingPending.currentStep === undefined && existingPending.pendingAction && 
-                   existingPending.pendingAction !== 'CREATE_CATALOGUE_ITEM_AND_ADD_STOCK' && 
-                   existingPending.pendingAction !== 'CREATE_CATALOGUE_ITEM_WITH_DETAILS') {
-          // FIX 3: Handle post-flow secondary prompts where currentStep is undefined
-          // This happens when the flow completed but command executor returned needsInput for optional fields
-          // Note: Specific handlers for CREATE_CATALOGUE_ITEM_AND_ADD_STOCK and CREATE_CATALOGUE_ITEM_WITH_DETAILS
-          // are below, so we exclude them here to avoid conflicts
-          if (commandLower === 'no' || commandLower === 'no - create now' || commandLower === 'create now') {
+        } else if (existingPending && existingPending.currentStep === undefined && existingPending.pendingAction) {
+          // Generalized multi-step flow start behavior
+          // When user replies "yes" and pendingAction is set, check if a flow exists and start it
+          if (commandLower === 'yes') {
+            const flow = getFlow(existingPending.pendingAction)
+            
+            if (flow) {
+              // Start the multi-step flow
+              const firstStep = flow.steps[0]
+              const itemName = String(existingPending.context?.item || existingPending.context?.suggestedName || existingPending.context?.name || '')
+              const hint = existingPending.context?.hint ? String(existingPending.context.hint) : undefined
+              
+              const flowPending = conversationManager.createPendingCommand(
+                existingPending.action,
+                existingPending.parameters,
+                [],
+                hint ? `${firstStep.prompt(itemName)}\n${hint}` : firstStep.prompt(itemName),
+                existingPending.pendingAction,
+                existingPending.context,
+                firstStep.optional ? ['Skip'] : undefined,
+                1,
+                flow.steps.length,
+                existingPending.collectedData || {}
+              )
+              
+              setPendingCommand(flowPending)
+              toast.info(`Starting ${flow.steps.length}-step flow...`)
+              setIsProcessing(false)
+              return
+            } else {
+              // No flow exists, fall back to existing behavior
+              // This handles post-flow secondary prompts where currentStep is undefined
+              console.warn('[Dashboard] User said "yes" but no flow found for:', existingPending.pendingAction)
+              toast.info('All optional fields have been collected. Creating item...')
+              actionToExecute = existingPending.pendingAction || existingPending.action
+              paramsToExecute = {
+                ...existingPending.context,
+                ...existingPending.parameters,
+                flowCompleted: true
+              }
+              conversationManager.clearPendingCommand()
+              setPendingCommand(null)
+              // Continue to execute the action below
+            }
+          } else if (commandLower === 'no' || commandLower === 'no - create now' || commandLower === 'create now') {
             // User declined to add more info, create item with current data
             actionToExecute = existingPending.pendingAction || existingPending.action
             paramsToExecute = {
               ...existingPending.context,
               ...existingPending.parameters,
               flowCompleted: true  // Force creation without further prompts
-            }
-            conversationManager.clearPendingCommand()
-            setPendingCommand(null)
-            // Continue to execute the action below
-          } else if (commandLower === 'yes') {
-            // User wants to add more info after flow already completed
-            // This is unexpected - log a warning and proceed with creation
-            console.warn('[Dashboard] User said "yes" to add more info after flow completed. This is unexpected.')
-            toast.info('All optional fields have been collected. Creating item...')
-            actionToExecute = existingPending.pendingAction || existingPending.action
-            paramsToExecute = {
-              ...existingPending.context,
-              ...existingPending.parameters,
-              flowCompleted: true
             }
             conversationManager.clearPendingCommand()
             setPendingCommand(null)
@@ -334,7 +358,7 @@ export function Dashboard() {
                   createdAt: Date.now(),
                 }
                 
-                setSuppliers((current) => [...current, newSupplier])
+                setSuppliers((current) => [...(current || []), newSupplier])
                 toast.success(`Supplier "${supplierName}" created`)
                 
                 // Continue main flow from where we left off (step 4 - manufacturer)
@@ -416,7 +440,7 @@ export function Dashboard() {
               const supplierName = result.value as string
               
               // Only validate if supplier name was provided (not skipped)
-              if (supplierName && !result.skipped && !supplierExists(supplierName, suppliers)) {
+              if (supplierName && !result.skipped && !supplierExists(supplierName, suppliers || [])) {
                 // Supplier doesn't exist, ask if user wants to add details
                 const confirmPending = conversationManager.createPendingCommand(
                   existingPending.action,
@@ -661,7 +685,7 @@ export function Dashboard() {
                   createdAt: Date.now(),
                 }
                 
-                setSuppliers((current) => [...current, newSupplier])
+                setSuppliers((current) => [...(current || []), newSupplier])
                 toast.success(`Supplier "${supplierName}" created`)
                 
                 // Continue main flow from where we left off (step 4 - manufacturer)
@@ -738,7 +762,7 @@ export function Dashboard() {
             if (existingPending.currentStep === 3 && step.field === 'preferredSupplierName') {
               const supplierName = result.value as string
               
-              if (supplierName && !result.skipped && !supplierExists(supplierName, suppliers)) {
+              if (supplierName && !result.skipped && !supplierExists(supplierName, suppliers || [])) {
                 const confirmPending = conversationManager.createPendingCommand(
                   existingPending.action,
                   existingPending.parameters,
@@ -1071,6 +1095,7 @@ export function Dashboard() {
   const commandLogsArray = commandLogs || []
   const equipmentArray = equipment || []
   const suppliersArray = suppliers || []
+  const catalogueArray = catalogue || []
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -1149,10 +1174,15 @@ export function Dashboard() {
         <Separator className="my-8" />
 
         <Tabs defaultValue="inventory" className="w-full">
-          <TabsList className="grid w-full max-w-3xl grid-cols-5 mb-6">
+          {/* Note: grid-cols-6 is hardcoded for 6 tabs. Update if adding more tabs. */}
+          <TabsList className="grid w-full max-w-4xl grid-cols-6 mb-6">
             <TabsTrigger value="inventory" className="gap-2">
               <Package size={16} />
               Inventory
+            </TabsTrigger>
+            <TabsTrigger value="catalogue" className="gap-2">
+              <BookOpen size={16} />
+              Catalogue
             </TabsTrigger>
             <TabsTrigger value="equipment" className="gap-2">
               <Gear size={16} />
@@ -1180,6 +1210,16 @@ export function Dashboard() {
               </p>
             </div>
             <InventoryTable items={stockLevelsArray} />
+          </TabsContent>
+
+          <TabsContent value="catalogue">
+            <div className="mb-4">
+              <h2 className="text-xl font-bold mb-1">Product Catalogue</h2>
+              <p className="text-sm text-muted-foreground">
+                {catalogueArray.length} catalogue items
+              </p>
+            </div>
+            <CatalogueView catalogue={catalogueArray} stockLevels={stockLevelsArray} />
           </TabsContent>
 
           <TabsContent value="equipment">
