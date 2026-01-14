@@ -181,14 +181,318 @@ export function processStepInput(step: FlowStep, userInput: string): {
 }
 
 /**
+ * Flow for receiving stock
+ */
+export const RECEIVE_STOCK_FLOW: MultiStepFlow = {
+  id: 'RECEIVE_STOCK',
+  steps: [
+    {
+      field: 'quantity',
+      prompt: (itemName) => `(Step 1/3) How many units of "${itemName}" did you receive?`,
+      optional: false,
+      validator: (value) => {
+        const num = parseFloat(String(value))
+        if (isNaN(num) || num <= 0) {
+          return { valid: false, error: 'Please enter a valid positive number' }
+        }
+        return { valid: true }
+      }
+    },
+    {
+      field: 'location',
+      prompt: (itemName) => `(Step 2/3) Where did you receive "${itemName}"? (e.g., Warehouse, Van 1)`,
+      optional: false
+    },
+    {
+      field: 'supplierName',
+      prompt: (itemName) => `(Step 3/3) Which supplier provided this? (Enter supplier name or type 'skip')`,
+      optional: true,
+      skipText: 'No supplier specified'
+    }
+  ]
+}
+
+/**
+ * Flow for removing stock (USE_STOCK)
+ */
+export const REMOVE_STOCK_FLOW: MultiStepFlow = {
+  id: 'USE_STOCK',
+  steps: [
+    {
+      field: 'quantity',
+      prompt: (itemName) => `(Step 1/3) How many units of "${itemName}" are you removing?`,
+      optional: false,
+      validator: (value) => {
+        const num = parseFloat(String(value))
+        if (isNaN(num) || num <= 0) {
+          return { valid: false, error: 'Please enter a valid positive number' }
+        }
+        return { valid: true }
+      }
+    },
+    {
+      field: 'location',
+      prompt: (itemName) => `(Step 2/3) From which location? (e.g., Warehouse, Van 1)`,
+      optional: false
+    },
+    {
+      field: 'reason',
+      prompt: (itemName) => `(Step 3/3) What is the reason for removing stock? (e.g., job, installation, damaged, or type 'skip')`,
+      optional: true,
+      skipText: 'No reason specified'
+    }
+  ]
+}
+
+/**
+ * Flow for transferring stock
+ */
+export const TRANSFER_STOCK_FLOW: MultiStepFlow = {
+  id: 'TRANSFER_STOCK',
+  steps: [
+    {
+      field: 'quantity',
+      prompt: (itemName) => `(Step 1/4) How many units of "${itemName}" are you transferring?`,
+      optional: false,
+      validator: (value) => {
+        const num = parseFloat(String(value))
+        if (isNaN(num) || num <= 0) {
+          return { valid: false, error: 'Please enter a valid positive number' }
+        }
+        return { valid: true }
+      }
+    },
+    {
+      field: 'fromLocation',
+      prompt: (itemName) => `(Step 2/4) From which location?`,
+      optional: false
+    },
+    {
+      field: 'toLocation',
+      prompt: (itemName) => `(Step 3/4) To which location?`,
+      optional: false
+    },
+    {
+      field: 'notes',
+      prompt: (itemName) => `(Step 4/4) Any notes about this transfer? (Enter notes or type 'skip')`,
+      optional: true,
+      skipText: 'No notes provided'
+    }
+  ]
+}
+
+/**
+ * Flow for creating a purchase order
+ */
+export const CREATE_PURCHASE_ORDER_FLOW: MultiStepFlow = {
+  id: 'CREATE_PURCHASE_ORDER',
+  steps: [
+    {
+      field: 'supplierName',
+      prompt: (itemName) => `(Step 1/2) Which supplier are you ordering from?`,
+      optional: false
+    },
+    {
+      field: 'jobNumber',
+      prompt: (itemName) => `(Step 2/2) Is this for a specific job? (Enter job number or type 'skip')`,
+      optional: true,
+      skipText: 'Not linked to a specific job'
+    }
+  ]
+}
+
+/**
+ * Flow for creating a supplier
+ */
+export const CREATE_SUPPLIER_FLOW: MultiStepFlow = {
+  id: 'CREATE_SUPPLIER',
+  steps: [
+    {
+      field: 'contactName',
+      prompt: (supplierName) => `(Step 1/4) Who is the contact person at "${supplierName}"? (Enter name or type 'skip')`,
+      optional: true,
+      skipText: 'No contact person specified'
+    },
+    {
+      field: 'email',
+      prompt: (supplierName) => `(Step 2/4) What is the email address? (Enter email or type 'skip')`,
+      optional: true,
+      skipText: 'No email provided'
+    },
+    {
+      field: 'phone',
+      prompt: (supplierName) => `(Step 3/4) What is the phone number? (Enter phone or type 'skip')`,
+      optional: true,
+      skipText: 'No phone provided'
+    },
+    {
+      field: 'accountNumber',
+      prompt: (supplierName) => `(Step 4/4) What is your account number with this supplier? (Enter account number or type 'skip')`,
+      optional: true,
+      skipText: 'No account number provided'
+    }
+  ]
+}
+
+/**
+ * Flow for creating a job
+ */
+export const CREATE_JOB_FLOW: MultiStepFlow = {
+  id: 'CREATE_JOB',
+  steps: [
+    {
+      field: 'type',
+      prompt: (customerName) => `(Step 1/4) What type of job is this for "${customerName}"? (service, repair, installation, maintenance, quote, inspection)`,
+      optional: false,
+      validator: (value) => {
+        const validTypes = ['service', 'repair', 'installation', 'maintenance', 'quote', 'inspection']
+        const type = String(value).toLowerCase().trim()
+        if (!validTypes.includes(type)) {
+          return { valid: false, error: `Please enter one of: ${validTypes.join(', ')}` }
+        }
+        return { valid: true }
+      }
+    },
+    {
+      field: 'priority',
+      prompt: (customerName) => `(Step 2/4) What is the priority? (low, normal, high, emergency)`,
+      optional: false,
+      validator: (value) => {
+        const validPriorities = ['low', 'normal', 'high', 'emergency']
+        const priority = String(value).toLowerCase().trim()
+        if (!validPriorities.includes(priority)) {
+          return { valid: false, error: `Please enter one of: ${validPriorities.join(', ')}` }
+        }
+        return { valid: true }
+      }
+    },
+    {
+      field: 'description',
+      prompt: (customerName) => `(Step 3/4) Describe the job: (Enter description or type 'skip')`,
+      optional: true,
+      skipText: 'No description provided'
+    },
+    {
+      field: 'equipmentName',
+      prompt: (customerName) => `(Step 4/4) Is this for specific equipment? (Enter equipment name or type 'skip')`,
+      optional: true,
+      skipText: 'Not linked to specific equipment'
+    }
+  ]
+}
+
+/**
+ * Flow for creating a customer
+ */
+export const CREATE_CUSTOMER_FLOW: MultiStepFlow = {
+  id: 'CREATE_CUSTOMER',
+  steps: [
+    {
+      field: 'type',
+      prompt: (customerName) => `(Step 1/4) What type of customer is "${customerName}"? (commercial, residential, industrial)`,
+      optional: false,
+      validator: (value) => {
+        const validTypes = ['commercial', 'residential', 'industrial']
+        const type = String(value).toLowerCase().trim()
+        if (!validTypes.includes(type)) {
+          return { valid: false, error: `Please enter one of: ${validTypes.join(', ')}` }
+        }
+        return { valid: true }
+      }
+    },
+    {
+      field: 'contactName',
+      prompt: (customerName) => `(Step 2/4) Who is the primary contact? (Enter contact name or type 'skip')`,
+      optional: true,
+      skipText: 'No contact name provided'
+    },
+    {
+      field: 'email',
+      prompt: (customerName) => `(Step 3/4) What is the email address? (Enter email or type 'skip')`,
+      optional: true,
+      skipText: 'No email provided'
+    },
+    {
+      field: 'phone',
+      prompt: (customerName) => `(Step 4/4) What is the phone number? (Enter phone or type 'skip')`,
+      optional: true,
+      skipText: 'No phone provided'
+    }
+  ]
+}
+
+/**
+ * Flow for creating equipment
+ */
+export const CREATE_EQUIPMENT_FLOW: MultiStepFlow = {
+  id: 'CREATE_EQUIPMENT',
+  steps: [
+    {
+      field: 'type',
+      prompt: (equipmentName) => `(Step 1/5) What type of equipment is "${equipmentName}"? (e.g., boiler, chiller, pump)`,
+      optional: false
+    },
+    {
+      field: 'manufacturer',
+      prompt: (equipmentName) => `(Step 2/5) Who manufactures this equipment? (Enter manufacturer or type 'skip')`,
+      optional: true,
+      skipText: 'No manufacturer specified'
+    },
+    {
+      field: 'model',
+      prompt: (equipmentName) => `(Step 3/5) What is the model number? (Enter model or type 'skip')`,
+      optional: true,
+      skipText: 'No model specified'
+    },
+    {
+      field: 'serialNumber',
+      prompt: (equipmentName) => `(Step 4/5) What is the serial number? (Enter serial number or type 'skip')`,
+      optional: true,
+      skipText: 'No serial number provided'
+    },
+    {
+      field: 'location',
+      prompt: (equipmentName) => `(Step 5/5) Where is this equipment located at the site? (Enter location or type 'skip')`,
+      optional: true,
+      skipText: 'No location specified'
+    }
+  ]
+}
+
+/**
  * Get flow by ID
  */
 export function getFlow(flowId: string): MultiStepFlow | null {
-  if (flowId === CREATE_CATALOGUE_ITEM_FLOW.id) {
-    return CREATE_CATALOGUE_ITEM_FLOW
+  const flows: Record<string, MultiStepFlow> = {
+    'CREATE_CATALOGUE_ITEM_AND_ADD_STOCK': CREATE_CATALOGUE_ITEM_FLOW,
+    'CREATE_CATALOGUE_ITEM_WITH_DETAILS': CREATE_CATALOGUE_ITEM_WITH_DETAILS_FLOW,
+    'RECEIVE_STOCK': RECEIVE_STOCK_FLOW,
+    'USE_STOCK': REMOVE_STOCK_FLOW,
+    'TRANSFER_STOCK': TRANSFER_STOCK_FLOW,
+    'CREATE_PURCHASE_ORDER': CREATE_PURCHASE_ORDER_FLOW,
+    'CREATE_SUPPLIER': CREATE_SUPPLIER_FLOW,
+    'CREATE_JOB': CREATE_JOB_FLOW,
+    'CREATE_CUSTOMER': CREATE_CUSTOMER_FLOW,
+    'CREATE_EQUIPMENT': CREATE_EQUIPMENT_FLOW
   }
-  if (flowId === CREATE_CATALOGUE_ITEM_WITH_DETAILS_FLOW.id) {
-    return CREATE_CATALOGUE_ITEM_WITH_DETAILS_FLOW
-  }
-  return null
+  
+  return flows[flowId] || null
+}
+
+/**
+ * List all available flow keys
+ */
+export function listFlowKeys(): string[] {
+  return [
+    'CREATE_CATALOGUE_ITEM_AND_ADD_STOCK',
+    'CREATE_CATALOGUE_ITEM_WITH_DETAILS',
+    'RECEIVE_STOCK',
+    'USE_STOCK',
+    'TRANSFER_STOCK',
+    'CREATE_PURCHASE_ORDER',
+    'CREATE_SUPPLIER',
+    'CREATE_JOB',
+    'CREATE_CUSTOMER',
+    'CREATE_EQUIPMENT'
+  ]
 }

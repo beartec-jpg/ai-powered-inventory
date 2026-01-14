@@ -1,7 +1,7 @@
 import type { PendingCommand, ConversationContext } from './types'
 import { generateId } from './ai-commands'
 
-const CONTEXT_RETENTION_MS = 30000 // 30 seconds
+const CONTEXT_RETENTION_MS = 5 * 60 * 1000 // 5 minutes
 
 /**
  * Conversation Manager
