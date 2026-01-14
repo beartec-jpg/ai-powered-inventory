@@ -2107,40 +2107,41 @@ function handleQuery(
     params.search || params.query || params.searchTerm || params.q || ''
   ).toLowerCase().trim();
 
-  // If no query term, fall back to legacy behavior
+  // If no query term, return all data
   if (!query) {
-    if (query.includes('low') || query.includes('under')) {
-      const threshold = 10
-      const lowStock = inventory.filter(item => item.quantity < threshold)
-      return { 
-        success: true, 
-        message: `Found ${lowStock.length} items with low stock (under ${threshold} units)`,
-        data: lowStock
-      }
-    }
-
-    if (query.includes('where') || query.includes('location')) {
-      const results = inventory.filter(item => 
-        query.includes(item.partNumber.toLowerCase()) || 
-        query.includes(item.name.toLowerCase())
-      )
-      
-      if (results.length > 0) {
-        const locationInfo = results.map(item => 
-          `${item.partNumber}: ${item.quantity} at ${item.location}`
-        ).join(', ')
-        return { 
-          success: true, 
-          message: locationInfo,
-          data: results
-        }
-      }
-    }
-
     return { 
       success: true, 
-      message: `Searching for: ${query}`,
+      message: 'Please provide a search term',
       data: { inventory, locations, customers, jobs }
+    }
+  }
+
+  // Legacy behavior for special query types
+  if (query.includes('low') || query.includes('under')) {
+    const threshold = 10
+    const lowStock = inventory.filter(item => item.quantity < threshold)
+    return { 
+      success: true, 
+      message: `Found ${lowStock.length} items with low stock (under ${threshold} units)`,
+      data: lowStock
+    }
+  }
+
+  if (query.includes('where') || query.includes('location')) {
+    const results = inventory.filter(item => 
+      query.includes(item.partNumber.toLowerCase()) || 
+      query.includes(item.name.toLowerCase())
+    )
+    
+    if (results.length > 0) {
+      const locationInfo = results.map(item => 
+        `${item.partNumber}: ${item.quantity} at ${item.location}`
+      ).join(', ')
+      return { 
+        success: true, 
+        message: locationInfo,
+        data: results
+      }
     }
   }
 
@@ -2172,7 +2173,7 @@ function handleQuery(
       const manufacturerTokens = itemManufacturer.split(/[\s\-._]+/);
       
       const allTokens = [...nameTokens, ...partTokens, ...skuTokens, ...manufacturerTokens];
-      return allTokens.some(token => token.toLowerCase().startsWith(query));
+      return allTokens.some(token => token.startsWith(query));
     }
     
     return false;
