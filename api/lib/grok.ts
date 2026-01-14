@@ -82,8 +82,6 @@ export async function callGrok(
       signal: controller.signal,
     });
 
-    clearTimeout(timeoutId);
-
     if (!response.ok) {
       const errorText = await response.text();
       throw new Error(`Grok API error (${response.status}): ${errorText}`);
@@ -98,11 +96,12 @@ export async function callGrok(
 
     return content;
   } catch (error) {
-    clearTimeout(timeoutId);
     if (error instanceof Error && error.name === 'AbortError') {
       throw new Error(`Grok request timeout after ${timeout}ms`);
     }
     throw error;
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 

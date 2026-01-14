@@ -1099,8 +1099,6 @@ Guidelines:
       signal: controller.signal,
     });
 
-    clearTimeout(timeoutId);
-
     if (!response.ok) {
       const errorText = await response.text();
       throw new Error(`Grok API error (${response.status}): ${errorText}`);
@@ -1231,11 +1229,12 @@ Guidelines:
       clarificationNeeded: 'Could you please rephrase your request?',
     };
   } catch (error) {
-    clearTimeout(timeoutId);
     if (error instanceof Error && error.name === 'AbortError') {
       throw new Error(`Request timeout after ${timeout}ms`);
     }
     throw error;
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
