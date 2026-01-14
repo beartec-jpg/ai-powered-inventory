@@ -113,8 +113,8 @@ export function Dashboard() {
         // Check if they're confirming to add to catalogue
         const commandLower = command.toLowerCase().trim()
         
-        // IMPORTANT: Check for supplier confirmation FIRST, before checking CREATE_CATALOGUE_ITEM_AND_ADD_STOCK
-        // This prevents "Yes/No" responses from being captured as supplier names
+        // IMPORTANT: Check for specific pendingAction handlers FIRST, before checking the general handler
+        // This ensures proper precedence and prevents conflicts
         if (existingPending.pendingAction === 'CONFIRM_ADD_SUPPLIER') {
           // Handle supplier details confirmation
           if (commandLower === 'yes' || /\byes\b/.test(commandLower)) {
@@ -235,6 +235,44 @@ export function Dashboard() {
             return
           }
         } else if (existingPending.pendingAction === 'CREATE_CATALOGUE_ITEM_AND_ADD_STOCK') {
+          // If the pending command has no multi-step flow in progress and the user replied "yes",
+          // start the CREATE_CATALOGUE_ITEM_AND_ADD_STOCK multi-step flow rather than creating immediately.
+          if (commandLower === 'yes' && existingPending.currentStep === undefined) {
+            const flow = getFlow('CREATE_CATALOGUE_ITEM_AND_ADD_STOCK')
+            if (!flow || !flow.steps || flow.steps.length === 0) {
+              toast.error('Flow configuration for catalogue creation is missing')
+              setIsProcessing(false)
+              return
+            }
+
+            const partNumberHint = String(
+              existingPending.context?.partNumber || existingPending.parameters?.partNumber || existingPending.context?.item || existingPending.parameters?.item || ''
+            ).trim()
+
+            const firstPrompt =
+              typeof flow.steps[0].prompt === 'function'
+                ? flow.steps[0].prompt(partNumberHint)
+                : flow.steps[0].prompt || `Please provide ${flow.steps[0].field}`
+
+            const newPending = conversationManager.createPendingCommand(
+              existingPending.action,
+              existingPending.parameters,
+              [], // missingFields are managed by the flow
+              firstPrompt,
+              existingPending.pendingAction, // preserve pendingAction
+              existingPending.context, // preserve context (item, quantity, location)
+              flow.steps[0].options || [], // options for the first step (if any)
+              1, // currentStep
+              flow.steps.length, // totalSteps
+              existingPending.collectedData || {} // collectedData (may be empty)
+            )
+
+            setPendingCommand(newPending)
+            toast.info('Collecting additional catalogue details...')
+            setIsProcessing(false)
+            return
+          }
+          
           // Check if this is a multi-step flow in progress
           if (existingPending.currentStep !== undefined && existingPending.totalSteps !== undefined) {
             // Check if we're in a supplier details sub-flow
