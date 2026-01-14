@@ -1,15 +1,21 @@
+/* Top of api/ai/parse-command.ts — modified to remove OpenAI SDK and use fetch-based grok helper */
+
 import { VercelRequest, VercelResponse } from '@vercel/node';
-// NOTE: Removed openai SDK import to avoid peer dependency conflicts with zod versions.
-// Using fetch-based Grok client instead.
-import { 
-  successResponse, 
-  badRequestResponse, 
+import {
+  successResponse,
+  badRequestResponse,
   internalServerErrorResponse,
   setCorsHeaders,
-  validateCommandResponse 
+  validateCommandResponse,
 } from '../lib/utils.js';
 import { classifyIntentCore } from './classify-intent.js';
 import { extractParametersCore } from './extract-params.js';
+import { callGrok, callGrokJSON, isGrokConfigured } from '../lib/grok.js'; // <- use fetch-based client
+
+// NOTE: removed `import { OpenAI } from 'openai'` and the OpenAI client initialization.
+// The project now uses api/lib/grok.ts (fetch-based) which does not pull the openai package.
+
+// Rest of file unchanged — keep existing logic that calls Grok via callGrok / callGrokJSON
 
 // Action types for inventory operations
 type InventoryAction = 

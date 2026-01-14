@@ -1,137 +1,102 @@
 /**
- * Grok API Client Wrapper
- * Provides a simple interface for calling xAI's Grok models
- * 
- * NOTE: This implementation uses fetch instead of the openai SDK to avoid
- * peer dependency conflicts with zod versions.
+ * Grok API Client Wrapper (fetch-based)
+ * Replaces use of the 'openai' SDK so we don't pull its zod@^3 peer.
+ *
+ * This is intentionally minimal and robust:
+ * - Uses fetch to call xAI (Grok) endpoints
+ * - Supports timeouts via AbortController
+ * - Exposes callGrok (text completion) and callGrokJSON (extract JSON from response)
  */
 
 export interface GrokCompletionOptions {
-  model?: 'grok-3-mini' | 'grok-3';
-  temperature?: number;
-  maxTokens?: number;
-  timeout?: number;
+  model?: 'grok-3-mini' | 'grok-3'
+  temperature?: number
+  maxTokens?: number
+  timeout?: number
 }
 
 export interface GrokMessage {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
+  role: 'system' | 'user' | 'assistant'
+  content: string
 }
 
-interface GrokChatCompletionResponse {
-  id: string;
-  object: string;
-  created: number;
-  model: string;
-  choices: {
-    index: number;
-    message: {
-      role: string;
-      content: string;
-    };
-    finish_reason: string;
-  }[];
-  usage?: {
-    prompt_tokens: number;
-    completion_tokens: number;
-    total_tokens: number;
-  };
+const DEFAULT_BASE_URL = process.env.XAI_BASE_URL ?? 'https://api.x.ai/v1'
+const DEFAULT_TIMEOUT = 15000
+
+function buildCompletionPayload(messages: GrokMessage[], options: GrokCompletionOptions) {
+  const { model = 'grok-3-mini', temperature = 0.2, maxTokens = 500 } = options
+  return {
+    model,
+    messages: messages.map((m) => ({
+      role: m.role,
+      content: m.content,
+    })),
+    temperature,
+    max_tokens: maxTokens,
+  }
 }
 
-/**
- * Call Grok for a text completion using fetch API
- */
-export async function callGrok(
-  messages: GrokMessage[],
-  options: GrokCompletionOptions = {}
-): Promise<string> {
-  const {
-    model = 'grok-3-mini',
-    temperature = 0.2,
-    maxTokens = 500,
-    timeout = 15000,
-  } = options;
-
-  const apiKey = process.env.XAI_API_KEY;
+async function postJSON(path: string, body: unknown, timeout = DEFAULT_TIMEOUT, baseURL = DEFAULT_BASE_URL) {
+  const apiKey = process.env.XAI_API_KEY
   if (!apiKey) {
-    throw new Error('XAI_API_KEY environment variable is not set');
+    throw new Error('XAI_API_KEY is not configured')
   }
 
-  const baseURL = process.env.XAI_BASE_URL || 'https://api.x.ai/v1';
-  const url = `${baseURL}/chat/completions`;
-
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeout);
+  const controller = new AbortController()
+  const id = setTimeout(() => controller.abort(), timeout)
 
   try {
-    const response = await fetch(url, {
+    const res = await fetch(`${baseURL}${path}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
+        Authorization: `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({
-        model,
-        messages: messages.map((m) => ({
-          role: m.role,
-          content: m.content,
-        })),
-        temperature,
-        max_tokens: maxTokens,
-      }),
       signal: controller.signal,
-    });
+      body: JSON.stringify(body),
+    })
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Grok API error (${response.status}): ${errorText}`);
+    clearTimeout(id)
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => '')
+      throw new Error(`Grok API error ${res.status}: ${text}`)
     }
 
-    const completion: GrokChatCompletionResponse = await response.json();
-
-    const content = completion.choices[0]?.message?.content;
-    if (!content) {
-      throw new Error('No content in Grok response');
+    return res.json()
+  } catch (err) {
+    clearTimeout(id)
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new Error(`Grok request timeout after ${timeout}ms`)
     }
-
-    return content;
-  } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error(`Grok request timeout after ${timeout}ms`);
-    }
-    throw error;
-  } finally {
-    clearTimeout(timeoutId);
+    throw err
   }
 }
 
-/**
- * Call Grok with JSON response expected
- */
-export async function callGrokJSON<T = unknown>(
-  messages: GrokMessage[],
-  options: GrokCompletionOptions = {}
-): Promise<T> {
-  const content = await callGrok(messages, options);
+export async function callGrok(messages: GrokMessage[], options: GrokCompletionOptions = {}): Promise<string> {
+  const { timeout = DEFAULT_TIMEOUT } = options
+  const payload = buildCompletionPayload(messages, options)
+  const body = await postJSON('/chat/completions', payload, timeout)
+  const content = body?.choices?.[0]?.message?.content
+  if (!content || typeof content !== 'string') {
+    throw new Error('No content in Grok response')
+  }
+  return content
+}
 
-  // Try to extract JSON from response
-  const jsonMatch = content.match(/\{[\s\S]*\}/);
+export async function callGrokJSON<T = unknown>(messages: GrokMessage[], options: GrokCompletionOptions = {}): Promise<T> {
+  const content = await callGrok(messages, options)
+  const jsonMatch = content.match(/\{[\s\S]*\}/)
   if (!jsonMatch) {
-    throw new Error('No JSON found in Grok response');
+    throw new Error('No JSON found in Grok response')
   }
-
   try {
-    return JSON.parse(jsonMatch[0]) as T;
-  } catch (error) {
-    throw new Error(
-      `Failed to parse JSON from Grok response: ${error instanceof Error ? error.message : 'Unknown error'}`
-    );
+    return JSON.parse(jsonMatch[0]) as T
+  } catch (err) {
+    throw new Error(`Failed to parse JSON from Grok response: ${err instanceof Error ? err.message : 'Unknown error'}`)
   }
 }
 
-/**
- * Check if Grok API is configured
- */
 export function isGrokConfigured(): boolean {
-  return !!process.env.XAI_API_KEY;
+  return !!process.env.XAI_API_KEY
 }
