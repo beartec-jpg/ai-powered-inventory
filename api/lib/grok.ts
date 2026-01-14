@@ -1,15 +1,10 @@
 /**
  * Grok API Client Wrapper
  * Provides a simple interface for calling xAI's Grok models
+ * 
+ * NOTE: This implementation uses fetch instead of the openai SDK to avoid
+ * peer dependency conflicts with zod versions.
  */
-
-import { OpenAI } from 'openai';
-
-// Initialize OpenAI client configured for xAI (Grok)
-const openai = new OpenAI({
-  apiKey: process.env.XAI_API_KEY,
-  baseURL: 'https://api.x.ai/v1',
-});
 
 export interface GrokCompletionOptions {
   model?: 'grok-3-mini' | 'grok-3';
@@ -23,8 +18,28 @@ export interface GrokMessage {
   content: string;
 }
 
+interface GrokChatCompletionResponse {
+  id: string;
+  object: string;
+  created: number;
+  model: string;
+  choices: {
+    index: number;
+    message: {
+      role: string;
+      content: string;
+    };
+    finish_reason: string;
+  }[];
+  usage?: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  };
+}
+
 /**
- * Call Grok for a text completion
+ * Call Grok for a text completion using fetch API
  */
 export async function callGrok(
   messages: GrokMessage[],
@@ -37,12 +52,25 @@ export async function callGrok(
     timeout = 15000,
   } = options;
 
+  const apiKey = process.env.XAI_API_KEY;
+  if (!apiKey) {
+    throw new Error('XAI_API_KEY environment variable is not set');
+  }
+
+  const baseURL = process.env.XAI_BASE_URL || 'https://api.x.ai/v1';
+  const url = `${baseURL}/chat/completions`;
+
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
 
   try {
-    const completion = await openai.chat.completions.create(
-      {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
         model,
         messages: messages.map((m) => ({
           role: m.role,
@@ -50,11 +78,16 @@ export async function callGrok(
         })),
         temperature,
         max_tokens: maxTokens,
-      },
-      { signal: controller.signal }
-    );
+      }),
+      signal: controller.signal,
+    });
 
-    clearTimeout(timeoutId);
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Grok API error (${response.status}): ${errorText}`);
+    }
+
+    const completion: GrokChatCompletionResponse = await response.json();
 
     const content = completion.choices[0]?.message?.content;
     if (!content) {
@@ -63,11 +96,12 @@ export async function callGrok(
 
     return content;
   } catch (error) {
-    clearTimeout(timeoutId);
     if (error instanceof Error && error.name === 'AbortError') {
       throw new Error(`Grok request timeout after ${timeout}ms`);
     }
     throw error;
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
