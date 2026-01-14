@@ -10,10 +10,8 @@ interface CatalogueItemCardProps {
 }
 
 export function CatalogueItemCard({ item, stockLevels = [] }: CatalogueItemCardProps) {
-  // Calculate total stock across all locations
-  const totalStock = stockLevels
-    .filter(s => s.catalogueItemId === item.id)
-    .reduce((sum, s) => sum + s.quantity, 0)
+  // Calculate total stock from provided stock levels (already filtered by parent)
+  const totalStock = stockLevels.reduce((sum, s) => sum + s.quantity, 0)
   
   const hasStock = totalStock > 0
   const isLowStock = item.minQuantity ? totalStock < item.minQuantity : false

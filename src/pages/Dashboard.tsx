@@ -1136,6 +1136,7 @@ export function Dashboard() {
         <Separator className="my-8" />
 
         <Tabs defaultValue="inventory" className="w-full">
+          {/* Note: grid-cols-6 is hardcoded for 6 tabs. Update if adding more tabs. */}
           <TabsList className="grid w-full max-w-4xl grid-cols-6 mb-6">
             <TabsTrigger value="inventory" className="gap-2">
               <Package size={16} />

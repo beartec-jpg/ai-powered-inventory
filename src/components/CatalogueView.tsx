@@ -91,7 +91,7 @@ export function CatalogueView({ catalogue, stockLevels }: CatalogueViewProps) {
             ))}
           </TabsList>
           
-          {/* Tab content is the same for all - just the filtered items grid */}
+          {/* Render TabsContent for each category - Radix requires matching TabsContent for each TabsTrigger */}
           {allCategories.map(cat => (
             <TabsContent key={cat.key} value={cat.key} className="mt-4">
               {sortedItems.length === 0 ? (
