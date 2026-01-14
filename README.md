@@ -18,6 +18,64 @@ An intelligent stock management system that uses natural language processing to 
 - **Build Tool**: Vite
 - **Deployment**: Vercel
 
+## ⚠️ Important: KV Storage Temporary Shim
+
+This application includes a **temporary KV (key-value) storage shim** to prevent UI flow interruptions during multi-step catalogue creation. The current implementation:
+
+### What's Implemented
+- **Client-side defensive wrapper** (`src/lib/kv-safe.ts`): Safely handles KV operations with multiple fallback strategies
+- **KV patch installer** (`src/lib/install-kv-patch.ts`): Wraps `window.ho.setKey` to prevent uncaught promise rejections
+- **Temporary server endpoint** (`api/_spark/kv/[key].ts`): Accepts PUT/POST/GET/DELETE requests to prevent 404 errors
+
+### Why This Is Needed
+The multi-step flow previously relied on a `/_spark/kv/*` endpoint that didn't exist, causing:
+- Uncaught promise rejections in the browser console
+- UI flow interruption when users clicked "Yes" to add catalogue items
+- Poor user experience with no feedback on what went wrong
+
+### Current Limitations
+⚠️ **The temporary KV endpoint uses in-memory storage and is NOT persistent:**
+- Data is lost between serverless function cold starts
+- Not suitable for production use
+- Only prevents 404 errors to allow UI flow to continue
+
+### TODO: Production KV Storage
+Replace the temporary shim with proper persistent storage:
+
+1. **Option 1: Vercel KV (Recommended for Vercel deployments)**
+   ```bash
+   npm install @vercel/kv
+   ```
+   Update `api/_spark/kv/[key].ts` to use Vercel KV:
+   ```typescript
+   import { kv } from '@vercel/kv'
+   // Replace kvStore.set(key, value) with await kv.set(key, value)
+   // Replace kvStore.get(key) with await kv.get(key)
+   ```
+
+2. **Option 2: Neon PostgreSQL Table**
+   Create a `kv_storage` table in your existing Neon database:
+   ```sql
+   CREATE TABLE kv_storage (
+     key VARCHAR(255) PRIMARY KEY,
+     value JSONB NOT NULL,
+     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+   );
+   ```
+   Update the endpoint to use database queries instead of in-memory Map.
+
+3. **Option 3: Other KV Stores**
+   - Redis
+   - DynamoDB
+   - Any other key-value database
+
+### Migration Path
+1. Choose a persistent KV storage solution (Vercel KV recommended)
+2. Update `api/_spark/kv/[key].ts` to use the new storage backend
+3. Test the multi-step catalogue flow
+4. Remove the TODO comments once migrated
+5. Keep the client-side defensive wrappers (`kv-safe.ts` and `install-kv-patch.ts`) as they provide resilience
+
 ## ✨ Features
 
 - **Natural Language Interface**: AI-powered commands for inventory operations via xAI Grok
