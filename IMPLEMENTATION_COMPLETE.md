@@ -1,5 +1,81 @@
 # Implementation Summary: Two-Stage AI Command Parsing
 
+## Recent Updates (2026-01-14): AI Search Understanding Improvements
+
+### Problem Addressed
+Users reported that short search queries (e.g., "Search for lmv") were classified as QUERY_INVENTORY with low intent confidence, and the UI showed an empty "Searching for:" despite the parameter extractor returning a high-confidence search term (search="lmv"). The two-stage AI flow computed overall confidence conservatively and the executor did not use the extracted search parameter reliably.
+
+### Changes Implemented
+
+#### 1. Orchestrator: Parameter-Driven Override (`src/lib/ai/orchestrator.ts`)
+- Added `PARAM_OVERRIDE_THRESHOLD = 0.8` and `LOW_INTENT_THRESHOLD = 0.65` constants
+- Implemented logic to override low-confidence intent classifications when high-confidence search parameters are extracted
+- When intent confidence < 0.65 and parameter confidence >= 0.8 with a search term present:
+  - Overrides to SEARCH_CATALOGUE (default) or SEARCH_STOCK (if `queryType === 'stock'`)
+  - Logs override message for debugging
+  - Allows extraction to drive execution even with low intent confidence
+
+#### 2. Command Executor: Improved Search (`src/lib/command-executor.ts`)
+- Updated `handleQuery` function to prioritize search parameters in order: `params.search`, `params.query`, `params.searchTerm`, `params.q`
+- Implemented comprehensive case-insensitive contains matching across:
+  - `item.name`
+  - `item.partNumber`
+  - `item.sku` (if available)
+  - `item.manufacturer` (if available)
+- Added special handling for short queries (≤4 characters):
+  - Performs token-based startsWith matching
+  - Splits item fields by delimiters (`-`, `.`, `_`, spaces)
+  - Matches short codes like "lmv" in "Siemens LMV37.100 burner controller"
+- Returns friendly message: `Searching for: <term>` with matched items
+
+#### 3. Fallback Parser: Short-Code Recognition (`src/lib/ai/fallback-parser.ts`)
+- Added short-code regex pattern before general search block
+- Matches commands like "search for lmv" (2-5 alphanumeric characters)
+- Returns action SEARCH_CATALOGUE with parameters.search and confidence 0.80
+- Provides offline fallback for common short-code searches
+
+### Files Changed
+1. `src/lib/ai/orchestrator.ts` - Parameter-driven override logic
+2. `src/lib/command-executor.ts` - Enhanced handleQuery with multi-parameter search
+3. `src/lib/ai/fallback-parser.ts` - Short-code recognition pattern
+
+### Test Plan
+Since this repository does not have a formal test infrastructure, manual testing is recommended:
+
+1. **Test Short Code Search**:
+   - Input: "Search for lmv"
+   - Expected: Should match items containing "lmv" in any field or as a token
+   - Expected message: "Searching for: lmv"
+
+2. **Test Override Behavior**:
+   - Scenario: Low intent confidence (e.g., 0.60) with high parameter confidence (e.g., 0.85)
+   - Input: "lmv" (ambiguous intent)
+   - Expected: Should override to SEARCH_CATALOGUE if search parameter is extracted
+   - Check logs for override message
+
+3. **Test Multi-Parameter Priority**:
+   - Verify that search uses params.search first, then falls back to params.query, params.searchTerm, params.q
+   - Test with various parameter names in API responses
+
+4. **Test Token Matching**:
+   - Input: "search for lmv" should match "Siemens LMV37.100"
+   - Input: "km3" should match items with "km3" as a token in name or part number
+
+### Build Status
+- ✅ TypeScript compilation successful
+- ✅ No type errors
+- ✅ Vite build completed
+
+### Deployment Recommendation
+This fix addresses a critical usability issue where short search queries were failing. Deploy to staging first to validate behavior with real inventory data.
+
+### Next Steps (Optional)
+1. Consider replacing simple string matching with Fuse.js for fuzzy search
+2. Add UI confirmation when orchestrator override occurs
+3. Track override frequency in analytics to tune thresholds
+
+---
+
 ## Problem Solved
 
 The AI command parsing system was unreliable. Commands like **"Add 5 M10 nuts to rack 1 bin6"** would incorrectly return `QUERY_INVENTORY` instead of properly identifying them as `ADD_STOCK` actions.
