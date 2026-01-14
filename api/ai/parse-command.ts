@@ -1,5 +1,6 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
-import { OpenAI } from 'openai';
+// NOTE: Removed openai SDK import to avoid peer dependency conflicts with zod versions.
+// Using fetch-based Grok client instead.
 import { 
   successResponse, 
   badRequestResponse, 
@@ -9,12 +10,6 @@ import {
 } from '../lib/utils.js';
 import { classifyIntentCore } from './classify-intent.js';
 import { extractParametersCore } from './extract-params.js';
-
-// Initialize OpenAI client configured for xAI (Grok)
-const openai = new OpenAI({
-  apiKey: process.env.XAI_API_KEY,
-  baseURL: 'https://api.x.ai/v1',
-});
 
 // Action types for inventory operations
 type InventoryAction = 
@@ -1004,22 +999,8 @@ const inventoryTools = [
 ];
 
 /**
- * Create a timeout promise with cleanup capability
- */
-function createTimeoutPromise(timeout: number): { promise: Promise<never>; cancel: () => void } {
-  let timeoutId: NodeJS.Timeout;
-  const promise = new Promise<never>((_, reject) => {
-    timeoutId = setTimeout(() => reject(new Error(`Request timeout after ${timeout}ms`)), timeout);
-  });
-  
-  return {
-    promise,
-    cancel: () => clearTimeout(timeoutId),
-  };
-}
-
-/**
  * Try to parse a command using a specific model with function calling
+ * NOTE: Uses fetch API instead of openai SDK to avoid peer dependency conflicts
  */
 async function tryParseCommand(
   command: string,
@@ -1079,36 +1060,53 @@ Guidelines:
 
   const userPrompt = `Parse this inventory command: "${command}"${contextStr}`;
 
-  // Create completion with timeout
-  const completionPromise = openai.chat.completions.create({
-    model: modelName,
-    messages: [
-      {
-        role: 'system',
-        content: systemPrompt,
-      },
-      {
-        role: 'user',
-        content: userPrompt,
-      },
-    ],
-    tools: inventoryTools,
-    tool_choice: 'auto',
-    temperature: 0.2,
-    max_tokens: 500,
-  });
+  // Prepare fetch request
+  const apiKey = process.env.XAI_API_KEY;
+  if (!apiKey) {
+    throw new Error('XAI_API_KEY environment variable is not set');
+  }
 
-  // Add timeout handling with cleanup
-  const { promise: timeoutPromise, cancel: cancelTimeout } = createTimeoutPromise(timeout);
+  const baseURL = process.env.XAI_BASE_URL || 'https://api.x.ai/v1';
+  const url = `${baseURL}/chat/completions`;
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
 
   try {
-    const completion = await Promise.race([
-      completionPromise,
-      timeoutPromise,
-    ]) as OpenAI.Chat.Completions.ChatCompletion;
-    
-    // Clear timeout on success
-    cancelTimeout();
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: modelName,
+        messages: [
+          {
+            role: 'system',
+            content: systemPrompt,
+          },
+          {
+            role: 'user',
+            content: userPrompt,
+          },
+        ],
+        tools: inventoryTools,
+        tool_choice: 'auto',
+        temperature: 0.2,
+        max_tokens: 500,
+      }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Grok API error (${response.status}): ${errorText}`);
+    }
+
+    const completion = await response.json();
     
     const message = completion.choices[0]?.message;
 
@@ -1233,8 +1231,10 @@ Guidelines:
       clarificationNeeded: 'Could you please rephrase your request?',
     };
   } catch (error) {
-    // Clear timeout on error
-    cancelTimeout();
+    clearTimeout(timeoutId);
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(`Request timeout after ${timeout}ms`);
+    }
     throw error;
   }
 }
@@ -1300,7 +1300,7 @@ export default async function handler(
 
     // Build result with debug info
     const result: ParseCommandResponse = {
-      action,
+      action: action as InventoryAction,
       parameters,
       confidence: overallConfidence,
       reasoning: `Two-stage parsing: ${action} with ${Object.keys(parameters).length} parameters`,
