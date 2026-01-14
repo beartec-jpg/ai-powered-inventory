@@ -112,8 +112,8 @@ export function Dashboard() {
         // Check if they're confirming to add to catalogue
         const commandLower = command.toLowerCase().trim()
         
-        // IMPORTANT: Check for supplier confirmation FIRST, before checking CREATE_CATALOGUE_ITEM_AND_ADD_STOCK
-        // This prevents "Yes/No" responses from being captured as supplier names
+        // IMPORTANT: Check for specific pendingAction handlers FIRST, before checking the general handler
+        // This ensures proper precedence and prevents conflicts
         if (existingPending.pendingAction === 'CONFIRM_ADD_SUPPLIER') {
           // Handle supplier details confirmation
           if (commandLower === 'yes' || /\byes\b/.test(commandLower)) {
@@ -172,9 +172,13 @@ export function Dashboard() {
             setIsProcessing(false)
             return
           }
-        } else if (existingPending && existingPending.currentStep === undefined && existingPending.pendingAction) {
+        } else if (existingPending && existingPending.currentStep === undefined && existingPending.pendingAction && 
+                   existingPending.pendingAction !== 'CREATE_CATALOGUE_ITEM_AND_ADD_STOCK' && 
+                   existingPending.pendingAction !== 'CREATE_CATALOGUE_ITEM_WITH_DETAILS') {
           // FIX 3: Handle post-flow secondary prompts where currentStep is undefined
           // This happens when the flow completed but command executor returned needsInput for optional fields
+          // Note: Specific handlers for CREATE_CATALOGUE_ITEM_AND_ADD_STOCK and CREATE_CATALOGUE_ITEM_WITH_DETAILS
+          // are below, so we exclude them here to avoid conflicts
           if (commandLower === 'no' || commandLower === 'no - create now' || commandLower === 'create now') {
             // User declined to add more info, create item with current data
             actionToExecute = existingPending.pendingAction || existingPending.action
