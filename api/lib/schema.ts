@@ -256,3 +256,45 @@ export const toolCalls = pgTable('tool_calls', {
 }, (table) => ({
   messageIdx: index('tool_calls_message_idx').on(table.messageId),
 }));
+
+// Catalogue Items Table (for AI-powered inventory management)
+export const catalogueItems = pgTable('catalogue_items', {
+  id: text('id').primaryKey().notNull(),
+  partNumber: varchar('part_number', { length: 100 }).notNull().unique(),
+  name: varchar('name', { length: 255 }).notNull(),
+  description: text('description'),
+  manufacturer: varchar('manufacturer', { length: 255 }),
+  category: varchar('category', { length: 100 }),
+  subcategory: varchar('subcategory', { length: 100 }),
+  unitCost: real('unit_cost'),
+  markup: real('markup'), // Percentage (e.g., 35 for 35%)
+  sellPrice: real('sell_price'),
+  isStocked: boolean('is_stocked').default(false).notNull(),
+  minQuantity: integer('min_quantity'),
+  preferredSupplierName: varchar('preferred_supplier_name', { length: 255 }),
+  attributes: text('attributes'), // JSON string for flexible attributes
+  active: boolean('active').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  partNumberIdx: uniqueIndex('catalogue_items_part_number_idx').on(table.partNumber),
+  categoryIdx: index('catalogue_items_category_idx').on(table.category),
+  manufacturerIdx: index('catalogue_items_manufacturer_idx').on(table.manufacturer),
+}));
+
+// Stock Levels Table (for AI-powered inventory management)
+export const stockLevels = pgTable('stock_levels', {
+  id: text('id').primaryKey().notNull(),
+  catalogueItemId: text('catalogue_item_id').notNull().references(() => catalogueItems.id, { onDelete: 'cascade' }),
+  partNumber: varchar('part_number', { length: 100 }).notNull(),
+  name: varchar('name', { length: 255 }).notNull(),
+  location: varchar('location', { length: 255 }).notNull(),
+  quantity: integer('quantity').default(0).notNull(),
+  lastMovementAt: timestamp('last_movement_at'),
+  lastCountedAt: timestamp('last_counted_at'),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  catalogueItemLocationIdx: uniqueIndex('stock_levels_catalogue_item_location_idx').on(table.catalogueItemId, table.location),
+  locationIdx: index('stock_levels_location_idx').on(table.location),
+  partNumberIdx: index('stock_levels_part_number_idx').on(table.partNumber),
+}));
