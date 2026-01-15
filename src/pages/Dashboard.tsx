@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useKV } from '@github/spark/hooks'
 import { useAuth } from '@clerk/clerk-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
@@ -64,6 +65,7 @@ export function Dashboard() {
   const [pendingCommand, setPendingCommand] = useState<PendingCommand | null>(null)
   const [debugMode, setDebugMode] = useState(false)
   const [latestDebugInfo, setLatestDebugInfo] = useState<DebugInfo | null>(null)
+  const [selectedTab, setSelectedTab] = useState<string>('inventory')
 
   // Keyboard shortcut to toggle debug mode (Ctrl/Cmd + D)
   useEffect(() => {
@@ -1173,34 +1175,84 @@ export function Dashboard() {
 
         <Separator className="my-8" />
 
-        <Tabs defaultValue="inventory" className="w-full">
-          {/* Note: grid-cols-6 is hardcoded for 6 tabs. Update if adding more tabs. */}
-          <TabsList className="grid w-full max-w-4xl grid-cols-6 mb-6">
-            <TabsTrigger value="inventory" className="gap-2">
-              <Package size={16} />
-              Inventory
-            </TabsTrigger>
-            <TabsTrigger value="catalogue" className="gap-2">
-              <BookOpen size={16} />
-              Catalogue
-            </TabsTrigger>
-            <TabsTrigger value="equipment" className="gap-2">
-              <Gear size={16} />
-              Equipment
-            </TabsTrigger>
-            <TabsTrigger value="suppliers" className="gap-2">
-              <User size={16} />
-              Suppliers
-            </TabsTrigger>
-            <TabsTrigger value="jobs" className="gap-2">
-              <FileText size={16} />
-              Jobs
-            </TabsTrigger>
-            <TabsTrigger value="history" className="gap-2">
-              <ClockCounterClockwise size={16} />
-              History
-            </TabsTrigger>
-          </TabsList>
+        <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
+          {/* Desktop: Horizontal tabs (md and above) */}
+          <div className="hidden md:block">
+            {/* Note: grid-cols-6 is hardcoded for 6 tabs. Update if adding more tabs. */}
+            <TabsList className="grid w-full max-w-4xl grid-cols-6 mb-6">
+              <TabsTrigger value="inventory" className="gap-2">
+                <Package size={16} />
+                Inventory
+              </TabsTrigger>
+              <TabsTrigger value="catalogue" className="gap-2">
+                <BookOpen size={16} />
+                Catalogue
+              </TabsTrigger>
+              <TabsTrigger value="equipment" className="gap-2">
+                <Gear size={16} />
+                Equipment
+              </TabsTrigger>
+              <TabsTrigger value="suppliers" className="gap-2">
+                <User size={16} />
+                Suppliers
+              </TabsTrigger>
+              <TabsTrigger value="jobs" className="gap-2">
+                <FileText size={16} />
+                Jobs
+              </TabsTrigger>
+              <TabsTrigger value="history" className="gap-2">
+                <ClockCounterClockwise size={16} />
+                History
+              </TabsTrigger>
+            </TabsList>
+          </div>
+
+          {/* Mobile: Dropdown select (below md) */}
+          <div className="md:hidden mb-6">
+            <Select value={selectedTab} onValueChange={setSelectedTab}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select view" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="inventory">
+                  <div className="flex items-center gap-2">
+                    <Package size={16} />
+                    Inventory
+                  </div>
+                </SelectItem>
+                <SelectItem value="catalogue">
+                  <div className="flex items-center gap-2">
+                    <BookOpen size={16} />
+                    Catalogue
+                  </div>
+                </SelectItem>
+                <SelectItem value="equipment">
+                  <div className="flex items-center gap-2">
+                    <Gear size={16} />
+                    Equipment
+                  </div>
+                </SelectItem>
+                <SelectItem value="suppliers">
+                  <div className="flex items-center gap-2">
+                    <User size={16} />
+                    Suppliers
+                  </div>
+                </SelectItem>
+                <SelectItem value="jobs">
+                  <div className="flex items-center gap-2">
+                    <FileText size={16} />
+                    Jobs
+                  </div>
+                </SelectItem>
+                <SelectItem value="history">
+                  <div className="flex items-center gap-2">
+                    <ClockCounterClockwise size={16} />
+                    History
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
           <TabsContent value="inventory">
             <div className="mb-4">
