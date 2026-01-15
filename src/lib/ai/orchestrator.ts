@@ -15,6 +15,15 @@ const LOW_CONFIDENCE_THRESHOLD = 0.6;
 const LOW_INTENT_THRESHOLD = 0.65;
 const PARAM_OVERRIDE_THRESHOLD = 0.8;
 
+/**
+ * Extract search term from various parameter name variations
+ * Centralized to ensure consistency across the codebase
+ */
+function extractSearchTerm(params: Record<string, unknown>): string | null {
+  const term = params.search || params.query || params.searchTerm || params.q;
+  return term ? String(term) : null;
+}
+
 export async function parseCommand(command: string): Promise<ParsedCommand> {
   try {
     // Step 1: Add command to conversation context
@@ -92,12 +101,13 @@ export async function parseCommand(command: string): Promise<ParsedCommand> {
     let overrideReasoning = '';
     let usedOverride = false;
     
+    const searchTerm = extractSearchTerm(resolvedParams);
+    
     if (
       classification.confidence < LOW_INTENT_THRESHOLD &&
       extraction.confidence >= PARAM_OVERRIDE_THRESHOLD &&
-      (resolvedParams.search || resolvedParams.query || resolvedParams.searchTerm || resolvedParams.q)
+      searchTerm
     ) {
-      const searchTerm = String(resolvedParams.search || resolvedParams.query || resolvedParams.searchTerm || resolvedParams.q);
       console.log(
         `[Orchestrator] Override: Low intent confidence (${classification.confidence}) but high param confidence (${extraction.confidence}) with search="${searchTerm}"`
       );

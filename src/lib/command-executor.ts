@@ -2149,12 +2149,13 @@ function handleQuery(
   const results = inventory.filter(item => {
     const itemName = (item.name || '').toLowerCase();
     const itemPartNumber = (item.partNumber || '').toLowerCase();
-    // Note: sku, manufacturer, and description may not exist on legacy InventoryItem
-    // @ts-ignore - sku may not exist on InventoryItem type
+    
+    // Legacy InventoryItem type may not have these fields, so we safely access them
+    // @ts-expect-error - sku field may not exist on legacy InventoryItem type
     const itemSku = (item.sku || '').toLowerCase();
-    // @ts-ignore - manufacturer may not exist on InventoryItem type
+    // @ts-expect-error - manufacturer field may not exist on legacy InventoryItem type
     const itemManufacturer = (item.manufacturer || '').toLowerCase();
-    // @ts-ignore - description may not exist on InventoryItem type
+    // @ts-expect-error - description field may not exist on legacy InventoryItem type
     const itemDescription = (item.description || '').toLowerCase();
     
     // Standard contains matching across all searchable fields
