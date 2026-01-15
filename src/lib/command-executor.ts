@@ -2102,8 +2102,21 @@ function handleQuery(
   customers: Customer[],
   jobs: Job[]
 ): ExecutionResult {
-  const query = String(params.query || '').toLowerCase()
+  // Prefer params.search, then params.query, params.searchTerm, params.q as the query term
+  const query = String(
+    params.search || params.query || params.searchTerm || params.q || ''
+  ).toLowerCase().trim();
 
+  // If no query term, return all data
+  if (!query) {
+    return { 
+      success: true, 
+      message: 'Please provide a search term',
+      data: { inventory, locations, customers, jobs }
+    }
+  }
+
+  // Legacy behavior for special query types
   if (query.includes('low') || query.includes('under')) {
     const threshold = 10
     const lowStock = inventory.filter(item => item.quantity < threshold)
@@ -2132,10 +2145,52 @@ function handleQuery(
     }
   }
 
+  // Perform case-insensitive contains matching across item fields
+  const results = inventory.filter(item => {
+    const itemName = (item.name || '').toLowerCase();
+    const itemPartNumber = (item.partNumber || '').toLowerCase();
+    // Note: sku and manufacturer may not exist on legacy InventoryItem
+    // @ts-ignore - sku may not exist on InventoryItem type
+    const itemSku = (item.sku || '').toLowerCase();
+    // @ts-ignore - manufacturer may not exist on InventoryItem type
+    const itemManufacturer = (item.manufacturer || '').toLowerCase();
+    
+    // Standard contains matching
+    const containsMatch = 
+      itemName.includes(query) ||
+      itemPartNumber.includes(query) ||
+      itemSku.includes(query) ||
+      itemManufacturer.includes(query);
+    
+    if (containsMatch) return true;
+    
+    // For short queries (<=4 chars), attempt token startsWith matching
+    // This catches short codes like "lmv" in "Siemens LMV37.100"
+    if (query.length <= 4) {
+      const nameTokens = itemName.split(/[\s\-._]+/);
+      const partTokens = itemPartNumber.split(/[\s\-._]+/);
+      const skuTokens = itemSku.split(/[\s\-._]+/);
+      const manufacturerTokens = itemManufacturer.split(/[\s\-._]+/);
+      
+      const allTokens = [...nameTokens, ...partTokens, ...skuTokens, ...manufacturerTokens];
+      return allTokens.some(token => token.startsWith(query));
+    }
+    
+    return false;
+  });
+
+  if (results.length > 0) {
+    return {
+      success: true,
+      message: `Searching for: ${query}`,
+      data: results
+    };
+  }
+
   return { 
     success: true, 
     message: `Searching for: ${query}`,
-    data: { inventory, locations, customers, jobs }
+    data: []
   }
 }
 

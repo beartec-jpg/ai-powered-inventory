@@ -11,6 +11,8 @@ import type { ParsedCommand } from '../actions/types';
 import { normalizeActionName } from '../actions/registry';
 
 const LOW_CONFIDENCE_THRESHOLD = 0.6;
+const LOW_INTENT_THRESHOLD = 0.65;
+const PARAM_OVERRIDE_THRESHOLD = 0.8;
 
 export async function parseCommand(command: string): Promise<ParsedCommand> {
   try {
@@ -79,20 +81,47 @@ export async function parseCommand(command: string): Promise<ParsedCommand> {
       extraction.parameters
     );
 
-    // Step 6: Calculate overall confidence
+    // Step 6: Check for parameter-driven override
+    // If intent confidence is low but we have high-confidence search parameters,
+    // override to search action instead of QUERY_INVENTORY
+    let finalAction = normalizedAction;
+    let overrideReasoning = '';
+    
+    if (
+      classification.confidence < LOW_INTENT_THRESHOLD &&
+      extraction.confidence >= PARAM_OVERRIDE_THRESHOLD &&
+      (resolvedParams.search || resolvedParams.query || resolvedParams.searchTerm || resolvedParams.q)
+    ) {
+      const searchTerm = resolvedParams.search || resolvedParams.query || resolvedParams.searchTerm || resolvedParams.q;
+      console.log(
+        `[Orchestrator] Override: Low intent confidence (${classification.confidence}) but high param confidence (${extraction.confidence}) with search="${searchTerm}"`
+      );
+      
+      // Prefer SEARCH_CATALOGUE or SEARCH_STOCK based on parameters.queryType
+      if (resolvedParams.queryType === 'stock') {
+        finalAction = 'SEARCH_STOCK';
+        overrideReasoning = `Overridden to SEARCH_STOCK due to high-confidence search parameter (${extraction.confidence})`;
+      } else {
+        finalAction = 'SEARCH_CATALOGUE';
+        overrideReasoning = `Overridden to SEARCH_CATALOGUE due to high-confidence search parameter (${extraction.confidence})`;
+      }
+    }
+
+    // Step 7: Calculate overall confidence
     const overallConfidence = Math.min(
       classification.confidence,
       extraction.confidence
     );
 
-    // Step 7: Build result
+    // Step 8: Build result
     const result: ParsedCommand = {
-      action: normalizedAction,
+      action: finalAction,
       parameters: resolvedParams,
       confidence: overallConfidence,
       reasoning:
+        overrideReasoning ||
         classification.reasoning ||
-        `Classified as ${normalizedAction} with ${Object.keys(resolvedParams).length} parameters`,
+        `Classified as ${finalAction} with ${Object.keys(resolvedParams).length} parameters`,
       missingRequired: extraction.missingRequired,
     };
 
@@ -104,12 +133,12 @@ export async function parseCommand(command: string): Promise<ParsedCommand> {
       result.clarificationNeeded = `Missing required information: ${extraction.missingRequired.join(', ')}. Please provide these details.`;
     }
 
-    // Step 8: Add to conversation context
+    // Step 9: Add to conversation context
     conversationManager.addMessage({
       id: messageId,
       timestamp: Date.now(),
       userInput: command,
-      action: normalizedAction,
+      action: finalAction,
       parameters: resolvedParams,
       success: true,
     });

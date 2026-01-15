@@ -103,6 +103,19 @@ export function tryFallbackParse(command: string): FallbackResult | null {
     };
   }
 
+  // Pattern: "Search/find for [short-code]" - recognize short codes (e.g., "search for lmv")
+  // This pattern is specifically for short alphanumeric codes (2-5 chars) that might be part numbers
+  const shortCodeMatch = lower.match(/^(?:search|find|look)\s+(?:for\s+)?([a-z0-9]{2,5})$/);
+  if (shortCodeMatch) {
+    return {
+      action: 'SEARCH_CATALOGUE',
+      parameters: {
+        search: shortCodeMatch[1].trim(),
+      },
+      confidence: 0.8,
+    };
+  }
+
   // Pattern: "Search/find [item]"
   const searchMatch = lower.match(/^(?:search|find|look for)\s+(?:for\s+)?(.+)$/i);
   if (searchMatch) {
