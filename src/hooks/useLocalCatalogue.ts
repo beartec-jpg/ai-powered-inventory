@@ -9,7 +9,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import type { CatalogueItem } from '@/lib/types';
+import type { CatalogueItem, StockLevel } from '@/lib/types';
 
 const STORAGE_KEY = 'ai-inventory-catalogue';
 const STOCK_STORAGE_KEY = 'ai-inventory-stock-levels';
@@ -25,24 +25,7 @@ export interface LocalCatalogueHook {
 export function useLocalCatalogue(): LocalCatalogueHook {
   const [catalogue, setCatalogue] = useState<CatalogueItem[]>([]);
 
-  // Load catalogue from localStorage on mount
-  useEffect(() => {
-    const loaded = loadCatalogue();
-    if (loaded.length > 0) {
-      setCatalogue(loaded);
-    }
-  }, []);
-
-  // Save catalogue to localStorage
-  const saveCatalogue = useCallback((items: CatalogueItem[]) => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-    } catch (error) {
-      console.error('Failed to save catalogue to localStorage:', error);
-    }
-  }, []);
-
-  // Load catalogue from localStorage
+  // Load catalogue from localStorage (defined before use in useEffect)
   const loadCatalogue = useCallback((): CatalogueItem[] => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
@@ -53,6 +36,23 @@ export function useLocalCatalogue(): LocalCatalogueHook {
       console.error('Failed to load catalogue from localStorage:', error);
     }
     return [];
+  }, []);
+
+  // Load catalogue from localStorage on mount
+  useEffect(() => {
+    const loaded = loadCatalogue();
+    if (loaded.length > 0) {
+      setCatalogue(loaded);
+    }
+  }, [loadCatalogue]);
+
+  // Save catalogue to localStorage
+  const saveCatalogue = useCallback((items: CatalogueItem[]) => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    } catch (error) {
+      console.error('Failed to save catalogue to localStorage:', error);
+    }
   }, []);
 
   // Clear catalogue from localStorage
@@ -82,35 +82,18 @@ export function useLocalCatalogue(): LocalCatalogueHook {
 }
 
 export interface LocalStockHook {
-  stockLevels: any[];
-  setStockLevels: React.Dispatch<React.SetStateAction<any[]>>;
-  saveStockLevels: (levels: any[]) => void;
-  loadStockLevels: () => any[];
+  stockLevels: StockLevel[];
+  setStockLevels: React.Dispatch<React.SetStateAction<StockLevel[]>>;
+  saveStockLevels: (levels: StockLevel[]) => void;
+  loadStockLevels: () => StockLevel[];
   clearStockLevels: () => void;
 }
 
 export function useLocalStock(): LocalStockHook {
-  const [stockLevels, setStockLevels] = useState<any[]>([]);
+  const [stockLevels, setStockLevels] = useState<StockLevel[]>([]);
 
-  // Load stock levels from localStorage on mount
-  useEffect(() => {
-    const loaded = loadStockLevels();
-    if (loaded.length > 0) {
-      setStockLevels(loaded);
-    }
-  }, []);
-
-  // Save stock levels to localStorage
-  const saveStockLevels = useCallback((levels: any[]) => {
-    try {
-      localStorage.setItem(STOCK_STORAGE_KEY, JSON.stringify(levels));
-    } catch (error) {
-      console.error('Failed to save stock levels to localStorage:', error);
-    }
-  }, []);
-
-  // Load stock levels from localStorage
-  const loadStockLevels = useCallback((): any[] => {
+  // Load stock levels from localStorage (defined before use in useEffect)
+  const loadStockLevels = useCallback((): StockLevel[] => {
     try {
       const stored = localStorage.getItem(STOCK_STORAGE_KEY);
       if (stored) {
@@ -120,6 +103,23 @@ export function useLocalStock(): LocalStockHook {
       console.error('Failed to load stock levels from localStorage:', error);
     }
     return [];
+  }, []);
+
+  // Load stock levels from localStorage on mount
+  useEffect(() => {
+    const loaded = loadStockLevels();
+    if (loaded.length > 0) {
+      setStockLevels(loaded);
+    }
+  }, [loadStockLevels]);
+
+  // Save stock levels to localStorage
+  const saveStockLevels = useCallback((levels: StockLevel[]) => {
+    try {
+      localStorage.setItem(STOCK_STORAGE_KEY, JSON.stringify(levels));
+    } catch (error) {
+      console.error('Failed to save stock levels to localStorage:', error);
+    }
   }, []);
 
   // Clear stock levels from localStorage
