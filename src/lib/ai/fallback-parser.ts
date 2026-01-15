@@ -103,9 +103,11 @@ export function tryFallbackParse(command: string): FallbackResult | null {
     };
   }
 
-  // Pattern: "Search/find for [short-code]" - recognize short codes (e.g., "search for lmv")
-  // This pattern is specifically for short alphanumeric codes (2-5 chars) that might be part numbers
-  const shortCodeMatch = lower.match(/^(?:search|find|look)\s+(?:for\s+)?([a-z0-9]{2,5})$/);
+  // Pattern: Short alphanumeric product code (2-10 chars)
+  // Matches standalone short codes or with minimal search context
+  // Examples: "lmv", "km3", "ab12", "search for lmv", "find km3"
+  // This is a consolidated pattern that takes priority over general search
+  const shortCodeMatch = lower.match(/^(?:(?:search|find|look)\s+(?:for\s+)?)?([a-z0-9]{2,10})$/);
   if (shortCodeMatch) {
     return {
       action: 'SEARCH_CATALOGUE',

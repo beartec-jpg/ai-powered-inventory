@@ -5,6 +5,67 @@
 
 import type { Supplier } from './types'
 
+/**
+ * Normalize parameter names to canonical schema
+ * This ensures consistency across different input methods (AI extraction, user input, etc.)
+ */
+export function normalizeParameters(params: Record<string, unknown>): Record<string, unknown> {
+  const normalized: Record<string, unknown> = { ...params };
+
+  // Normalize part number variations
+  if (params.item && !params.partNumber) {
+    normalized.partNumber = params.item;
+  }
+  if (params.part && !params.partNumber) {
+    normalized.partNumber = params.part;
+  }
+  if (params.sku && !params.partNumber) {
+    normalized.partNumber = params.sku;
+  }
+
+  // Normalize supplier variations
+  if (params.supplier && !params.preferredSupplierName) {
+    normalized.preferredSupplierName = params.supplier;
+  }
+  if (params.supplierName && !params.preferredSupplierName) {
+    normalized.preferredSupplierName = params.supplierName;
+  }
+
+  // Normalize cost variations
+  if (params.cost && !params.unitCost) {
+    normalized.unitCost = params.cost;
+  }
+  if (params.price && !params.unitCost) {
+    normalized.unitCost = params.price;
+  }
+
+  // Normalize location variations
+  if (params.loc && !params.location) {
+    normalized.location = params.loc;
+  }
+  if (params.warehouse && !params.location) {
+    normalized.location = params.warehouse;
+  }
+
+  // Normalize quantity variations
+  if (params.qty && !params.quantity) {
+    normalized.quantity = params.qty;
+  }
+  if (params.amount && !params.quantity) {
+    normalized.quantity = params.amount;
+  }
+
+  // Normalize manufacturer variations
+  if (params.mfg && !params.manufacturer) {
+    normalized.manufacturer = params.mfg;
+  }
+  if (params.make && !params.manufacturer) {
+    normalized.manufacturer = params.make;
+  }
+
+  return normalized;
+}
+
 export interface FlowStep {
   field: string
   prompt: (itemName: string) => string

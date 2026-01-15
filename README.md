@@ -78,13 +78,35 @@ Replace the temporary shim with proper persistent storage:
 
 ## ✨ Features
 
+### Core Features
 - **Natural Language Interface**: AI-powered commands for inventory operations via xAI Grok
+- **Two-Stage AI Processing**: Intent classification → Parameter extraction with override logic
+- **Smart Search Override**: Automatically routes searches based on confidence scores and context
 - **Multi-Warehouse Support**: Manage inventory across multiple locations
 - **Real-time Stock Tracking**: Track quantities, transfers, and movements
+- **Persistent Storage**: Drizzle ORM with Neon PostgreSQL for production-grade data persistence
 - **Supplier Management**: Manage products and purchase orders
 - **AI Assistant**: xAI-powered chat for intelligent inventory queries
 - **Role-Based Access**: Admin, Manager, Staff, and Viewer roles
 - **Audit Trail**: Complete activity logging
+
+### Enhanced AI Features (Latest Updates)
+- **Parameter-Driven Search Override**: Low intent confidence but high parameter confidence automatically triggers search actions
+- **Stock Keyword Detection**: Smart routing between catalogue and stock searches based on context
+- **Short-Code Recognition**: Special handling for 2-10 character alphanumeric product codes
+- **Multi-Step Flow Persistence**: Partial parameters saved between steps, preventing re-requests
+- **Parameter Normalization**: Automatic mapping of variations (item→partNumber, cost→unitCost, etc.)
+- **Debug Information**: Full transparency with stage1/stage2 confidence and override reasoning
+
+### Mobile Optimizations
+- **Responsive Design**: Dropdown selectors on mobile, tabs on desktop
+- **Card-Based Layout**: Touch-friendly inventory cards
+- **Adaptive Navigation**: Auto-adjusting UI based on screen size
+
+### Persistence Options
+1. **Production**: Neon PostgreSQL with Drizzle ORM (recommended)
+2. **Fallback**: localStorage for client-side persistence when database unavailable
+3. **Migration Tools**: Built-in migration scripts and guides
 
 ## 🏗️ System Architecture
 
@@ -114,22 +136,38 @@ The system uses **xAI Grok** for natural language command processing:
    - Example: *"Show me all low stock items"*
    - Example: *"Create a job for customer Acme Inc"*
 
-2. **AI Parsing**: Command sent to xAI Grok API
-   - Extracts action type (e.g., `RECEIVE_STOCK`, `LOW_STOCK_REPORT`)
-   - Extracts parameters (e.g., `partNumber`, `quantity`, `location`)
-   - Returns confidence score
+2. **AI Parsing (Two-Stage Process)**: Command sent to xAI Grok API
+   - **Stage 1: Intent Classification**
+     - Determines action type (e.g., `SEARCH_CATALOGUE`, `RECEIVE_STOCK`, `LOW_STOCK_REPORT`)
+     - Returns classification confidence score
+   - **Stage 2: Parameter Extraction**
+     - Extracts structured parameters (e.g., `partNumber`, `quantity`, `location`)
+     - Returns extraction confidence score
+   - **Override Logic**: If intent confidence < 0.65 but extraction confidence >= 0.8 with search parameters
+     - Automatically overrides to SEARCH_CATALOGUE or SEARCH_STOCK
+     - Uses stock keywords to determine correct search type
+     - Includes debug information about override decision
 
-3. **Fallback Parser**: If AI can't parse or returns low confidence
+3. **Parameter Normalization**: Standardizes variations
+   - `item`, `part`, `sku` → `partNumber`
+   - `cost`, `price` → `unitCost`
+   - `supplier`, `supplierName` → `preferredSupplierName`
+   - Ensures consistency across multi-step flows
+
+4. **Fallback Parser**: If AI can't parse or returns low confidence
    - Local regex-based pattern matching
    - Handles common command structures
-   - Example patterns: "Add item X to location Y", "Move X from Y to Z"
+   - Special short-code pattern for 2-10 char alphanumeric codes
+   - Example patterns: "Add item X to location Y", "Move X from Y to Z", "lmv"
 
-4. **Execution**: Command executor routes to appropriate handler
+5. **Execution**: Command executor routes to appropriate handler
    - Validates parameters
-   - Updates database/state
+   - Updates database/state (Neon PostgreSQL or localStorage)
    - Returns success or error message
 
-5. **Response**: User sees confirmation or error message
+6. **Response**: User sees confirmation or error message
+   - Includes debug information when available
+   - Shows which stage determined the action
 
 ### Command Flow Diagram
 
@@ -237,7 +275,15 @@ ai-powered-inventory/
    # Edit .env with your credentials
    ```
 
-4. Start development server:
+   **Required Environment Variables:**
+   - `DATABASE_URL` - Neon PostgreSQL connection string (see Database Setup below)
+   - `XAI_API_KEY` - Your xAI API key from https://x.ai/
+   - `VITE_CLERK_PUBLISHABLE_KEY` - Clerk authentication (optional)
+   - `CLERK_SECRET_KEY` - Clerk backend key (optional)
+
+4. Set up the database (see Database Setup section below)
+
+5. Start development server:
    ```bash
    npm run dev
    ```
@@ -273,14 +319,51 @@ NODE_ENV=development                   # development | production
 
 ### Setting Up Neon PostgreSQL
 
-1. Visit [https://neon.tech/](https://neon.tech/) and create a free account
-2. Create a new project
-3. Copy the connection string from the project dashboard
-4. Add it to your `.env` file as `DATABASE_URL`
-5. Run database migrations (if applicable):
+This system uses **Neon PostgreSQL** for persistent data storage. Follow these steps:
+
+1. **Create Neon Account**
+   - Visit [https://neon.tech/](https://neon.tech/) and create a free account
+   - Create a new project
+   - Copy the connection string from the project dashboard
+
+2. **Configure Database Connection**
+   - Add the connection string to your `.env` file:
+     ```env
+     DATABASE_URL="postgresql://user:password@host.neon.tech/dbname?sslmode=require"
+     ```
+
+3. **Create Database Tables**
+   
+   Two options:
+
+   **Option A: Using Drizzle Kit** (Recommended)
    ```bash
-   npm run db:migrate
+   npm install -D drizzle-kit
+   npx drizzle-kit push:pg
    ```
+
+   **Option B: Manual SQL** (Run in Neon console)
+   ```sql
+   -- See DATABASE_MIGRATION.md for complete SQL schema
+   -- Creates catalogue_items and stock_levels tables
+   ```
+
+4. **Verify Setup**
+   ```bash
+   # Test API endpoints
+   curl http://localhost:5173/api/inventory/catalogue
+   # Should return empty array [] if successful
+   ```
+
+5. **Fallback Behavior**
+   - Without `DATABASE_URL`: API returns HTTP 503, client uses localStorage
+   - With `DATABASE_URL`: Full database persistence across sessions
+
+**📖 Detailed Migration Guide**: See [DATABASE_MIGRATION.md](./DATABASE_MIGRATION.md) for:
+- Complete SQL schema
+- Migration from localStorage to database
+- Troubleshooting common issues
+- Best practices
 
 ## 📊 Database Schema
 

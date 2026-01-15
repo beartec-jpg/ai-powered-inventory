@@ -108,4 +108,18 @@ export interface ParsedCommand {
   reasoning: string;
   missingRequired?: string[];
   clarificationNeeded?: string;
+  debug?: {
+    stage1: {
+      action: ActionType;
+      confidence: number;
+      reasoning?: string;
+    };
+    stage2: {
+      parameters: Record<string, unknown>;
+      confidence: number;
+      missingRequired: string[];
+    };
+    usedOverride: boolean;
+    overrideReason?: string;
+  };
 }
