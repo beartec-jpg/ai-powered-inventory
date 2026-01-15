@@ -10,6 +10,7 @@ import { CommandInput } from '@/components/CommandInput'
 import { CommandResponse, AIClarification } from '@/components/CommandResponse'
 import { AIDebugPanel } from '@/components/AIDebugPanel'
 import { MissingInfoPrompt } from '@/components/MissingInfoPrompt'
+import { SpeechAssistant } from '@/components/SpeechAssistant'
 import { InventoryTable } from '@/components/InventoryView'
 import { JobsView } from '@/components/JobsView'
 import { CommandHistory } from '@/components/CommandHistory'
@@ -40,6 +41,9 @@ import { Package, FileText, ClockCounterClockwise, Sparkle, Gear, User, Bug, Boo
 
 export function Dashboard() {
   const { userId } = useAuth()
+
+  // Check if speech feature is enabled
+  const isSpeechEnabled = import.meta.env.VITE_FEATURE_SPEECH === 'true'
 
   // User-scoped KV keys - all data is isolated per user
   // Use actual userId when available, hooks require stable keys
@@ -1134,6 +1138,12 @@ export function Dashboard() {
         <div className="mb-8">
           <CommandInput onSubmit={handleCommand} isProcessing={isProcessing} />
         </div>
+
+        {isSpeechEnabled && (
+          <div className="mb-8">
+            <SpeechAssistant onCommandSubmit={handleCommand} isProcessing={isProcessing} />
+          </div>
+        )}
 
         {needsClarification && (
           <div className="mb-6">
