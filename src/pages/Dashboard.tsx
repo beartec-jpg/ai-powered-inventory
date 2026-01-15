@@ -1211,7 +1211,7 @@ export function Dashboard() {
           <div className="md:hidden mb-6">
             <Select value={selectedTab} onValueChange={setSelectedTab}>
               <SelectTrigger className="w-full">
-                <SelectValue />
+                <SelectValue placeholder="Select view" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="inventory">
