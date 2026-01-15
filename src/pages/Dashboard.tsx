@@ -22,7 +22,7 @@ import { generateId } from '@/lib/ai-commands'
 import { conversationManager } from '@/lib/conversation-manager'
 import { getFlow, processStepInput, supplierExists, SUPPLIER_DETAILS_SUB_FLOW } from '@/lib/multi-step-flows'
 import { useCatalogue, useStockLevels } from '@/hooks/useInventoryData'
-import { useKV } from '@github/spark/hooks'
+import { useKV } from '@github/spark/hooks' // Legacy KV for non-catalogue/stock data
 import type { 
   InventoryItem, 
   Location, 

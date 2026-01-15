@@ -827,7 +827,7 @@ async function receiveStock(params: Record<string, unknown>, state: StateSetters
       
       // Optimistically update local state
       const existingStock = state.stockLevels.find(s => 
-        s.catalogueItemId === catalogueItem!.id && 
+        s.catalogueItemId === catalogueItem.id && 
         s.location.toLowerCase() === location.toLowerCase()
       )
       
@@ -859,7 +859,7 @@ async function receiveStock(params: Record<string, unknown>, state: StateSetters
   
   // Fallback to local state only (shouldn't happen in normal flow)
   const existingStock = state.stockLevels.find(s => 
-    s.catalogueItemId === catalogueItem!.id && 
+    s.catalogueItemId === catalogueItem.id && 
     s.location.toLowerCase() === location.toLowerCase()
   )
   
