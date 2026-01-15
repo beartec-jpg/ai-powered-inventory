@@ -14,6 +14,7 @@ import type {
 } from './types'
 import { generateId, findBestMatchItem } from './ai-commands'
 import { getFlow, processStepInput } from './multi-step-flows'
+import { apiPost, apiPut } from './api-client'
 
 interface ExecutionResult {
   success: boolean
@@ -218,7 +219,8 @@ export async function executeCommand(
   setInstalledParts?: (updater: (current: InstalledPart[]) => InstalledPart[]) => void,
   purchaseOrders?: PurchaseOrder[],
   setPurchaseOrders?: (updater: (current: PurchaseOrder[]) => PurchaseOrder[]) => void,
-  originalCommand?: string
+  originalCommand?: string,
+  userId?: string | null // Add userId for API calls
 ): Promise<ExecutionResult> {
   
   // [TRACING] Log execution entry point
@@ -302,8 +304,7 @@ export async function executeCommand(
       const sellPrice = unitCost && markup ? unitCost * (1 + markup / 100) : undefined
       
       // Create complete catalogue entry with all collected data
-      const newItem: CatalogueItem = {
-        id: generateId(),
+      const catalogueData: Partial<CatalogueItem> = {
         partNumber,
         name: item,
         unitCost,
@@ -319,12 +320,78 @@ export async function executeCommand(
                      parameters.minQuantity !== undefined ? Number(parameters.minQuantity) : undefined,
         isStocked: true,
         active: true,
+      }
+      
+      // Call API to create catalogue item
+      if (userId) {
+        try {
+          const createdItem = await apiPost<CatalogueItem>('/api/inventory/catalogue', userId, catalogueData)
+          
+          // Optimistically update local state
+          state.setCatalogue((current) => [...current, createdItem])
+          
+          // Now add stock if quantity and location are provided
+          if (quantity > 0 && location) {
+            const stockData = {
+              catalogueItemId: createdItem.id,
+              partNumber: createdItem.partNumber,
+              name: createdItem.name,
+              location,
+              quantity,
+              action: 'set' as const,
+            }
+            
+            const createdStock = await apiPost<StockLevel>('/api/stock/levels', userId, stockData)
+            state.setStockLevels((current) => [...current, createdStock])
+            
+            // Build success message with summary
+            const details: string[] = []
+            if (unitCost && markup && sellPrice) {
+              details.push(`Cost: £${unitCost.toFixed(2)}, Markup: ${markup}%, Sell Price: £${sellPrice.toFixed(2)}`)
+            }
+            if (collectedData.manufacturer) {
+              details.push(`Manufacturer: ${collectedData.manufacturer}`)
+            }
+            if (collectedData.preferredSupplierName) {
+              details.push(`Supplier: ${collectedData.preferredSupplierName}`)
+            }
+            if (collectedData.category) {
+              details.push(`Category: ${collectedData.category}`)
+            }
+            if (collectedData.minQuantity) {
+              details.push(`Min Stock: ${collectedData.minQuantity}`)
+            }
+            
+            const summary = details.length > 0 ? `\n  - ${details.join('\n  - ')}` : ''
+            
+            return {
+              success: true,
+              message: `✓ Created catalogue item "${partNumber}":${summary}\n✓ Added ${quantity} units to ${location}`
+            }
+          }
+          
+          return {
+            success: true,
+            message: `Created catalogue item "${partNumber}"`
+          }
+        } catch (error) {
+          console.error('[CREATE_CATALOGUE_ITEM_AND_ADD_STOCK] API error:', error)
+          return { 
+            success: false, 
+            message: error instanceof Error ? error.message : 'Failed to create catalogue item and stock' 
+          }
+        }
+      }
+      
+      // Fallback to local state only (shouldn't happen)
+      const newItem: CatalogueItem = {
+        id: generateId(),
+        ...catalogueData as CatalogueItem,
         createdAt: Date.now(),
         updatedAt: Date.now(),
       }
       state.setCatalogue((current) => [...current, newItem])
       
-      // Now add stock if quantity and location are provided
       if (quantity > 0 && location) {
         const newStock: StockLevel = {
           id: generateId(),
@@ -338,84 +405,20 @@ export async function executeCommand(
         }
         state.setStockLevels((current) => [...current, newStock])
         
-        // Build success message with summary
-        const details: string[] = []
-        if (unitCost && markup && sellPrice) {
-          details.push(`Cost: £${unitCost.toFixed(2)}, Markup: ${markup}%, Sell Price: £${sellPrice.toFixed(2)}`)
-        }
-        if (collectedData.manufacturer) {
-          details.push(`Manufacturer: ${collectedData.manufacturer}`)
-        }
-        if (collectedData.preferredSupplierName) {
-          details.push(`Supplier: ${collectedData.preferredSupplierName}`)
-        }
-        if (collectedData.category) {
-          details.push(`Category: ${collectedData.category}`)
-        }
-        if (collectedData.minQuantity) {
-          details.push(`Min Stock: ${collectedData.minQuantity}`)
-        }
-        
-        const summary = details.length > 0 ? `\n  - ${details.join('\n  - ')}` : ''
-        
         return {
           success: true,
-          message: `✓ Created catalogue item "${partNumber}":${summary}\n✓ Added ${quantity} units to ${location}`
+          message: `Created catalogue item "${partNumber}" and added ${quantity} units to ${location} (local only - not persisted)`
         }
       }
       
       return {
         success: true,
-        message: `Created catalogue item "${partNumber}"`
+        message: `Created catalogue item "${partNumber}" (local only - not persisted)`
       }
     }
     
-    // Initial creation (old simple flow or fallback)
-    const item = String(parameters.item || parameters.suggestedName || '').trim()
-    const partNumber = String(parameters.partNumber || item).trim()
-    const quantity = Number(parameters.quantity || 0)
-    const location = String(parameters.location || '').trim()
-    
-    if (!item || !partNumber) {
-      return { success: false, message: 'Item name and part number are required' }
-    }
-    
-    // Create basic catalogue entry (for backwards compatibility)
-    const newItem: CatalogueItem = {
-      id: generateId(),
-      partNumber,
-      name: item,
-      isStocked: true,
-      active: true,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    }
-    state.setCatalogue((current) => [...current, newItem])
-    
-    // Now add stock if quantity and location are provided
-    if (quantity > 0 && location) {
-      const newStock: StockLevel = {
-        id: generateId(),
-        catalogueItemId: newItem.id,
-        partNumber: newItem.partNumber,
-        name: newItem.name,
-        location,
-        quantity,
-        lastMovementAt: Date.now(),
-        updatedAt: Date.now(),
-      }
-      state.setStockLevels((current) => [...current, newStock])
-      
-      return {
-        success: true,
-        message: `Created catalogue item "${partNumber}" and added ${quantity} units to ${location}`
-      }
-    }
-    
-    return {
-      success: true,
-      message: `Created catalogue item "${partNumber}"`
-    }
+    // Initial creation (old simple flow or fallback) - delegate to createCatalogueItem
+    return await createCatalogueItem(parameters, state, userId)
   }
   
   // If AI returned QUERY_INVENTORY, try local fallback parser
@@ -454,9 +457,9 @@ export async function executeCommand(
   }
   
   // Catalogue Management
-  if (actionLower === 'create_catalogue_item') return createCatalogueItem(parameters, state)
-  if (actionLower === 'add_product') return createCatalogueItem(parameters, state)
-  if (actionLower === 'create_product') return createCatalogueItem(parameters, state)
+  if (actionLower === 'create_catalogue_item') return await createCatalogueItem(parameters, state, userId)
+  if (actionLower === 'add_product') return await createCatalogueItem(parameters, state, userId)
+  if (actionLower === 'create_product') return await createCatalogueItem(parameters, state, userId)
   if (actionLower === 'update_catalogue_item') return updateCatalogueItem(parameters, state)
   if (actionLower === 'update_product') return updateCatalogueItem(parameters, state)
   if (actionLower === 'search_catalogue') return searchCatalogue(parameters, state)
@@ -464,11 +467,11 @@ export async function executeCommand(
   // Stock Management - Support both old and new action names
   if (actionLower === 'receive_stock') {
     console.log('[Executor] Matched RECEIVE_STOCK action, calling receiveStock')
-    return receiveStock(parameters, state)
+    return await receiveStock(parameters, state, userId)
   }
   if (actionLower === 'add_stock') {
     console.log('[Executor] Matched ADD_STOCK action, calling receiveStock')
-    return receiveStock(parameters, state)
+    return await receiveStock(parameters, state, userId)
   }
   if (actionLower === 'put_away_stock') return putAwayStock(parameters, state)
   if (actionLower === 'use_stock') return useStock(parameters, state)
@@ -537,7 +540,7 @@ export async function executeCommand(
 
 // ===== CATALOGUE MANAGEMENT =====
 
-function createCatalogueItem(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
+async function createCatalogueItem(params: Record<string, unknown>, state: StateSetters, userId?: string | null): Promise<ExecutionResult> {
   const partNumber = String(params.partNumber || '').trim()
   const name = String(params.name || '').trim()
   
@@ -600,8 +603,7 @@ function createCatalogueItem(params: Record<string, unknown>, state: StateSetter
   const sellPrice = params.sellPrice ? Number(params.sellPrice) : 
     (unitCost && markup ? unitCost * (1 + markup / 100) : undefined)
   
-  const newItem: CatalogueItem = {
-    id: generateId(),
+  const newItem: Partial<CatalogueItem> = {
     partNumber,
     name,
     description: params.description ? String(params.description) : undefined,
@@ -616,16 +618,44 @@ function createCatalogueItem(params: Record<string, unknown>, state: StateSetter
     preferredSupplierName: params.preferredSupplierName ? String(params.preferredSupplierName) : undefined,
     attributes: params.attributes as Record<string, string> | undefined,
     active: true,
+  }
+  
+  // Call API to create item in database
+  if (userId) {
+    try {
+      const createdItem = await apiPost<CatalogueItem>('/api/inventory/catalogue', userId, newItem)
+      
+      // Optimistically update local state
+      state.setCatalogue((current) => [...current, createdItem])
+      
+      return {
+        success: true,
+        message: `Created catalogue item: ${partNumber} - ${name}${sellPrice ? ` (£${sellPrice.toFixed(2)})` : ''}`,
+        data: createdItem
+      }
+    } catch (error) {
+      console.error('[createCatalogueItem] API error:', error)
+      return { 
+        success: false, 
+        message: error instanceof Error ? error.message : 'Failed to create catalogue item' 
+      }
+    }
+  }
+  
+  // Fallback to local state only (shouldn't happen in normal flow)
+  const localItem: CatalogueItem = {
+    id: generateId(),
+    ...newItem as CatalogueItem,
     createdAt: Date.now(),
     updatedAt: Date.now(),
   }
   
-  state.setCatalogue((current) => [...current, newItem])
+  state.setCatalogue((current) => [...current, localItem])
   
   return {
     success: true,
-    message: `Created catalogue item: ${partNumber} - ${name}${sellPrice ? ` (£${sellPrice.toFixed(2)})` : ''}`,
-    data: newItem
+    message: `Created catalogue item: ${partNumber} - ${name}${sellPrice ? ` (£${sellPrice.toFixed(2)})` : ''} (local only - not persisted)`,
+    data: localItem
   }
 }
 
@@ -708,7 +738,7 @@ function searchCatalogue(params: Record<string, unknown>, state: StateSetters): 
 
 // ===== STOCK MANAGEMENT =====
 
-function receiveStock(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
+async function receiveStock(params: Record<string, unknown>, state: StateSetters, userId?: string | null): Promise<ExecutionResult> {
   // Handle both 'item' and 'partNumber' parameter names
   const item = String(params.item || params.partNumber || '').trim()
   const quantity = Number(params.quantity || 0)
@@ -781,9 +811,55 @@ function receiveStock(params: Record<string, unknown>, state: StateSetters): Exe
   // Use the catalogue item's part number for consistency
   const partNumber = catalogueItem.partNumber
   
-  // Find or create stock level
+  // Call API to create or update stock level
+  if (userId) {
+    try {
+      const stockData = {
+        catalogueItemId: catalogueItem.id,
+        partNumber: catalogueItem.partNumber,
+        name: catalogueItem.name,
+        location,
+        quantity,
+        action: 'add' as const, // Add to existing quantity
+      }
+      
+      const result = await apiPost<StockLevel>('/api/stock/levels', userId, stockData)
+      
+      // Optimistically update local state
+      const existingStock = state.stockLevels.find(s => 
+        s.catalogueItemId === catalogueItem.id && 
+        s.location.toLowerCase() === location.toLowerCase()
+      )
+      
+      if (existingStock) {
+        state.setStockLevels((current) =>
+          current.map(s =>
+            s.id === existingStock.id
+              ? { ...s, quantity: result.quantity, lastMovementAt: result.lastMovementAt, updatedAt: result.updatedAt }
+              : s
+          )
+        )
+      } else {
+        state.setStockLevels((current) => [...current, result])
+      }
+      
+      const supplierInfo = params.supplier || params.supplierName ? ` from ${params.supplier || params.supplierName}` : ''
+      return {
+        success: true,
+        message: `Received ${quantity} units of ${partNumber}${supplierInfo} into ${location}`
+      }
+    } catch (error) {
+      console.error('[receiveStock] API error:', error)
+      return { 
+        success: false, 
+        message: error instanceof Error ? error.message : 'Failed to add stock' 
+      }
+    }
+  }
+  
+  // Fallback to local state only (shouldn't happen in normal flow)
   const existingStock = state.stockLevels.find(s => 
-    s.catalogueItemId === catalogueItem!.id && 
+    s.catalogueItemId === catalogueItem.id && 
     s.location.toLowerCase() === location.toLowerCase()
   )
   
@@ -812,7 +888,7 @@ function receiveStock(params: Record<string, unknown>, state: StateSetters): Exe
   const supplierInfo = params.supplier || params.supplierName ? ` from ${params.supplier || params.supplierName}` : ''
   return {
     success: true,
-    message: `Received ${quantity} units of ${partNumber}${supplierInfo} into ${location}`
+    message: `Received ${quantity} units of ${partNumber}${supplierInfo} into ${location} (local only - not persisted)`
   }
 }
 

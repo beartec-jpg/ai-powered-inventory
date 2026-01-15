@@ -11,6 +11,7 @@ import {
   internalServerErrorResponse,
   setCorsHeaders,
 } from '../lib/utils.js';
+import { extractClerkUserId } from '../lib/auth-helper.js';
 
 // Helper to generate IDs
 function generateId(): string {
@@ -37,27 +38,39 @@ export default async function handler(
     });
   }
 
+  // Extract and verify user authentication
+  const userId = extractClerkUserId(req);
+  if (!userId) {
+    return res.status(401).json({
+      success: false,
+      error: 'Unauthorized',
+      message: 'Authentication required. Please sign in.',
+    });
+  }
+
   try {
     // GET /api/stock/levels?search=term - Search stock levels
     if (req.method === 'GET' && req.query.search) {
       const search = String(req.query.search).toLowerCase();
       const location = req.query.location as string;
       
-      let query = db
-        .select()
-        .from(stockLevels)
-        .where(
-          or(
-            ilike(stockLevels.partNumber, `%${search}%`),
-            ilike(stockLevels.name, `%${search}%`)
-          )
-        );
+      const conditions = [
+        eq(stockLevels.userId, userId),
+        or(
+          ilike(stockLevels.partNumber, `%${search}%`),
+          ilike(stockLevels.name, `%${search}%`)
+        )
+      ];
 
       if (location) {
-        query = query.where(ilike(stockLevels.location, `%${location}%`));
+        conditions.push(ilike(stockLevels.location, `%${location}%`));
       }
 
-      const items = await query.orderBy(desc(stockLevels.updatedAt));
+      const items = await db
+        .select()
+        .from(stockLevels)
+        .where(and(...conditions))
+        .orderBy(desc(stockLevels.updatedAt));
 
       return successResponse(res, items, `Found ${items.length} item(s) in stock`);
     }
@@ -81,7 +94,11 @@ export default async function handler(
         .from(stockLevels)
         .innerJoin(catalogueItems, eq(stockLevels.catalogueItemId, catalogueItems.id))
         .where(
-          sql`${stockLevels.quantity} < ${catalogueItems.minQuantity}`
+          and(
+            eq(stockLevels.userId, userId),
+            eq(catalogueItems.userId, userId),
+            sql`${stockLevels.quantity} < ${catalogueItems.minQuantity}`
+          )
         )
         .orderBy(desc(stockLevels.updatedAt));
 
@@ -95,7 +112,10 @@ export default async function handler(
       const items = await db
         .select()
         .from(stockLevels)
-        .where(eq(stockLevels.id, id))
+        .where(and(
+          eq(stockLevels.id, id),
+          eq(stockLevels.userId, userId)
+        ))
         .limit(1);
 
       if (items.length === 0) {
@@ -111,21 +131,24 @@ export default async function handler(
       const perPage = Math.min(parseInt(req.query.perPage as string) || 30, 100);
       const location = req.query.location as string;
 
-      let query = db
-        .select()
-        .from(stockLevels)
-        .orderBy(desc(stockLevels.updatedAt));
-
+      const conditions = [eq(stockLevels.userId, userId)];
       if (location) {
-        query = query.where(ilike(stockLevels.location, `%${location}%`));
+        conditions.push(ilike(stockLevels.location, `%${location}%`));
       }
 
-      const items = await query.limit(perPage).offset((page - 1) * perPage);
+      const items = await db
+        .select()
+        .from(stockLevels)
+        .where(and(...conditions))
+        .orderBy(desc(stockLevels.updatedAt))
+        .limit(perPage)
+        .offset((page - 1) * perPage);
       
-      // Get total count
+      // Get total count for this user
       const countResult = await db
         .select()
-        .from(stockLevels);
+        .from(stockLevels)
+        .where(eq(stockLevels.userId, userId));
       
       return paginatedResponse(
         res,
@@ -153,14 +176,29 @@ export default async function handler(
         return badRequestResponse(res, 'Quantity cannot be negative');
       }
 
-      // Check if stock level already exists for this item and location
+      // Verify that the catalogue item belongs to this user
+      const catalogueItem = await db
+        .select()
+        .from(catalogueItems)
+        .where(and(
+          eq(catalogueItems.id, catalogueItemId),
+          eq(catalogueItems.userId, userId)
+        ))
+        .limit(1);
+
+      if (catalogueItem.length === 0) {
+        return notFoundResponse(res, 'Catalogue item not found');
+      }
+
+      // Check if stock level already exists for this item, location, and user
       const existing = await db
         .select()
         .from(stockLevels)
         .where(
           and(
             eq(stockLevels.catalogueItemId, catalogueItemId),
-            eq(stockLevels.location, location)
+            eq(stockLevels.location, location),
+            eq(stockLevels.userId, userId)
           )
         )
         .limit(1);
@@ -181,12 +219,18 @@ export default async function handler(
             lastMovementAt: new Date(),
             updatedAt: new Date(),
           })
-          .where(eq(stockLevels.id, existing[0].id));
+          .where(and(
+            eq(stockLevels.id, existing[0].id),
+            eq(stockLevels.userId, userId)
+          ));
 
         const updated = await db
           .select()
           .from(stockLevels)
-          .where(eq(stockLevels.id, existing[0].id))
+          .where(and(
+            eq(stockLevels.id, existing[0].id),
+            eq(stockLevels.userId, userId)
+          ))
           .limit(1);
 
         return successResponse(res, updated[0], `Stock ${action === 'set' ? 'set' : 'updated'} successfully`);
@@ -195,6 +239,7 @@ export default async function handler(
       // Create new stock level
       const newItem = {
         id: generateId(),
+        userId, // Add userId to ensure user scoping
         catalogueItemId,
         partNumber,
         name: name || partNumber,
@@ -218,11 +263,14 @@ export default async function handler(
         return badRequestResponse(res, 'Stock level ID is required');
       }
 
-      // Check if item exists
+      // Check if item exists and belongs to this user
       const existing = await db
         .select()
         .from(stockLevels)
-        .where(eq(stockLevels.id, id))
+        .where(and(
+          eq(stockLevels.id, id),
+          eq(stockLevels.userId, userId)
+        ))
         .limit(1);
 
       if (existing.length === 0) {
@@ -248,12 +296,18 @@ export default async function handler(
       await db
         .update(stockLevels)
         .set(updates)
-        .where(eq(stockLevels.id, id));
+        .where(and(
+          eq(stockLevels.id, id),
+          eq(stockLevels.userId, userId)
+        ));
 
       const updated = await db
         .select()
         .from(stockLevels)
-        .where(eq(stockLevels.id, id))
+        .where(and(
+          eq(stockLevels.id, id),
+          eq(stockLevels.userId, userId)
+        ))
         .limit(1);
 
       return successResponse(res, updated[0], 'Stock level updated successfully');
@@ -267,11 +321,14 @@ export default async function handler(
         return badRequestResponse(res, 'Stock level ID is required');
       }
 
-      // Check if item exists
+      // Check if item exists and belongs to this user
       const existing = await db
         .select()
         .from(stockLevels)
-        .where(eq(stockLevels.id, id))
+        .where(and(
+          eq(stockLevels.id, id),
+          eq(stockLevels.userId, userId)
+        ))
         .limit(1);
 
       if (existing.length === 0) {
@@ -281,7 +338,10 @@ export default async function handler(
       // Hard delete stock level
       await db
         .delete(stockLevels)
-        .where(eq(stockLevels.id, id));
+        .where(and(
+          eq(stockLevels.id, id),
+          eq(stockLevels.userId, userId)
+        ));
 
       return successResponse(res, { id }, 'Stock level deleted successfully');
     }

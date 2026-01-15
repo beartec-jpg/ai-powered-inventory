@@ -1,7 +1,7 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import { db } from '../lib/db.js';
 import { catalogueItems } from '../lib/schema.js';
-import { eq, or, ilike, desc } from 'drizzle-orm';
+import { eq, or, ilike, desc, and } from 'drizzle-orm';
 import {
   successResponse,
   createdResponse,
@@ -11,6 +11,7 @@ import {
   internalServerErrorResponse,
   setCorsHeaders,
 } from '../lib/utils.js';
+import { extractClerkUserId } from '../lib/auth-helper.js';
 
 // Helper to generate IDs
 function generateId(): string {
@@ -37,6 +38,16 @@ export default async function handler(
     });
   }
 
+  // Extract and verify user authentication
+  const userId = extractClerkUserId(req);
+  if (!userId) {
+    return res.status(401).json({
+      success: false,
+      error: 'Unauthorized',
+      message: 'Authentication required. Please sign in.',
+    });
+  }
+
   try {
     // GET /api/inventory/catalogue?search=term - Search catalogue items
     if (req.method === 'GET' && req.query.search) {
@@ -46,11 +57,14 @@ export default async function handler(
         .select()
         .from(catalogueItems)
         .where(
-          or(
-            ilike(catalogueItems.partNumber, `%${search}%`),
-            ilike(catalogueItems.name, `%${search}%`),
-            ilike(catalogueItems.description, `%${search}%`),
-            ilike(catalogueItems.manufacturer, `%${search}%`)
+          and(
+            eq(catalogueItems.userId, userId),
+            or(
+              ilike(catalogueItems.partNumber, `%${search}%`),
+              ilike(catalogueItems.name, `%${search}%`),
+              ilike(catalogueItems.description, `%${search}%`),
+              ilike(catalogueItems.manufacturer, `%${search}%`)
+            )
           )
         )
         .orderBy(desc(catalogueItems.updatedAt));
@@ -65,7 +79,10 @@ export default async function handler(
       const items = await db
         .select()
         .from(catalogueItems)
-        .where(eq(catalogueItems.id, id))
+        .where(and(
+          eq(catalogueItems.id, id),
+          eq(catalogueItems.userId, userId)
+        ))
         .limit(1);
 
       if (items.length === 0) {
@@ -82,25 +99,28 @@ export default async function handler(
       const category = req.query.category as string;
       const active = req.query.active === 'true' ? true : req.query.active === 'false' ? false : undefined;
 
-      let query = db
+      // Build where conditions
+      const conditions = [eq(catalogueItems.userId, userId)];
+      if (category) {
+        conditions.push(eq(catalogueItems.category, category));
+      }
+      if (active !== undefined) {
+        conditions.push(eq(catalogueItems.active, active));
+      }
+
+      const items = await db
         .select()
         .from(catalogueItems)
-        .orderBy(desc(catalogueItems.updatedAt));
-
-      if (category) {
-        query = query.where(eq(catalogueItems.category, category));
-      }
-
-      if (active !== undefined) {
-        query = query.where(eq(catalogueItems.active, active));
-      }
-
-      const items = await query.limit(perPage).offset((page - 1) * perPage);
+        .where(and(...conditions))
+        .orderBy(desc(catalogueItems.updatedAt))
+        .limit(perPage)
+        .offset((page - 1) * perPage);
       
-      // Get total count
+      // Get total count for this user
       const countResult = await db
         .select()
-        .from(catalogueItems);
+        .from(catalogueItems)
+        .where(eq(catalogueItems.userId, userId));
       
       return paginatedResponse(
         res,
@@ -124,11 +144,14 @@ export default async function handler(
         );
       }
 
-      // Check if part number already exists
+      // Check if part number already exists for this user
       const existing = await db
         .select()
         .from(catalogueItems)
-        .where(eq(catalogueItems.partNumber, partNumber))
+        .where(and(
+          eq(catalogueItems.partNumber, partNumber),
+          eq(catalogueItems.userId, userId)
+        ))
         .limit(1);
 
       if (existing.length > 0) {
@@ -147,6 +170,7 @@ export default async function handler(
 
       const newItem = {
         id: generateId(),
+        userId, // Add userId to ensure user scoping
         partNumber,
         name,
         description: description || null,
@@ -178,11 +202,14 @@ export default async function handler(
         return badRequestResponse(res, 'Catalogue item ID is required');
       }
 
-      // Check if item exists
+      // Check if item exists and belongs to this user
       const existing = await db
         .select()
         .from(catalogueItems)
-        .where(eq(catalogueItems.id, id))
+        .where(and(
+          eq(catalogueItems.id, id),
+          eq(catalogueItems.userId, userId)
+        ))
         .limit(1);
 
       if (existing.length === 0) {
@@ -208,12 +235,18 @@ export default async function handler(
       await db
         .update(catalogueItems)
         .set(updates)
-        .where(eq(catalogueItems.id, id));
+        .where(and(
+          eq(catalogueItems.id, id),
+          eq(catalogueItems.userId, userId)
+        ));
 
       const updated = await db
         .select()
         .from(catalogueItems)
-        .where(eq(catalogueItems.id, id))
+        .where(and(
+          eq(catalogueItems.id, id),
+          eq(catalogueItems.userId, userId)
+        ))
         .limit(1);
 
       return successResponse(res, updated[0], 'Catalogue item updated successfully');
@@ -227,11 +260,14 @@ export default async function handler(
         return badRequestResponse(res, 'Catalogue item ID is required');
       }
 
-      // Check if item exists
+      // Check if item exists and belongs to this user
       const existing = await db
         .select()
         .from(catalogueItems)
-        .where(eq(catalogueItems.id, id))
+        .where(and(
+          eq(catalogueItems.id, id),
+          eq(catalogueItems.userId, userId)
+        ))
         .limit(1);
 
       if (existing.length === 0) {
@@ -242,7 +278,10 @@ export default async function handler(
       await db
         .update(catalogueItems)
         .set({ active: false, updatedAt: new Date() })
-        .where(eq(catalogueItems.id, id));
+        .where(and(
+          eq(catalogueItems.id, id),
+          eq(catalogueItems.userId, userId)
+        ));
 
       return successResponse(res, { id }, 'Catalogue item deleted successfully');
     }
