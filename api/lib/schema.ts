@@ -260,7 +260,8 @@ export const toolCalls = pgTable('tool_calls', {
 // Catalogue Items Table (for AI-powered inventory management)
 export const catalogueItems = pgTable('catalogue_items', {
   id: text('id').primaryKey().notNull(),
-  partNumber: varchar('part_number', { length: 100 }).notNull().unique(),
+  userId: text('user_id').notNull().references(() => userProfiles.clerkUserId),
+  partNumber: varchar('part_number', { length: 100 }).notNull(),
   name: varchar('name', { length: 255 }).notNull(),
   description: text('description'),
   manufacturer: varchar('manufacturer', { length: 255 }),
@@ -277,14 +278,16 @@ export const catalogueItems = pgTable('catalogue_items', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => ({
-  partNumberIdx: uniqueIndex('catalogue_items_part_number_idx').on(table.partNumber),
+  userPartNumberIdx: uniqueIndex('catalogue_items_user_part_number_idx').on(table.userId, table.partNumber),
   categoryIdx: index('catalogue_items_category_idx').on(table.category),
   manufacturerIdx: index('catalogue_items_manufacturer_idx').on(table.manufacturer),
+  userIdIdx: index('catalogue_items_user_id_idx').on(table.userId),
 }));
 
 // Stock Levels Table (for AI-powered inventory management)
 export const stockLevels = pgTable('stock_levels', {
   id: text('id').primaryKey().notNull(),
+  userId: text('user_id').notNull().references(() => userProfiles.clerkUserId),
   catalogueItemId: text('catalogue_item_id').notNull().references(() => catalogueItems.id, { onDelete: 'cascade' }),
   partNumber: varchar('part_number', { length: 100 }).notNull(),
   name: varchar('name', { length: 255 }).notNull(),
@@ -294,7 +297,8 @@ export const stockLevels = pgTable('stock_levels', {
   lastCountedAt: timestamp('last_counted_at'),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => ({
-  catalogueItemLocationIdx: uniqueIndex('stock_levels_catalogue_item_location_idx').on(table.catalogueItemId, table.location),
+  userCatalogueItemLocationIdx: uniqueIndex('stock_levels_user_catalogue_item_location_idx').on(table.userId, table.catalogueItemId, table.location),
   locationIdx: index('stock_levels_location_idx').on(table.location),
   partNumberIdx: index('stock_levels_part_number_idx').on(table.partNumber),
+  userIdIdx: index('stock_levels_user_id_idx').on(table.userId),
 }));
