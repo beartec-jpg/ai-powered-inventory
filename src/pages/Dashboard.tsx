@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { useKV } from '@github/spark/hooks'
 import { useAuth } from '@clerk/clerk-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -22,14 +21,14 @@ import { executeCommand } from '@/lib/command-executor'
 import { generateId } from '@/lib/ai-commands'
 import { conversationManager } from '@/lib/conversation-manager'
 import { getFlow, processStepInput, supplierExists, SUPPLIER_DETAILS_SUB_FLOW } from '@/lib/multi-step-flows'
+import { useCatalogue, useStockLevels } from '@/hooks/useInventoryData'
+import { useKV } from '@github/spark/hooks'
 import type { 
   InventoryItem, 
   Location, 
   Customer, 
   Job, 
   CommandLog,
-  CatalogueItem,
-  StockLevel,
   Supplier,
   Equipment,
   InstalledPart,
@@ -45,20 +44,24 @@ export function Dashboard() {
   // Check if speech feature is enabled
   const isSpeechEnabled = import.meta.env.VITE_FEATURE_SPEECH === 'true'
 
-  // User-scoped KV keys - all data is isolated per user
+  // User-scoped KV keys for legacy data - all data is isolated per user
   // Use actual userId when available, hooks require stable keys
   const userPrefix = userId || 'temp'
+  
+  // Legacy KV storage (for backward compatibility with non-catalogue/stock data)
   const [inventory, setInventory] = useKV<InventoryItem[]>(`${userPrefix}-inventory`, [])
   const [locations, setLocations] = useKV<Location[]>(`${userPrefix}-locations`, [])
   const [customers, setCustomers] = useKV<Customer[]>(`${userPrefix}-customers`, [])
   const [jobs, setJobs] = useKV<Job[]>(`${userPrefix}-jobs`, [])
   const [commandLogs, setCommandLogs] = useKV<CommandLog[]>(`${userPrefix}-command-logs`, [])
-  const [catalogue, setCatalogue] = useKV<CatalogueItem[]>(`${userPrefix}-catalogue`, [])
-  const [stockLevels, setStockLevels] = useKV<StockLevel[]>(`${userPrefix}-stock-levels`, [])
   const [suppliers, setSuppliers] = useKV<Supplier[]>(`${userPrefix}-suppliers`, [])
   const [equipment, setEquipment] = useKV<Equipment[]>(`${userPrefix}-equipment`, [])
   const [installedParts, setInstalledParts] = useKV<InstalledPart[]>(`${userPrefix}-installed-parts`, [])
   const [purchaseOrders, setPurchaseOrders] = useKV<PurchaseOrder[]>(`${userPrefix}-purchase-orders`, [])
+  
+  // NEW: Database-backed storage for catalogue and stock levels (persistent across reloads)
+  const { catalogue, loading: catalogueLoading, refetch: refetchCatalogue, setCatalogue } = useCatalogue()
+  const { stockLevels, loading: stockLevelsLoading, refetch: refetchStockLevels, setStockLevels } = useStockLevels()
 
   const [isProcessing, setIsProcessing] = useState(false)
   const [latestResponse, setLatestResponse] = useState<CommandLog | null>(null)
@@ -1072,6 +1075,39 @@ export function Dashboard() {
 
       if (result.success) {
         toast.success(result.message)
+        
+        // Refetch data from database after successful mutations
+        // Check if the action modified catalogue or stock data
+        const catalogueActions = [
+          'create_catalogue_item', 
+          'add_product', 
+          'create_product',
+          'update_catalogue_item',
+          'update_product',
+          'create_catalogue_item_and_add_stock'
+        ]
+        const stockActions = [
+          'receive_stock',
+          'add_stock',
+          'use_stock',
+          'remove_stock',
+          'transfer_stock',
+          'stock_count',
+          'count_stock',
+          'create_catalogue_item_and_add_stock'
+        ]
+        
+        const actionLower = actionToExecute.toLowerCase()
+        
+        // Refetch catalogue if modified
+        if (catalogueActions.some(action => actionLower === action)) {
+          refetchCatalogue().catch(err => console.error('Failed to refetch catalogue:', err))
+        }
+        
+        // Refetch stock levels if modified
+        if (stockActions.some(action => actionLower === action)) {
+          refetchStockLevels().catch(err => console.error('Failed to refetch stock levels:', err))
+        }
       } else {
         toast.error(result.message)
       }
