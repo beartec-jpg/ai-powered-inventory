@@ -1028,7 +1028,8 @@ export function Dashboard() {
         setInstalledParts,
         purchaseOrders || [],
         setPurchaseOrders,
-        command // Pass original command for fallback parsing
+        command, // Pass original command for fallback parsing
+        userId // Pass userId for API calls
       )
 
       // Handle if command needs more input
