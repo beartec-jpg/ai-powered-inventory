@@ -19,6 +19,13 @@ export interface ConversationContext {
   lastItem?: string;
   lastLocation?: string;
   lastQuantity?: number;
+  multiStepState?: {
+    flowId: string;
+    currentStep: number;
+    totalSteps: number;
+    collectedData: Record<string, unknown>;
+    pendingAction: string;
+  };
 }
 
 const CONTEXT_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
@@ -155,6 +162,45 @@ class ConversationManager {
     this.context = {
       messages: [],
     };
+  }
+
+  /**
+   * Store multi-step flow state
+   */
+  setMultiStepState(state: {
+    flowId: string;
+    currentStep: number;
+    totalSteps: number;
+    collectedData: Record<string, unknown>;
+    pendingAction: string;
+  }): void {
+    this.context.multiStepState = state;
+  }
+
+  /**
+   * Get current multi-step flow state
+   */
+  getMultiStepState() {
+    return this.context.multiStepState;
+  }
+
+  /**
+   * Update multi-step flow collected data
+   */
+  updateMultiStepData(data: Record<string, unknown>): void {
+    if (this.context.multiStepState) {
+      this.context.multiStepState.collectedData = {
+        ...this.context.multiStepState.collectedData,
+        ...data,
+      };
+    }
+  }
+
+  /**
+   * Clear multi-step flow state
+   */
+  clearMultiStepState(): void {
+    this.context.multiStepState = undefined;
   }
 }
 

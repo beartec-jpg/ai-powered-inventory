@@ -7,6 +7,7 @@ import { classifyIntent } from './classify';
 import { extractParameters } from './extract';
 import { tryFallbackParse } from './fallback-parser';
 import { conversationManager } from './conversation';
+import { normalizeParameters } from '../multi-step-flows';
 import type { ParsedCommand } from '../actions/types';
 import { normalizeActionName } from '../actions/registry';
 
@@ -75,11 +76,14 @@ export async function parseCommand(command: string): Promise<ParsedCommand> {
       `(confidence: ${extraction.confidence})`
     );
 
-    // Step 5: Resolve contextual references
-    const resolvedParams = conversationManager.resolveContextualReferences(
+    // Step 5: Resolve contextual references and normalize parameters
+    const contextResolvedParams = conversationManager.resolveContextualReferences(
       command,
       extraction.parameters
     );
+    
+    // Normalize parameter names to canonical schema
+    const resolvedParams = normalizeParameters(contextResolvedParams);
 
     // Step 6: Check for parameter-driven override
     // If intent confidence is low but we have high-confidence search parameters,
@@ -156,7 +160,7 @@ export async function parseCommand(command: string): Promise<ParsedCommand> {
       result.clarificationNeeded = `Missing required information: ${extraction.missingRequired.join(', ')}. Please provide these details.`;
     }
 
-    // Step 9: Add to conversation context
+    // Step 9: Add to conversation context and persist multi-step state if applicable
     conversationManager.addMessage({
       id: messageId,
       timestamp: Date.now(),
@@ -165,6 +169,21 @@ export async function parseCommand(command: string): Promise<ParsedCommand> {
       parameters: resolvedParams,
       success: true,
     });
+
+    // If this is part of a multi-step flow, persist the partial state
+    if (resolvedParams.currentStep !== undefined && resolvedParams.totalSteps !== undefined) {
+      conversationManager.setMultiStepState({
+        flowId: String(resolvedParams.flowId || finalAction),
+        currentStep: Number(resolvedParams.currentStep),
+        totalSteps: Number(resolvedParams.totalSteps),
+        collectedData: resolvedParams.collectedData as Record<string, unknown> || {},
+        pendingAction: finalAction,
+      });
+    } else if (result.clarificationNeeded) {
+      // If clarification is needed and we're not in a flow, we might be starting one
+      // Store the initial parameters
+      conversationManager.updateMultiStepData(resolvedParams);
+    }
 
     return result;
   } catch (error) {
