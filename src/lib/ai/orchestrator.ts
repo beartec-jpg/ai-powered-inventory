@@ -176,7 +176,7 @@ export async function parseCommand(command: string): Promise<ParsedCommand> {
         flowId: String(resolvedParams.flowId || finalAction),
         currentStep: Number(resolvedParams.currentStep),
         totalSteps: Number(resolvedParams.totalSteps),
-        collectedData: resolvedParams.collectedData as Record<string, unknown> || {},
+        collectedData: (resolvedParams.collectedData as Record<string, unknown>) || {},
         pendingAction: finalAction,
       });
     } else if (result.clarificationNeeded) {

@@ -1,7 +1,7 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import { db } from '../lib/db.js';
 import { stockLevels, catalogueItems } from '../lib/schema.js';
-import { eq, or, ilike, desc, and, lt } from 'drizzle-orm';
+import { eq, or, ilike, desc, and, lt, sql } from 'drizzle-orm';
 import {
   successResponse,
   createdResponse,
@@ -64,7 +64,7 @@ export default async function handler(
 
     // GET /api/stock/levels?low=true - Get low stock items
     if (req.method === 'GET' && req.query.low === 'true') {
-      // Join with catalogue items to get minQuantity
+      // Join with catalogue items to get minQuantity and filter where quantity < minQuantity
       const items = await db
         .select({
           id: stockLevels.id,
@@ -81,10 +81,7 @@ export default async function handler(
         .from(stockLevels)
         .innerJoin(catalogueItems, eq(stockLevels.catalogueItemId, catalogueItems.id))
         .where(
-          and(
-            // @ts-ignore - Drizzle typing issue with comparison
-            lt(stockLevels.quantity, catalogueItems.minQuantity)
-          )
+          sql`${stockLevels.quantity} < ${catalogueItems.minQuantity}`
         )
         .orderBy(desc(stockLevels.updatedAt));
 
