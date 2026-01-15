@@ -82,6 +82,7 @@ interface ParseCommandResponse {
     };
     usedFallback: boolean;
     fallbackReason?: string;
+    overrideReason?: string;
     rawCommand: string;
   };
 }
@@ -1299,16 +1300,43 @@ export default async function handler(
     console.log(`[AI Command] Stage 2 - Missing required: ${missingRequired?.join(', ') || 'none'}`);
     console.log(`[AI Command] Stage 2 - Confidence: ${extractConfidence}`);
 
+    // Parameter-driven override: If intent confidence is low but we have high-confidence search parameters,
+    // override to search action instead of QUERY_INVENTORY
+    const LOW_INTENT_THRESHOLD = 0.65;
+    const PARAM_OVERRIDE_THRESHOLD = 0.8;
+    let finalAction = action;
+    let overrideReason: string | undefined = undefined;
+    
+    if (
+      classifyConfidence < LOW_INTENT_THRESHOLD &&
+      extractConfidence >= PARAM_OVERRIDE_THRESHOLD &&
+      (parameters.search || parameters.query || parameters.searchTerm || parameters.q)
+    ) {
+      const searchTerm = parameters.search || parameters.query || parameters.searchTerm || parameters.q;
+      console.log(
+        `[AI Command] Override: Low intent confidence (${classifyConfidence}) but high param confidence (${extractConfidence}) with search="${searchTerm}"`
+      );
+      
+      // Prefer SEARCH_CATALOGUE or SEARCH_STOCK based on parameters.queryType
+      if (parameters.queryType === 'stock') {
+        finalAction = 'SEARCH_STOCK';
+        overrideReason = `Overridden to SEARCH_STOCK due to high-confidence search parameter (${extractConfidence})`;
+      } else {
+        finalAction = 'SEARCH_CATALOGUE';
+        overrideReason = `Overridden to SEARCH_CATALOGUE due to high-confidence search parameter (${extractConfidence})`;
+      }
+    }
+
     // Calculate overall confidence
     const overallConfidence = Math.min(classifyConfidence, extractConfidence);
     const latency = Date.now() - startTime;
 
     // Build result with debug info
     const result: ParseCommandResponse = {
-      action: action as InventoryAction,
+      action: finalAction as InventoryAction,
       parameters,
       confidence: overallConfidence,
-      reasoning: `Two-stage parsing: ${action} with ${Object.keys(parameters).length} parameters`,
+      reasoning: overrideReason || `Two-stage parsing: ${finalAction} with ${Object.keys(parameters).length} parameters`,
       model: 'grok-3-mini',
       latency,
       debug: {
@@ -1323,6 +1351,7 @@ export default async function handler(
           confidence: extractConfidence,
         },
         usedFallback: false,
+        overrideReason,
         rawCommand: command,
       },
     };
@@ -1331,7 +1360,7 @@ export default async function handler(
       result.clarificationNeeded = `Missing required: ${missingRequired.join(', ')}`;
     }
 
-    console.log(`[AI Command] Final result - Action: ${action}, Confidence: ${overallConfidence}, Latency: ${latency}ms`);
+    console.log(`[AI Command] Final result - Action: ${finalAction}, Confidence: ${overallConfidence}, Latency: ${latency}ms`);
 
     // Validate the response structure
     const validatedResult = validateCommandResponse(result);
