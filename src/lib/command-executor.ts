@@ -2149,18 +2149,21 @@ function handleQuery(
   const results = inventory.filter(item => {
     const itemName = (item.name || '').toLowerCase();
     const itemPartNumber = (item.partNumber || '').toLowerCase();
-    // Note: sku and manufacturer may not exist on legacy InventoryItem
+    // Note: sku, manufacturer, and description may not exist on legacy InventoryItem
     // @ts-ignore - sku may not exist on InventoryItem type
     const itemSku = (item.sku || '').toLowerCase();
     // @ts-ignore - manufacturer may not exist on InventoryItem type
     const itemManufacturer = (item.manufacturer || '').toLowerCase();
+    // @ts-ignore - description may not exist on InventoryItem type
+    const itemDescription = (item.description || '').toLowerCase();
     
-    // Standard contains matching
+    // Standard contains matching across all searchable fields
     const containsMatch = 
       itemName.includes(query) ||
       itemPartNumber.includes(query) ||
       itemSku.includes(query) ||
-      itemManufacturer.includes(query);
+      itemManufacturer.includes(query) ||
+      itemDescription.includes(query);
     
     if (containsMatch) return true;
     
@@ -2171,27 +2174,21 @@ function handleQuery(
       const partTokens = itemPartNumber.split(/[\s\-._]+/);
       const skuTokens = itemSku.split(/[\s\-._]+/);
       const manufacturerTokens = itemManufacturer.split(/[\s\-._]+/);
+      const descTokens = itemDescription.split(/[\s\-._]+/);
       
-      const allTokens = [...nameTokens, ...partTokens, ...skuTokens, ...manufacturerTokens];
+      const allTokens = [...nameTokens, ...partTokens, ...skuTokens, ...manufacturerTokens, ...descTokens];
       return allTokens.some(token => token.startsWith(query));
     }
     
     return false;
   });
 
-  if (results.length > 0) {
-    return {
-      success: true,
-      message: `Searching for: ${query}`,
-      data: results
-    };
-  }
-
-  return { 
-    success: true, 
+  // Always return "Searching for: <term>" message with results
+  return {
+    success: true,
     message: `Searching for: ${query}`,
-    data: []
-  }
+    data: results
+  };
 }
 
 function listItems(

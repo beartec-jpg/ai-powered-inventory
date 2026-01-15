@@ -86,25 +86,34 @@ export async function parseCommand(command: string): Promise<ParsedCommand> {
     // override to search action instead of QUERY_INVENTORY
     let finalAction = normalizedAction;
     let overrideReasoning = '';
+    let usedOverride = false;
     
     if (
       classification.confidence < LOW_INTENT_THRESHOLD &&
       extraction.confidence >= PARAM_OVERRIDE_THRESHOLD &&
       (resolvedParams.search || resolvedParams.query || resolvedParams.searchTerm || resolvedParams.q)
     ) {
-      const searchTerm = resolvedParams.search || resolvedParams.query || resolvedParams.searchTerm || resolvedParams.q;
+      const searchTerm = String(resolvedParams.search || resolvedParams.query || resolvedParams.searchTerm || resolvedParams.q);
       console.log(
         `[Orchestrator] Override: Low intent confidence (${classification.confidence}) but high param confidence (${extraction.confidence}) with search="${searchTerm}"`
       );
       
-      // Prefer SEARCH_CATALOGUE or SEARCH_STOCK based on parameters.queryType
-      if (resolvedParams.queryType === 'stock') {
+      // Check for stock-related keywords in the command or queryType
+      const hasStockKeywords = command.toLowerCase().includes('stock') || 
+                                command.toLowerCase().includes('inventory') ||
+                                command.toLowerCase().includes('in stock') ||
+                                command.toLowerCase().includes('available');
+      
+      // Prefer SEARCH_CATALOGUE or SEARCH_STOCK based on parameters.queryType or stock keywords
+      if (resolvedParams.queryType === 'stock' || hasStockKeywords) {
         finalAction = 'SEARCH_STOCK';
-        overrideReasoning = `Overridden to SEARCH_STOCK due to high-confidence search parameter (${extraction.confidence})`;
+        overrideReasoning = `Overridden to SEARCH_STOCK due to high-confidence search parameter (${extraction.confidence}) and stock context`;
       } else {
         finalAction = 'SEARCH_CATALOGUE';
         overrideReasoning = `Overridden to SEARCH_CATALOGUE due to high-confidence search parameter (${extraction.confidence})`;
       }
+      
+      usedOverride = true;
     }
 
     // Step 7: Calculate overall confidence
@@ -113,7 +122,7 @@ export async function parseCommand(command: string): Promise<ParsedCommand> {
       extraction.confidence
     );
 
-    // Step 8: Build result
+    // Step 8: Build result with debug information
     const result: ParsedCommand = {
       action: finalAction,
       parameters: resolvedParams,
@@ -123,6 +132,20 @@ export async function parseCommand(command: string): Promise<ParsedCommand> {
         classification.reasoning ||
         `Classified as ${finalAction} with ${Object.keys(resolvedParams).length} parameters`,
       missingRequired: extraction.missingRequired,
+      debug: {
+        stage1: {
+          action: normalizedAction,
+          confidence: classification.confidence,
+          reasoning: classification.reasoning,
+        },
+        stage2: {
+          parameters: resolvedParams,
+          confidence: extraction.confidence,
+          missingRequired: extraction.missingRequired || [],
+        },
+        usedOverride,
+        overrideReason: overrideReasoning || undefined,
+      },
     };
 
     // Add clarification if needed
