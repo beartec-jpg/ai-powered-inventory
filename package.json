@@ -1,1 +1,20 @@
-{"scripts":{"build":"vite build && npm run db:migrate","db:migrate":"drizzle-kit push"}}
+{
+  "name": "",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "vite build && npm run db:migrate",
+    "db:migrate": "drizzle-kit push",
+    
+    "start": "node server.js",
+    "test": "jest"
+  },
+  "dependencies": {
+    "express": "^4.17.1",
+    "mongoose": "^5.10.9"
+  },
+  "devDependencies": {
+    "vite": "^2.4.4",
+    "jest": "^26.6.0"
+  }
+}
