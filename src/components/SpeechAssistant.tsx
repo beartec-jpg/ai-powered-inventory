@@ -85,7 +85,7 @@ export function SpeechAssistant({ onCommandSubmit, isProcessing }: SpeechAssista
       },
       onResult: (result: SpeechRecognitionResult) => {
         if (result.isFinal) {
-          setTranscript((prev) => prev + ' ' + result.transcript)
+          setTranscript((prev) => (prev ? prev + ' ' + result.transcript : result.transcript).trim())
           setInterimTranscript('')
         } else {
           setInterimTranscript(result.transcript)

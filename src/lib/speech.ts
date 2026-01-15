@@ -73,6 +73,28 @@ export interface SpeechRecognitionCallbacks {
   onStart?: () => void
 }
 
+// Type definitions for Web Speech API
+interface SpeechRecognitionResultItem {
+  transcript: string
+  confidence: number
+}
+
+interface SpeechRecognitionAlternative {
+  isFinal: boolean
+  [index: number]: SpeechRecognitionResultItem
+}
+
+interface SpeechRecognitionEvent {
+  results: {
+    length: number
+    [index: number]: SpeechRecognitionAlternative
+  }
+}
+
+interface SpeechRecognitionErrorEvent {
+  error: string
+}
+
 /**
  * Start speech recognition
  * @param callbacks - Callbacks for recognition events
@@ -86,8 +108,8 @@ export const startRecognition = (
     return { stop: () => {} }
   }
 
-  // @ts-expect-error - SpeechRecognition types not fully available
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+  // Get SpeechRecognition constructor (with vendor prefix support)
+  const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
   const recognition = new SpeechRecognition()
 
   // Configuration
@@ -100,7 +122,7 @@ export const startRecognition = (
     callbacks.onStart?.()
   }
 
-  recognition.onresult = (event: any) => {
+  recognition.onresult = (event: SpeechRecognitionEvent) => {
     const last = event.results.length - 1
     const result = event.results[last]
     const transcript = result[0].transcript
@@ -114,7 +136,7 @@ export const startRecognition = (
     })
   }
 
-  recognition.onerror = (event: any) => {
+  recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
     let errorMessage = 'Speech recognition error'
     
     switch (event.error) {
