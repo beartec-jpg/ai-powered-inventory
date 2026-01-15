@@ -1,7 +1,14 @@
 /**
  * Vercel Serverless API: /_spark/kv/[...key]
  * 
- * TEMPORARY KV storage endpoint to prevent 404 errors
+ * ⚠️ DEPRECATED - This endpoint is no longer recommended for use ⚠️
+ * 
+ * MIGRATION NOTICE:
+ * - This KV storage endpoint stores data in memory that resets on cold starts
+ * - All inventory data should now use the PostgreSQL database via:
+ *   - /api/inventory/catalogue for catalogue items
+ *   - /api/stock/levels for stock levels
+ * - Database storage is persistent and scoped per Clerk user
  * 
  * BACKGROUND:
  * - GitHub Spark's useKV hook writes to /_spark/kv/* endpoints
@@ -12,18 +19,13 @@
  * - Accepts PUT, POST, GET requests
  * - Logs all operations for debugging
  * - Returns 200 OK to satisfy client expectations
- * - Does NOT persist data (logs only)
+ * - Does NOT persist data across cold starts (data loss risk)
  * 
- * FUTURE IMPROVEMENTS:
- * This is a minimal shim. To add real persistence:
- * 1. Add a database (Redis, Vercel KV, or similar)
- * 2. Store key-value pairs in that database
- * 3. Implement GET to retrieve stored values
- * 4. Add authentication/authorization if needed
- * 5. Add rate limiting for production use
- * 
- * For now, this prevents crashes and allows the UI to function.
- * The client-side safe wrapper falls back to localStorage for actual persistence.
+ * RECOMMENDATION:
+ * Replace all useKV hooks with custom hooks that call the API endpoints:
+ * - Use useCatalogue() instead of useKV for catalogue data
+ * - Use useStockLevels() instead of useKV for stock data
+ * - Import from @/hooks/useInventoryData
  */
 
 import { VercelRequest, VercelResponse } from '@vercel/node';
@@ -31,8 +33,8 @@ import { setCorsHeaders } from '../../lib/utils.js';
 
 /**
  * In-memory store for development
- * NOTE: This will reset on every cold start of the serverless function
- * Use a real database for production persistence
+ * ⚠️ WARNING: This will reset on every cold start of the serverless function
+ * Use the PostgreSQL database via API endpoints for production persistence
  */
 const memoryStore: Map<string, any> = new Map();
 
