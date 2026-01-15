@@ -1360,7 +1360,7 @@ export default async function handler(
       result.clarificationNeeded = `Missing required: ${missingRequired.join(', ')}`;
     }
 
-    console.log(`[AI Command] Final result - Action: ${action}, Confidence: ${overallConfidence}, Latency: ${latency}ms`);
+    console.log(`[AI Command] Final result - Action: ${finalAction}, Confidence: ${overallConfidence}, Latency: ${latency}ms`);
 
     // Validate the response structure
     const validatedResult = validateCommandResponse(result);
