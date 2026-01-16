@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "db:generate": "drizzle-kit generate:pg",
     "db:push": "drizzle-kit push:pg",
-    "db:migrate": "drizzle-kit push:pg --force",
+    "db:migrate": "drizzle-kit push:pg",
     "db:studio": "drizzle-kit studio",
     "start": "node server.js",
     "test": "jest"
