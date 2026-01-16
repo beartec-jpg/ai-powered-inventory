@@ -385,8 +385,8 @@ export async function executeCommand(
       
       // Fallback to local state only (shouldn't happen)
       const newItem: CatalogueItem = {
-        id: generateId(),
         ...catalogueData as CatalogueItem,
+        id: generateId(),  // Always generate new ID for fallback
         createdAt: Date.now(),
         updatedAt: Date.now(),
       }
@@ -644,8 +644,8 @@ async function createCatalogueItem(params: Record<string, unknown>, state: State
   
   // Fallback to local state only (shouldn't happen in normal flow)
   const localItem: CatalogueItem = {
-    id: generateId(),
     ...newItem as CatalogueItem,
+    id: generateId(),  // Always generate new ID for fallback
     createdAt: Date.now(),
     updatedAt: Date.now(),
   }
@@ -808,14 +808,15 @@ async function receiveStock(params: Record<string, unknown>, state: StateSetters
     }
   }
   
-  // Use the catalogue item's part number for consistency
+  // Use the catalogue item's part number and id for consistency
   const partNumber = catalogueItem.partNumber
+  const catalogueItemId = catalogueItem.id
   
   // Call API to create or update stock level
   if (userId) {
     try {
       const stockData = {
-        catalogueItemId: catalogueItem.id,
+        catalogueItemId,
         partNumber: catalogueItem.partNumber,
         name: catalogueItem.name,
         location,
@@ -827,7 +828,7 @@ async function receiveStock(params: Record<string, unknown>, state: StateSetters
       
       // Optimistically update local state
       const existingStock = state.stockLevels.find(s => 
-        s.catalogueItemId === catalogueItem.id && 
+        s.catalogueItemId === catalogueItemId && 
         s.location.toLowerCase() === location.toLowerCase()
       )
       
@@ -859,7 +860,7 @@ async function receiveStock(params: Record<string, unknown>, state: StateSetters
   
   // Fallback to local state only (shouldn't happen in normal flow)
   const existingStock = state.stockLevels.find(s => 
-    s.catalogueItemId === catalogueItem.id && 
+    s.catalogueItemId === catalogueItemId && 
     s.location.toLowerCase() === location.toLowerCase()
   )
   
@@ -874,7 +875,7 @@ async function receiveStock(params: Record<string, unknown>, state: StateSetters
   } else {
     const newStock: StockLevel = {
       id: generateId(),
-      catalogueItemId: catalogueItem.id,
+      catalogueItemId,
       partNumber: catalogueItem.partNumber,
       name: catalogueItem.name,
       location,
