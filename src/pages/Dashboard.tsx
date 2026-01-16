@@ -270,7 +270,7 @@ export function Dashboard() {
               firstPrompt,
               existingPending.pendingAction, // preserve pendingAction
               existingPending.context, // preserve context (item, quantity, location)
-              flow.steps[0].options || [], // options for the first step (if any)
+              existingPending.options || [], // options from existing pending command (if any)
               1, // currentStep
               flow.steps.length, // totalSteps
               existingPending.collectedData || {} // collectedData (may be empty)

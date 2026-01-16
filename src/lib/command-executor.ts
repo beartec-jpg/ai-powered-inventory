@@ -385,8 +385,8 @@ export async function executeCommand(
       
       // Fallback to local state only (shouldn't happen)
       const newItem: CatalogueItem = {
-        id: generateId(),
         ...catalogueData as CatalogueItem,
+        id: catalogueData.id || generateId(),
         createdAt: Date.now(),
         updatedAt: Date.now(),
       }
@@ -644,8 +644,8 @@ async function createCatalogueItem(params: Record<string, unknown>, state: State
   
   // Fallback to local state only (shouldn't happen in normal flow)
   const localItem: CatalogueItem = {
-    id: generateId(),
     ...newItem as CatalogueItem,
+    id: newItem.id || generateId(),
     createdAt: Date.now(),
     updatedAt: Date.now(),
   }
@@ -827,7 +827,7 @@ async function receiveStock(params: Record<string, unknown>, state: StateSetters
       
       // Optimistically update local state
       const existingStock = state.stockLevels.find(s => 
-        s.catalogueItemId === catalogueItem.id && 
+        s.catalogueItemId === catalogueItem!.id && 
         s.location.toLowerCase() === location.toLowerCase()
       )
       
@@ -859,7 +859,7 @@ async function receiveStock(params: Record<string, unknown>, state: StateSetters
   
   // Fallback to local state only (shouldn't happen in normal flow)
   const existingStock = state.stockLevels.find(s => 
-    s.catalogueItemId === catalogueItem.id && 
+    s.catalogueItemId === catalogueItem!.id && 
     s.location.toLowerCase() === location.toLowerCase()
   )
   
