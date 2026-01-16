@@ -386,7 +386,7 @@ export async function executeCommand(
       // Fallback to local state only (shouldn't happen)
       const newItem: CatalogueItem = {
         ...catalogueData as CatalogueItem,
-        id: catalogueData.id || generateId(),
+        id: generateId(),  // Always generate new ID for fallback
         createdAt: Date.now(),
         updatedAt: Date.now(),
       }
@@ -645,7 +645,7 @@ async function createCatalogueItem(params: Record<string, unknown>, state: State
   // Fallback to local state only (shouldn't happen in normal flow)
   const localItem: CatalogueItem = {
     ...newItem as CatalogueItem,
-    id: newItem.id || generateId(),
+    id: generateId(),  // Always generate new ID for fallback
     createdAt: Date.now(),
     updatedAt: Date.now(),
   }
