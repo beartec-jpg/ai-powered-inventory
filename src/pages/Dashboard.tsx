@@ -936,7 +936,13 @@ export function Dashboard() {
           }
         } else {
           // Try to extract missing parameters from the user's response
-          const interpretation = await interpretCommand(command)
+          // Pass pending context to help AI understand this is a secondary input
+          const pendingContext = {
+            pendingAction: existingPending.action,
+            missingFields: existingPending.missingFields,
+            partialParams: existingPending.parameters
+          }
+          const interpretation = await interpretCommand(command, pendingContext)
           const completed = conversationManager.completePendingCommand(interpretation.parameters)
           
           if (completed) {
