@@ -783,7 +783,16 @@ async function receiveStock(params: Record<string, unknown>, state: StateSetters
     i.name.toLowerCase().includes(item.toLowerCase())
   )
   
-  console.log('[receiveStock] Catalogue lookup result:', catalogueItem ? `Found: ${catalogueItem.partNumber}` : 'NOT FOUND')
+  // ADD THIS LOGGING: 
+console.log('[receiveStock] Catalog lookup:', {
+  searchTerm: item,
+  foundItem: catalogueItem ? {
+    id: catalogueItem. id,
+    partNumber: catalogueItem.partNumber,
+    name: catalogueItem.name
+  } : null,
+  catalogueSize: state.catalogue.length
+});
   
   // If not in catalogue, prompt to create it
   if (!catalogueItem) {
