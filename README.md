@@ -392,12 +392,44 @@ See `api/lib/schema.ts` for the complete schema definition.
 
 The `vercel.json` configuration handles deployment automatically.
 
+### Database Migrations
+
+**Important**: Database migrations are **NOT** run automatically during the build process. This is intentional to follow deployment best practices.
+
+To run migrations:
+
+1. **During Development**:
+   ```bash
+   npm run db:migrate
+   ```
+
+2. **For Production**: Run migrations manually after deployment:
+   ```bash
+   # Option 1: Run locally with production DATABASE_URL
+   DATABASE_URL="your-production-url" npm run db:migrate
+   
+   # Option 2: Use Vercel CLI
+   vercel env pull
+   npm run db:migrate
+   ```
+
+**Why migrations are separate from builds:**
+- Builds should be stateless and not depend on database connectivity
+- Migrations should run once per deployment, not on every build
+- Prevents race conditions in multi-instance deployments
+- Allows for proper error handling and rollback strategies
+- Follows industry best practices for deployment pipelines
+
 ## 🔧 Available Scripts
 
 - `npm run dev` - Start development server
-- `npm run build` - Build for production
+- `npm run build` - Build for production (TypeScript + Vite, excludes migrations)
 - `npm run preview` - Preview production build
 - `npm run lint` - Run ESLint
+- `npm run db:migrate` - Run database migrations (push schema to PostgreSQL)
+- `npm run db:generate` - Generate migration files
+- `npm run db:push` - Push schema to database
+- `npm run db:studio` - Open Drizzle Studio for database management
 
 ## 📖 API Documentation
 
