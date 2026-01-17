@@ -42,6 +42,14 @@ const ACTIONS = [
   'QUERY_INVENTORY',
 ];
 
+// Configuration for secondary input validation
+const SECONDARY_INPUT_CONFIG = {
+  // Pattern to match valid location formats
+  locationPattern: /^(rack\s+\d+|bin\s+\d+|shelf\s+[a-z]\d+|warehouse|van\s*\d*|storage)$/i,
+  // Confidence level for validated secondary inputs
+  secondaryInputConfidence: 0.9,
+};
+
 interface ClassificationResponse {
   action: string;
   confidence: number;
@@ -53,13 +61,26 @@ interface ClassificationResponse {
  */
 export async function classifyIntentCore(
   command: string,
-  context?: string
+  context?: string | { pendingAction?: string; missingFields?: string[]; [key: string]: unknown }
 ): Promise<ClassificationResponse> {
   if (!isGrokConfigured()) {
     throw new Error('AI service is not configured');
   }
 
-  const contextInfo = context ? `\n\nRecent context:\n${context}` : '';
+  // Handle context as either string or object with pendingAction/missingFields
+  let contextInfo = '';
+  let pendingAction: string | undefined;
+  let missingFields: string[] | undefined;
+  
+  if (typeof context === 'string') {
+    contextInfo = `\n\nRecent context:\n${context}`;
+  } else if (context && typeof context === 'object') {
+    pendingAction = context.pendingAction;
+    missingFields = context.missingFields;
+    if (pendingAction || missingFields) {
+      contextInfo = `\n\nPending Action Context:\n- Action: ${pendingAction || 'N/A'}\n- Missing Fields: ${missingFields?.join(', ') || 'none'}`;
+    }
+  }
 
   const systemPrompt = `You are an expert at classifying user commands for a Field Service & Inventory Management system.
 
@@ -91,6 +112,13 @@ ACTION GUIDELINES:
 - ADD_SUPPLIER: Creating supplier
 - CREATE_ORDER: Creating purchase order
 - QUERY_INVENTORY: General query or unclear intent
+
+CRITICAL: HANDLING SECONDARY INPUT (Missing Parameter Responses)
+When a pending action context is provided with missing fields, the user's input should be interpreted as providing those missing parameters, NOT as a new command:
+- If pendingAction is ADD_STOCK and location is missing, inputs like "rack 1", "bin 5", "shelf A1" should be classified as ADD_STOCK (continuing the pending action)
+- If pendingAction is REMOVE_STOCK and location is missing, similar location inputs should be classified as REMOVE_STOCK
+- Only classify as a new action if the input clearly indicates a completely different intent
+- Location formats typically match: "rack N", "bin N", "shelf XN", "warehouse", "van N"
 
 EXAMPLES:
 "Add 5 M10 nuts to rack 1 bin6" → ADD_STOCK (confidence: 0.95)
@@ -124,6 +152,22 @@ Be confident when the intent is clear. Return lower confidence (<0.7) only when 
   console.log(
     `[Classify Intent] Result: ${result.action} (confidence: ${result.confidence})`
   );
+
+  // Post-processing: Handle secondary input for pending actions
+  // TODO: This currently only handles 'location' field. Future enhancement could make this
+  // more generic to handle other fields (quantity, item, etc.) with similar patterns.
+  if (pendingAction && missingFields && missingFields.length > 0) {
+    const commandLower = command.trim().toLowerCase();
+    
+    // If we have a pending action and the input looks like it's providing a missing parameter
+    // (e.g., just a location string), ensure we classify as the pending action
+    if (missingFields.includes('location') && SECONDARY_INPUT_CONFIG.locationPattern.test(commandLower)) {
+      console.log(`[Classify Intent] Secondary input detected: providing location for ${pendingAction}`);
+      result.action = pendingAction;
+      result.confidence = SECONDARY_INPUT_CONFIG.secondaryInputConfidence;
+      result.reasoning = `Secondary input providing missing location for ${pendingAction}`;
+    }
+  }
 
   // Validate action is in supported list
   if (!ACTIONS.includes(result.action)) {
