@@ -42,6 +42,14 @@ const ACTIONS = [
   'QUERY_INVENTORY',
 ];
 
+// Configuration for secondary input validation
+const SECONDARY_INPUT_CONFIG = {
+  // Pattern to match valid location formats
+  locationPattern: /^(rack\s+\d+|bin\s+\d+|shelf\s+[a-z]\d+|warehouse|van\s*\d*|storage)$/i,
+  // Confidence level for validated secondary inputs
+  secondaryInputConfidence: 0.9,
+};
+
 interface ClassificationResponse {
   action: string;
   confidence: number;
@@ -146,16 +154,17 @@ Be confident when the intent is clear. Return lower confidence (<0.7) only when 
   );
 
   // Post-processing: Handle secondary input for pending actions
+  // TODO: This currently only handles 'location' field. Future enhancement could make this
+  // more generic to handle other fields (quantity, item, etc.) with similar patterns.
   if (pendingAction && missingFields && missingFields.length > 0) {
     const commandLower = command.trim().toLowerCase();
-    const locationPattern = /^(rack\s+\d+|bin\s+\d+|shelf\s+[a-z]\d+|warehouse|van\s*\d*|storage)$/i;
     
     // If we have a pending action and the input looks like it's providing a missing parameter
     // (e.g., just a location string), ensure we classify as the pending action
-    if (missingFields.includes('location') && locationPattern.test(commandLower)) {
+    if (missingFields.includes('location') && SECONDARY_INPUT_CONFIG.locationPattern.test(commandLower)) {
       console.log(`[Classify Intent] Secondary input detected: providing location for ${pendingAction}`);
       result.action = pendingAction;
-      result.confidence = 0.9; // High confidence for direct parameter provision
+      result.confidence = SECONDARY_INPUT_CONFIG.secondaryInputConfidence;
       result.reasoning = `Secondary input providing missing location for ${pendingAction}`;
     }
   }
