@@ -1,5 +1,5 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
-import { db } from '../lib/db. js';
+import { db } from '../lib/db.js';
 import { catalogueItems } from '../lib/schema.js';
 import { eq, ilike, desc, and } from 'drizzle-orm';
 import {
@@ -30,28 +30,28 @@ export default async function handler(
   }
 
   // Check if DATABASE_URL is configured
-  if (!process.env. DATABASE_URL) {
+  if (!process.env.DATABASE_URL) {
     return res.status(503).json({
       success: false,
       error: 'Database Not Configured',
-      message: 'DATABASE_URL environment variable is not set.  Please configure your database connection.',
+      message: 'DATABASE_URL environment variable is not set. Please configure your database connection.',
     });
   }
 
   // Extract and verify user authentication
   const userId = extractClerkUserId(req);
   if (!userId) {
-    return res. status(401).json({
-      success:  false,
+    return res.status(401).json({
+      success: false,
       error: 'Unauthorized',
-      message:  'Authentication required.  Please sign in.',
+      message: 'Authentication required. Please sign in.',
     });
   }
 
   try {
     // GET /api/catalogue/items? search=term - Search catalogue items
-    if (req.method === 'GET' && req.query. search) {
-      const search = String(req.query. search).toLowerCase();
+    if (req.method === 'GET' && req.query.search) {
+      const search = String(req.query.search).toLowerCase();
       
       const items = await db
         .select()
@@ -60,20 +60,20 @@ export default async function handler(
           eq(catalogueItems.userId, userId),
           ilike(catalogueItems.name, `%${search}%`)
         ))
-        .orderBy(desc(catalogueItems. updatedAt));
+        .orderBy(desc(catalogueItems.updatedAt));
 
       return successResponse(res, items, `Found ${items.length} item(s) in catalogue`);
     }
 
     // GET /api/catalogue/items - List all catalogue items
     if (req.method === 'GET') {
-      const page = parseInt(req. query.page as string) || 1;
-      const perPage = Math.min(parseInt(req. query.perPage as string) || 30, 100);
+      const page = parseInt(req.query.page as string) || 1;
+      const perPage = Math.min(parseInt(req.query.perPage as string) || 30, 100);
 
       const items = await db
         .select()
         .from(catalogueItems)
-        .where(eq(catalogueItems. userId, userId))
+        .where(eq(catalogueItems.userId, userId))
         .orderBy(desc(catalogueItems.updatedAt))
         .limit(perPage)
         .offset((page - 1) * perPage);
@@ -115,7 +115,7 @@ export default async function handler(
       if (!partNumber || !name) {
         return badRequestResponse(
           res,
-          'Missing required fields:  partNumber, name'
+          'Missing required fields: partNumber, name'
         );
       }
 
@@ -141,14 +141,14 @@ export default async function handler(
         userId,
         partNumber,
         name,
-        description:  description || null,
-        manufacturer:  manufacturer || null,
+        description: description || null,
+        manufacturer: manufacturer || null,
         category: category || null,
         subcategory: subcategory || null,
-        unitCost:  unitCost || null,
-        markup:  markup || null,
+        unitCost: unitCost || null,
+        markup: markup || null,
         sellPrice: sellPrice || null,
-        isStocked:  Boolean(isStocked),
+        isStocked: Boolean(isStocked),
         minQuantity: minQuantity || null,
         preferredSupplierName: preferredSupplierName || null,
         attributes: null,
@@ -157,7 +157,7 @@ export default async function handler(
         updatedAt: new Date(),
       };
 
-      await db. insert(catalogueItems).values(newItem);
+      await db.insert(catalogueItems).values(newItem);
 
       return createdResponse(res, newItem, 'Catalogue item created successfully');
     }
