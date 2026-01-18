@@ -172,7 +172,7 @@ export default async function handler(
         return notFoundResponse(res, 'Location not found');
       }
 
-      const updates: any = {
+      const updates: Partial<typeof warehouses.$inferInsert> = {
         updatedAt: new Date(),
       };
 

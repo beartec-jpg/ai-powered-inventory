@@ -49,7 +49,7 @@ export default async function handler(
   }
 
   try {
-    // GET /api/catalogue/items? search=term - Search catalogue items
+    // GET /api/catalogue/items?search=term - Search catalogue items
     if (req.method === 'GET' && req.query.search) {
       const search = String(req.query.search).toLowerCase();
       

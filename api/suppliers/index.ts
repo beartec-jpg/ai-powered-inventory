@@ -170,16 +170,16 @@ export default async function handler(
         return notFoundResponse(res, 'Supplier not found');
       }
 
-      const updates: any = {
+      const updates: Partial<typeof suppliers.$inferInsert> = {
         updatedAt: new Date(),
       };
 
       if (name !== undefined) updates.name = name;
-      if (email !== undefined) updates.email = email;
-      if (phone !== undefined) updates.phone = phone;
-      if (address !== undefined) updates.address = address;
-      if (city !== undefined) updates.city = city;
-      if (country !== undefined) updates.country = country;
+      if (email !== undefined) updates.email = email || null;
+      if (phone !== undefined) updates.phone = phone || null;
+      if (address !== undefined) updates.address = address || null;
+      if (city !== undefined) updates.city = city || null;
+      if (country !== undefined) updates.country = country || null;
       if (active !== undefined) updates.active = active;
 
       await db.update(suppliers).set(updates).where(eq(suppliers.id, id));

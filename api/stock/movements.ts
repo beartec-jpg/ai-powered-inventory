@@ -139,11 +139,17 @@ export default async function handler(
         );
       }
 
+      // Validate quantity
+      const parsedQuantity = parseInt(quantity);
+      if (isNaN(parsedQuantity)) {
+        return badRequestResponse(res, 'Quantity must be a valid integer');
+      }
+
       // Create new stock movement
       const newMovement = {
         id: generateId(),
         productId,
-        quantity: parseInt(quantity),
+        quantity: parsedQuantity,
         movementType,
         reference: reference || null,
         notes: notes || null,

@@ -217,14 +217,14 @@ export default async function handler(
         );
       }
 
-      const updates: any = {
+      const updates: Partial<typeof purchaseOrders.$inferInsert> = {
         updatedAt: new Date(),
       };
 
-      if (status !== undefined) updates.status = status;
+      if (status !== undefined) updates.status = status as any;
       if (expectedDate !== undefined) updates.expectedDate = expectedDate ? new Date(expectedDate) : null;
       if (receivedDate !== undefined) updates.receivedDate = receivedDate ? new Date(receivedDate) : null;
-      if (notes !== undefined) updates.notes = notes;
+      if (notes !== undefined) updates.notes = notes || null;
 
       await db.update(purchaseOrders).set(updates).where(eq(purchaseOrders.id, id));
 
