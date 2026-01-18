@@ -1202,7 +1202,8 @@ function createCustomer(params: Record<string, unknown>, state: StateSetters): E
   // If missing optional data and flow not completed, offer multi-step flow
   if (!allOptionalProvided && !flowCompleted) {
     return {
-      success: true,
+      success: false,
+      message: `Customer "${name}" ready to create. Would you like to add contact details?`,
       needsInput: true,
       prompt: `Would you like to add contact details for customer "${name}"?`,
       pendingAction: 'CREATE_CUSTOMER',
@@ -1302,7 +1303,8 @@ function createEquipment(params: Record<string, unknown>, state: StateSetters): 
   // If missing optional data and flow not completed, offer multi-step flow
   if (!allOptionalProvided && !flowCompleted) {
     return {
-      success: true,
+      success: false,
+      message: `Equipment "${equipmentName}" ready to create. Would you like to add details?`,
       needsInput: true,
       prompt: `Would you like to add details for equipment "${equipmentName}" at ${customerName}?`,
       pendingAction: 'CREATE_EQUIPMENT',
@@ -1311,6 +1313,7 @@ function createEquipment(params: Record<string, unknown>, state: StateSetters): 
     }
   }
   
+  // Use equipment name as type fallback if not provided (e.g., "boiler" equipment gets "boiler" type)
   const type = hasType ? String(params.type) : equipmentName
   
   const newEquipment: Equipment = {
@@ -1564,7 +1567,8 @@ function createJob(params: Record<string, unknown>, state: StateSetters): Execut
   // If missing optional data and flow not completed, offer multi-step flow
   if (!allOptionalProvided && !flowCompleted) {
     return {
-      success: true,
+      success: false,
+      message: `Job for "${customerName}" ready to create. Would you like to add details?`,
       needsInput: true,
       prompt: `Would you like to add details for this job for "${customerName}"?`,
       pendingAction: 'CREATE_JOB',
@@ -1855,7 +1859,8 @@ function createSupplier(params: Record<string, unknown>, state: StateSetters): E
   // If missing optional data and flow not completed, offer multi-step flow
   if (!allOptionalProvided && !flowCompleted) {
     return {
-      success: true,
+      success: false,
+      message: `Supplier "${name}" ready to create. Would you like to add contact details?`,
       needsInput: true,
       prompt: `Would you like to add contact details for supplier "${name}"?`,
       pendingAction: 'CREATE_SUPPLIER',
@@ -1884,29 +1889,10 @@ function createSupplier(params: Record<string, unknown>, state: StateSetters): E
 }
 
 function createPurchaseOrder(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
+  const supplierName = String(params.supplierName || '').trim()
   const items = params.items as any[] || []
   
-  // Check for missing optional fields
-  const hasSupplierName = params.supplierName !== undefined && String(params.supplierName).trim() !== ''
-  const hasJobNumber = params.jobNumber !== undefined && String(params.jobNumber).trim() !== ''
-  
-  const allOptionalProvided = hasSupplierName && hasJobNumber
-  const flowCompleted = params.flowCompleted === true
-  
-  // If missing optional data and flow not completed, offer multi-step flow
-  if (!allOptionalProvided && !flowCompleted) {
-    return {
-      success: true,
-      needsInput: true,
-      prompt: `Would you like to add details for this purchase order?`,
-      pendingAction: 'CREATE_PURCHASE_ORDER',
-      context: { items },
-      options: ['Yes', 'No - Create Now']
-    }
-  }
-  
-  const supplierName = String(params.supplierName || '').trim()
-  
+  // Supplier name and items are always required
   if (!supplierName || items.length === 0) {
     return { success: false, message: 'Supplier name and items are required' }
   }
@@ -1917,6 +1903,25 @@ function createPurchaseOrder(params: Record<string, unknown>, state: StateSetter
   
   if (!supplier) {
     return { success: false, message: `Supplier ${supplierName} not found` }
+  }
+  
+  // Check for missing optional fields
+  const hasJobNumber = params.jobNumber !== undefined && String(params.jobNumber).trim() !== ''
+  
+  const allOptionalProvided = hasJobNumber
+  const flowCompleted = params.flowCompleted === true
+  
+  // If missing optional data and flow not completed, offer multi-step flow
+  if (!allOptionalProvided && !flowCompleted) {
+    return {
+      success: false,
+      message: `Purchase order ready to create. Would you like to link it to a job?`,
+      needsInput: true,
+      prompt: `Would you like to link this purchase order to a job?`,
+      pendingAction: 'CREATE_PURCHASE_ORDER',
+      context: { supplierName, items },
+      options: ['Yes', 'No - Create Now']
+    }
   }
   
   const poNumber = `PO-${Date.now()}`
