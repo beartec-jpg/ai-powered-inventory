@@ -1578,6 +1578,7 @@ function createJob(params: Record<string, unknown>, state: StateSetters): Execut
   }
   
   const type = hasType ? String(params.type) : 'service'
+  const priority = hasPriority ? String(params.priority) : 'normal'
   
   // Generate job number
   const jobCount = state.jobs.length + 1
@@ -1589,7 +1590,7 @@ function createJob(params: Record<string, unknown>, state: StateSetters): Execut
     customerId: customer.id,
     customerName: customer.name,
     type: type as Job['type'],
-    priority: (params.priority as Job['priority']) || 'normal',
+    priority: priority as Job['priority'],
     equipmentName: hasEquipmentName ? String(params.equipmentName) : undefined,
     description: hasDescription ? String(params.description) : undefined,
     reportedFault: params.reportedFault ? String(params.reportedFault) : undefined,
