@@ -1313,8 +1313,8 @@ function createEquipment(params: Record<string, unknown>, state: StateSetters): 
     }
   }
   
-  // Use equipment name as type fallback if not provided (e.g., "boiler" equipment gets "boiler" type)
-  const type = hasType ? String(params.type) : equipmentName
+  // Type defaults to 'general' if not provided (user skipped the flow)
+  const type = hasType ? String(params.type) : 'general'
   
   const newEquipment: Equipment = {
     id: generateId(),
