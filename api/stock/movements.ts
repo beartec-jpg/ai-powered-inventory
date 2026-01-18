@@ -55,8 +55,19 @@ export default async function handler(
       const productId = req.query.productId as string;
       const movementType = req.query.movementType as string;
 
+      // Build where conditions
+      const conditions = [eq(catalogueItems.userId, userId)];
+      
+      if (productId) {
+        conditions.push(eq(stockMovements.productId, productId));
+      }
+
+      if (movementType) {
+        conditions.push(eq(stockMovements.movementType, movementType as any));
+      }
+
       // Build query - need to join with catalogueItems to filter by userId
-      let query = db
+      const movements = await db
         .select({
           id: stockMovements.id,
           productId: stockMovements.productId,
@@ -68,18 +79,7 @@ export default async function handler(
         })
         .from(stockMovements)
         .innerJoin(catalogueItems, eq(stockMovements.productId, catalogueItems.id))
-        .where(eq(catalogueItems.userId, userId));
-
-      // Apply additional filters if provided
-      if (productId) {
-        query = query.where(eq(stockMovements.productId, productId));
-      }
-
-      if (movementType) {
-        query = query.where(eq(stockMovements.movementType, movementType));
-      }
-
-      const movements = await query
+        .where(and(...conditions))
         .orderBy(desc(stockMovements.createdAt))
         .limit(perPage)
         .offset((page - 1) * perPage);

@@ -105,13 +105,10 @@ export default async function handler(
       const perPage = Math.min(parseInt(req.query.perPage as string) || 30, 100);
       const status = req.query.status as string;
 
-      let query = db.select().from(purchaseOrders);
-
-      if (status) {
-        query = query.where(eq(purchaseOrders.status, status));
-      }
-
-      const items = await query
+      const items = await db
+        .select()
+        .from(purchaseOrders)
+        .where(status ? eq(purchaseOrders.status, status as any) : undefined)
         .orderBy(desc(purchaseOrders.createdAt))
         .limit(perPage)
         .offset((page - 1) * perPage);

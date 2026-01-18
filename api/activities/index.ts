@@ -48,25 +48,6 @@ export default async function handler(
   }
 
   try {
-    // GET /api/activities?entityType=xyz - Get activities by entity type
-    if (req.method === 'GET' && req.query.entityType) {
-      const entityType = String(req.query.entityType);
-      const entityId = req.query.entityId as string;
-
-      let query = db
-        .select()
-        .from(activities)
-        .where(eq(activities.entityType, entityType));
-
-      if (entityId) {
-        query = query.where(eq(activities.entityId, entityId));
-      }
-
-      const items = await query.orderBy(desc(activities.createdAt));
-
-      return successResponse(res, items, `Found ${items.length} activity(ies)`);
-    }
-
     // GET /api/activities - List all activities (audit log)
     if (req.method === 'GET') {
       const page = parseInt(req.query.page as string) || 1;
@@ -74,17 +55,21 @@ export default async function handler(
       const entityType = req.query.entityType as string;
       const entityId = req.query.entityId as string;
 
-      let query = db.select().from(activities);
-
+      // Build where conditions
+      const conditions = [];
+      
       if (entityType) {
-        query = query.where(eq(activities.entityType, entityType));
+        conditions.push(eq(activities.entityType, entityType));
       }
 
       if (entityId) {
-        query = query.where(eq(activities.entityId, entityId));
+        conditions.push(eq(activities.entityId, entityId));
       }
 
-      const items = await query
+      const items = await db
+        .select()
+        .from(activities)
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
         .orderBy(desc(activities.createdAt))
         .limit(perPage)
         .offset((page - 1) * perPage);
