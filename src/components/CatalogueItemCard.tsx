@@ -19,7 +19,7 @@ export function CatalogueItemCard({ item, stockLevels = [] }: CatalogueItemCardP
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
+      animate={{ opacity: 1, scale:  1 }}
       transition={{ duration: 0.2 }}
     >
       <Card className="p-4 hover:border-accent/50 transition-all hover:shadow-lg hover:shadow-accent/10">
@@ -39,7 +39,7 @@ export function CatalogueItemCard({ item, stockLevels = [] }: CatalogueItemCardP
           
           {/* Stock badge */}
           <Badge 
-            variant={!hasStock ? 'outline' : isLowStock ? 'outline' : 'secondary'}
+            variant={!hasStock ? 'outline' : isLowStock ?  'outline' : 'secondary'}
             className={`flex-shrink-0 ml-2 ${isLowStock && hasStock ? 'border-yellow-500 text-yellow-500' : ''}`}
           >
             {!hasStock ? 'No Stock' : isLowStock ? 'Low Stock' : 'In Stock'}
@@ -74,7 +74,7 @@ export function CatalogueItemCard({ item, stockLevels = [] }: CatalogueItemCardP
                 ))}
                 {stockLevels.length > 2 && (
                   <div className="text-xs text-muted-foreground">
-                    +{stockLevels.length - 2} more location{stockLevels.length - 2 > 1 ? 's' : ''}
+                    +{stockLevels.length - 2} more location{stockLevels.length - 2 > 1 ? 's' :  ''}
                   </div>
                 )}
               </div>
@@ -84,13 +84,13 @@ export function CatalogueItemCard({ item, stockLevels = [] }: CatalogueItemCardP
 
         {/* Footer */}
         <div className="flex items-center justify-between mt-4 pt-3 border-t border-border">
-          {item.unitCost !== undefined ? (
+          {item.unitCost !== undefined && item.unitCost !== null ? (
             <div className="flex items-center gap-1.5 text-muted-foreground">
               <CurrencyDollar size={14} />
               <span className="text-xs">
-                £{item.unitCost.toFixed(2)}
-                {item.sellPrice !== undefined && (
-                  <span className="ml-2 text-accent">→ £{item.sellPrice.toFixed(2)}</span>
+                £{item.unitCost?. toFixed(2) || '0.00'}
+                {item. sellPrice !== undefined && item. sellPrice !== null && (
+                  <span className="ml-2 text-accent">→ £{item.sellPrice?.toFixed(2) || '0.00'}</span>
                 )}
               </span>
             </div>
