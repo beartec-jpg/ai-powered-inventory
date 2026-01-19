@@ -1500,7 +1500,7 @@ export function Dashboard() {
               if (nextStep <= existingPending.totalSteps) {
                 const nextStepIndex = nextStep - 1
                 const nextStepDef = flow.steps[nextStepIndex]
-                const itemName = String(existingPending.context?.item || '')
+                const itemName = String(existingPending.context?.name || '')
                 
                 const updatedPending = conversationManager.createPendingCommand(
                   existingPending.action,
@@ -1543,7 +1543,7 @@ export function Dashboard() {
                 return
               }
               
-              const itemName = String(existingPending.context?.item || '')
+              const itemName = String(existingPending.context?.name || '')
               
               const pending = conversationManager.createPendingCommand(
                 'CREATE_PURCHASE_ORDER',
