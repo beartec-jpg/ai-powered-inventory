@@ -2,16 +2,22 @@ import { useState, useMemo } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { CatalogueItemCard } from './CatalogueItemCard'
-import type { CatalogueItem, StockLevel } from '@/lib/types'
+import type { CatalogueItem, StockLevel, Supplier } from '@/lib/types'
 import { Package } from '@phosphor-icons/react'
+import { AnimatePresence, motion } from 'framer-motion'
+import { useNavigation } from '@/contexts/NavigationContext'
 
 interface CatalogueViewProps {
   catalogue: CatalogueItem[]
   stockLevels: StockLevel[]
+  suppliers?: Supplier[]
+  onUpdate?: (id: string, updates: Partial<CatalogueItem>) => void
 }
 
-export function CatalogueView({ catalogue, stockLevels }: CatalogueViewProps) {
+export function CatalogueView({ catalogue, stockLevels, suppliers = [], onUpdate }: CatalogueViewProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
+  const { expandedEntityId, expandedEntityType } = useNavigation()
+  const [localExpandedId, setLocalExpandedId] = useState<string | null>(null)
   
   // Extract unique categories from catalogue items
   const categories = useMemo(() => {
@@ -47,8 +53,14 @@ export function CatalogueView({ catalogue, stockLevels }: CatalogueViewProps) {
   
   // Sort items by name
   const sortedItems = useMemo(() => {
-    return [...filteredItems].sort((a, b) => a.name.localeCompare(b.name))
-  }, [filteredItems])
+    return [...filteredItems].sort((a, b) => {
+      // If one item is expanded, it should be first
+      const expandedId = expandedEntityType === 'catalogue' ? expandedEntityId : localExpandedId
+      if (a.id === expandedId) return -1
+      if (b.id === expandedId) return 1
+      return a.name.localeCompare(b.name)
+    })
+  }, [filteredItems, expandedEntityId, expandedEntityType, localExpandedId])
   
   if (catalogue.length === 0) {
     return (
@@ -101,13 +113,29 @@ export function CatalogueView({ catalogue, stockLevels }: CatalogueViewProps) {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {sortedItems.map(item => (
-                    <CatalogueItemCard
-                      key={item.id}
-                      item={item}
-                      stockLevels={stockByItemId.get(item.id) || []}
-                    />
-                  ))}
+                  <AnimatePresence>
+                    {sortedItems.map(item => {
+                      const expandedId = expandedEntityType === 'catalogue' ? expandedEntityId : localExpandedId
+                      const isExpanded = item.id === expandedId
+                      return (
+                        <motion.div
+                          key={item.id}
+                          layout
+                          className={isExpanded ? 'md:col-span-2 lg:col-span-3' : ''}
+                        >
+                          <CatalogueItemCard
+                            item={item}
+                            stockLevels={stockByItemId.get(item.id) || []}
+                            suppliers={suppliers}
+                            isExpanded={isExpanded}
+                            onExpand={() => setLocalExpandedId(item.id)}
+                            onCollapse={() => setLocalExpandedId(null)}
+                            onUpdate={onUpdate}
+                          />
+                        </motion.div>
+                      )
+                    })}
+                  </AnimatePresence>
                 </div>
               )}
             </TabsContent>
@@ -143,13 +171,28 @@ export function CatalogueView({ catalogue, stockLevels }: CatalogueViewProps) {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4">
-            {sortedItems.map(item => (
-              <CatalogueItemCard
-                key={item.id}
-                item={item}
-                stockLevels={stockByItemId.get(item.id) || []}
-              />
-            ))}
+            <AnimatePresence>
+              {sortedItems.map(item => {
+                const expandedId = expandedEntityType === 'catalogue' ? expandedEntityId : localExpandedId
+                const isExpanded = item.id === expandedId
+                return (
+                  <motion.div
+                    key={item.id}
+                    layout
+                  >
+                    <CatalogueItemCard
+                      item={item}
+                      stockLevels={stockByItemId.get(item.id) || []}
+                      suppliers={suppliers}
+                      isExpanded={isExpanded}
+                      onExpand={() => setLocalExpandedId(item.id)}
+                      onCollapse={() => setLocalExpandedId(null)}
+                      onUpdate={onUpdate}
+                    />
+                  </motion.div>
+                )
+              })}
+            </AnimatePresence>
           </div>
         )}
       </div>

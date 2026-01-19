@@ -24,6 +24,7 @@ import { conversationManager } from '@/lib/conversation-manager'
 import { getFlow, processStepInput, supplierExists, SUPPLIER_DETAILS_SUB_FLOW } from '@/lib/multi-step-flows'
 import { useCatalogue, useStockLevels, useUpdateStockLevel } from '@/hooks/useInventoryData'
 import { useKV } from '@github/spark/hooks' // Legacy KV for non-catalogue/stock data
+import { useNavigation } from '@/contexts/NavigationContext'
 import type { 
   InventoryItem, 
   Location, 
@@ -42,6 +43,7 @@ import { Package, FileText, ClockCounterClockwise, Sparkle, Gear, User, Bug, Boo
 
 export function Dashboard() {
   const { userId } = useAuth()
+  const { selectedTab, setSelectedTab } = useNavigation()
 
   // Check if speech feature is enabled
   const isSpeechEnabled = import.meta.env.VITE_FEATURE_SPEECH === 'true'
@@ -75,7 +77,6 @@ export function Dashboard() {
   const [pendingCommand, setPendingCommand] = useState<PendingCommand | null>(null)
   const [debugMode, setDebugMode] = useState(false)
   const [latestDebugInfo, setLatestDebugInfo] = useState<DebugInfo | null>(null)
-  const [selectedTab, setSelectedTab] = useState<string>('inventory')
 
   // Handler for updating stock levels from the UI
   const handleStockUpdate = async (id: string, updates: Partial<InventoryItem | StockLevel>) => {
@@ -2002,7 +2003,7 @@ export function Dashboard() {
                 {catalogueArray.length} catalogue items
               </p>
             </div>
-            <CatalogueView catalogue={catalogueArray} stockLevels={stockLevelsArray} />
+            <CatalogueView catalogue={catalogueArray} stockLevels={stockLevelsArray} suppliers={suppliersArray} />
           </TabsContent>
 
           <TabsContent value="equipment">
