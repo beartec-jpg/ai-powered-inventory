@@ -1244,7 +1244,7 @@ export function Dashboard() {
               if (nextStep <= existingPending.totalSteps) {
                 const nextStepIndex = nextStep - 1
                 const nextStepDef = flow.steps[nextStepIndex]
-                const customerName = String(existingPending.context?.name || '')
+                const customerName = String(existingPending.context?.customerName || '')
                 
                 const updatedPending = conversationManager.createPendingCommand(
                   existingPending.action,
@@ -1287,7 +1287,7 @@ export function Dashboard() {
                 return
               }
               
-              const customerName = String(existingPending.context?.name || '')
+              const customerName = String(existingPending.context?.customerName || '')
               
               const pending = conversationManager.createPendingCommand(
                 'CREATE_JOB',
@@ -1372,7 +1372,7 @@ export function Dashboard() {
               if (nextStep <= existingPending.totalSteps) {
                 const nextStepIndex = nextStep - 1
                 const nextStepDef = flow.steps[nextStepIndex]
-                const equipmentName = String(existingPending.context?.name || '')
+                const equipmentName = String(existingPending.context?.equipmentName || '')
                 
                 const updatedPending = conversationManager.createPendingCommand(
                   existingPending.action,
@@ -1415,7 +1415,7 @@ export function Dashboard() {
                 return
               }
               
-              const equipmentName = String(existingPending.context?.name || '')
+              const equipmentName = String(existingPending.context?.equipmentName || '')
               
               const pending = conversationManager.createPendingCommand(
                 'CREATE_EQUIPMENT',
@@ -1500,13 +1500,13 @@ export function Dashboard() {
               if (nextStep <= existingPending.totalSteps) {
                 const nextStepIndex = nextStep - 1
                 const nextStepDef = flow.steps[nextStepIndex]
-                const itemName = String(existingPending.context?.name || '')
+                const supplierName = String(existingPending.context?.supplierName || '')
                 
                 const updatedPending = conversationManager.createPendingCommand(
                   existingPending.action,
                   existingPending.parameters,
                   [],
-                  nextStepDef.prompt(itemName),
+                  nextStepDef.prompt(supplierName),
                   existingPending.pendingAction,
                   existingPending.context,
                   ['Skip'],
@@ -1543,13 +1543,13 @@ export function Dashboard() {
                 return
               }
               
-              const itemName = String(existingPending.context?.name || '')
+              const supplierName = String(existingPending.context?.supplierName || '')
               
               const pending = conversationManager.createPendingCommand(
                 'CREATE_PURCHASE_ORDER',
                 existingPending.parameters,
                 [],
-                flow.steps[0].prompt(itemName),
+                flow.steps[0].prompt(supplierName),
                 'CREATE_PURCHASE_ORDER',
                 existingPending.context,
                 flow.steps[0].optional ? ['Skip'] : undefined,
