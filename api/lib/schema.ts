@@ -100,7 +100,8 @@ export const products = pgTable('products', {
 // Suppliers Table
 export const suppliers = pgTable('suppliers', {
   id: text('id').primaryKey().notNull(),
-  name: varchar('name', { length: 255 }).notNull().unique(),
+  userId: text('user_id').notNull().references(() => userProfiles.clerkUserId),
+  name: varchar('name', { length: 255 }).notNull(),
   email: varchar('email', { length: 255 }),
   phone: varchar('phone', { length: 50 }),
   address: text('address'),
@@ -110,7 +111,8 @@ export const suppliers = pgTable('suppliers', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => ({
-  nameIdx: uniqueIndex('suppliers_name_idx').on(table.name),
+  userNameIdx: uniqueIndex('suppliers_user_name_idx').on(table.userId, table.name),
+  userIdIdx: index('suppliers_user_id_idx').on(table.userId),
 }));
 
 // Product-Supplier Relationship Table
@@ -301,4 +303,112 @@ export const stockLevels = pgTable('stock_levels', {
   locationIdx: index('stock_levels_location_idx').on(table.location),
   partNumberIdx: index('stock_levels_part_number_idx').on(table.partNumber),
   userIdIdx: index('stock_levels_user_id_idx').on(table.userId),
+}));
+
+// Customers Table (for Field Service Management)
+export const customers = pgTable('customers', {
+  id: text('id').primaryKey().notNull(),
+  userId: text('user_id').notNull().references(() => userProfiles.clerkUserId),
+  name: varchar('name', { length: 255 }).notNull(),
+  type: varchar('type', { length: 50 }).notNull(), // 'commercial', 'residential', 'industrial'
+  contactName: varchar('contact_name', { length: 255 }),
+  email: varchar('email', { length: 255 }),
+  phone: varchar('phone', { length: 50 }),
+  mobile: varchar('mobile', { length: 50 }),
+  billingAddress: text('billing_address'),
+  accountNumber: varchar('account_number', { length: 100 }),
+  vatNumber: varchar('vat_number', { length: 100 }),
+  paymentTerms: varchar('payment_terms', { length: 255 }),
+  notes: text('notes'),
+  tags: text('tags'), // JSON string array
+  active: boolean('active').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  userIdIdx: index('customers_user_id_idx').on(table.userId),
+  nameIdx: index('customers_name_idx').on(table.name),
+}));
+
+// Equipment Table (for Field Service Management)
+export const equipment = pgTable('equipment', {
+  id: text('id').primaryKey().notNull(),
+  userId: text('user_id').notNull().references(() => userProfiles.clerkUserId),
+  customerId: text('customer_id').notNull().references(() => customers.id, { onDelete: 'cascade' }),
+  customerName: varchar('customer_name', { length: 255 }).notNull(),
+  siteAddressId: text('site_address_id'),
+  name: varchar('name', { length: 255 }).notNull(),
+  type: varchar('type', { length: 100 }).notNull(),
+  manufacturer: varchar('manufacturer', { length: 255 }),
+  model: varchar('model', { length: 255 }),
+  serialNumber: varchar('serial_number', { length: 255 }),
+  location: varchar('location', { length: 255 }),
+  accessNotes: text('access_notes'),
+  installDate: timestamp('install_date'),
+  warrantyExpiry: timestamp('warranty_expiry'),
+  serviceInterval: integer('service_interval'), // in days
+  lastServiceDate: timestamp('last_service_date'),
+  nextServiceDue: timestamp('next_service_due'),
+  contractType: varchar('contract_type', { length: 50 }), // 'none', 'breakdown', 'maintenance', 'full_cover'
+  contractExpiry: timestamp('contract_expiry'),
+  technicalNotes: text('technical_notes'),
+  qrCode: varchar('qr_code', { length: 255 }),
+  active: boolean('active').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  userIdIdx: index('equipment_user_id_idx').on(table.userId),
+  customerIdIdx: index('equipment_customer_id_idx').on(table.customerId),
+  typeIdx: index('equipment_type_idx').on(table.type),
+}));
+
+// Jobs Table (for Field Service Management)
+export const jobs = pgTable('jobs', {
+  id: text('id').primaryKey().notNull(),
+  userId: text('user_id').notNull().references(() => userProfiles.clerkUserId),
+  jobNumber: varchar('job_number', { length: 100 }).notNull(),
+  customerId: text('customer_id').notNull().references(() => customers.id, { onDelete: 'cascade' }),
+  customerName: varchar('customer_name', { length: 255 }).notNull(),
+  siteAddressId: text('site_address_id'),
+  siteAddress: text('site_address'),
+  equipmentId: text('equipment_id').references(() => equipment.id, { onDelete: 'set null' }),
+  equipmentName: varchar('equipment_name', { length: 255 }),
+  type: varchar('type', { length: 50 }).notNull(), // 'service', 'repair', 'installation', 'maintenance', 'quote', 'inspection'
+  priority: varchar('priority', { length: 50 }).default('normal').notNull(), // 'low', 'normal', 'high', 'emergency'
+  description: text('description'),
+  reportedFault: text('reported_fault'),
+  workRequired: text('work_required'),
+  assignedTo: text('assigned_to'),
+  assignedEngineerName: varchar('assigned_engineer_name', { length: 255 }),
+  status: varchar('status', { length: 50 }).default('quote').notNull(), // 'quote', 'scheduled', 'dispatched', 'in_progress', 'on_hold', 'completed', 'invoiced', 'cancelled'
+  scheduledDate: timestamp('scheduled_date'),
+  scheduledTimeSlot: varchar('scheduled_time_slot', { length: 100 }),
+  estimatedDuration: integer('estimated_duration'), // in minutes
+  startedAt: timestamp('started_at'),
+  completedAt: timestamp('completed_at'),
+  completedBy: varchar('completed_by', { length: 255 }),
+  workCarriedOut: text('work_carried_out'),
+  findings: text('findings'),
+  recommendations: text('recommendations'),
+  partsUsed: text('parts_used'), // JSON string array
+  labourHours: real('labour_hours'),
+  labourRate: real('labour_rate'),
+  partsCost: real('parts_cost'),
+  totalCost: real('total_cost'),
+  customerSignature: text('customer_signature'),
+  signedByName: varchar('signed_by_name', { length: 255 }),
+  signedAt: timestamp('signed_at'),
+  followUpRequired: boolean('follow_up_required').default(false),
+  followUpNotes: text('follow_up_notes'),
+  notes: text('notes'),
+  internalNotes: text('internal_notes'),
+  active: boolean('active').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  userIdIdx: index('jobs_user_id_idx').on(table.userId),
+  customerIdIdx: index('jobs_customer_id_idx').on(table.customerId),
+  equipmentIdIdx: index('jobs_equipment_id_idx').on(table.equipmentId),
+  statusIdx: index('jobs_status_idx').on(table.status),
+  jobNumberIdx: index('jobs_job_number_idx').on(table.jobNumber),
+  userJobNumberIdx: uniqueIndex('jobs_user_job_number_idx').on(table.userId, table.jobNumber),
 }));

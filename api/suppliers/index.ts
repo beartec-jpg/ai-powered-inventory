@@ -1,7 +1,7 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import { db } from '../lib/db.js';
 import { suppliers } from '../lib/schema.js';
-import { eq, ilike, desc, or } from 'drizzle-orm';
+import { eq, ilike, desc, or, and } from 'drizzle-orm';
 import {
   successResponse,
   createdResponse,
@@ -16,6 +16,29 @@ import { extractClerkUserId } from '../lib/auth-helper.js';
 // Helper to generate IDs
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+}
+
+// Helper function to get suppliers with user scoping and search
+async function getSuppliers(userId: string, search?: string, page: number = 1, perPage: number = 30) {
+  const conditions = [eq(suppliers.userId, userId)];
+  
+  if (search) {
+    conditions.push(
+      or(
+        ilike(suppliers.name, `%${search}%`),
+        ilike(suppliers.email, `%${search}%`),
+        ilike(suppliers.city, `%${search}%`)
+      )!
+    );
+  }
+
+  return db
+    .select()
+    .from(suppliers)
+    .where(and(...conditions))
+    .orderBy(desc(suppliers.createdAt))
+    .limit(perPage)
+    .offset((page - 1) * perPage);
 }
 
 export default async function handler(
@@ -52,18 +75,10 @@ export default async function handler(
     // GET /api/suppliers?search=term - Search suppliers
     if (req.method === 'GET' && req.query.search) {
       const search = String(req.query.search).toLowerCase();
+      const page = parseInt(req.query.page as string) || 1;
+      const perPage = Math.min(parseInt(req.query.perPage as string) || 30, 100);
       
-      const items = await db
-        .select()
-        .from(suppliers)
-        .where(
-          or(
-            ilike(suppliers.name, `%${search}%`),
-            ilike(suppliers.email, `%${search}%`),
-            ilike(suppliers.city, `%${search}%`)
-          )
-        )
-        .orderBy(desc(suppliers.createdAt));
+      const items = await getSuppliers(userId, search, page, perPage);
 
       return successResponse(res, items, `Found ${items.length} supplier(s)`);
     }
@@ -75,7 +90,10 @@ export default async function handler(
       const items = await db
         .select()
         .from(suppliers)
-        .where(eq(suppliers.id, id))
+        .where(and(
+          eq(suppliers.id, id),
+          eq(suppliers.userId, userId)
+        ))
         .limit(1);
 
       if (items.length === 0) {
@@ -90,15 +108,13 @@ export default async function handler(
       const page = parseInt(req.query.page as string) || 1;
       const perPage = Math.min(parseInt(req.query.perPage as string) || 30, 100);
 
-      const items = await db
+      const items = await getSuppliers(userId, undefined, page, perPage);
+      
+      // Get total count for this user
+      const countResult = await db
         .select()
         .from(suppliers)
-        .orderBy(desc(suppliers.createdAt))
-        .limit(perPage)
-        .offset((page - 1) * perPage);
-      
-      // Get total count
-      const countResult = await db.select().from(suppliers);
+        .where(eq(suppliers.userId, userId));
       
       return paginatedResponse(
         res,
@@ -119,22 +135,27 @@ export default async function handler(
         return badRequestResponse(res, 'Missing required field: name');
       }
 
-      // Check if supplier with same name already exists
+      // Check if supplier with same name already exists for this user
       const existing = await db
         .select()
         .from(suppliers)
-        .where(eq(suppliers.name, name))
+        .where(and(
+          eq(suppliers.name, name),
+          eq(suppliers.userId, userId)
+        ))
         .limit(1);
 
       if (existing.length > 0) {
-        return badRequestResponse(
-          res,
-          `Supplier with name "${name}" already exists`
-        );
+        return res.status(409).json({
+          success: false,
+          error: 'Conflict',
+          message: `Supplier with name "${name}" already exists`,
+        });
       }
 
       const newSupplier = {
         id: generateId(),
+        userId, // Add userId for user scoping
         name,
         email: email || null,
         phone: phone || null,
@@ -159,11 +180,14 @@ export default async function handler(
         return badRequestResponse(res, 'Supplier ID is required');
       }
 
-      // Check if supplier exists
+      // Check if supplier exists and belongs to this user
       const existing = await db
         .select()
         .from(suppliers)
-        .where(eq(suppliers.id, id))
+        .where(and(
+          eq(suppliers.id, id),
+          eq(suppliers.userId, userId)
+        ))
         .limit(1);
 
       if (existing.length === 0) {
@@ -182,15 +206,58 @@ export default async function handler(
       if (country !== undefined) updates.country = country || null;
       if (active !== undefined) updates.active = active;
 
-      await db.update(suppliers).set(updates).where(eq(suppliers.id, id));
+      await db
+        .update(suppliers)
+        .set(updates)
+        .where(and(
+          eq(suppliers.id, id),
+          eq(suppliers.userId, userId)
+        ));
 
       const updated = await db
         .select()
         .from(suppliers)
-        .where(eq(suppliers.id, id))
+        .where(and(
+          eq(suppliers.id, id),
+          eq(suppliers.userId, userId)
+        ))
         .limit(1);
 
       return successResponse(res, updated[0], 'Supplier updated successfully');
+    }
+
+    // DELETE /api/suppliers?id=xyz - Delete supplier (soft delete)
+    if (req.method === 'DELETE') {
+      const id = req.query.id as string;
+
+      if (!id) {
+        return badRequestResponse(res, 'Supplier ID is required');
+      }
+
+      // Check if supplier exists and belongs to this user
+      const existing = await db
+        .select()
+        .from(suppliers)
+        .where(and(
+          eq(suppliers.id, id),
+          eq(suppliers.userId, userId)
+        ))
+        .limit(1);
+
+      if (existing.length === 0) {
+        return notFoundResponse(res, 'Supplier not found');
+      }
+
+      // Soft delete by setting active to false
+      await db
+        .update(suppliers)
+        .set({ active: false, updatedAt: new Date() })
+        .where(and(
+          eq(suppliers.id, id),
+          eq(suppliers.userId, userId)
+        ));
+
+      return successResponse(res, { id }, 'Supplier deleted successfully');
     }
 
     // Method not allowed
