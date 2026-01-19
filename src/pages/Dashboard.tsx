@@ -934,6 +934,646 @@ export function Dashboard() {
               return
             }
           }
+        } else if (existingPending.pendingAction === 'CREATE_CUSTOMER') {
+          if (existingPending.currentStep !== undefined && existingPending.totalSteps !== undefined) {
+            // Multi-step flow in progress
+            const flow = getFlow('CREATE_CUSTOMER')
+            if (!flow) {
+              toast.error('Flow configuration error')
+              conversationManager.clearPendingCommand()
+              setPendingCommand(null)
+              setIsProcessing(false)
+              return
+            }
+            
+            const currentStepIndex = existingPending.currentStep - 1
+            const step = flow.steps[currentStepIndex]
+            
+            if (commandLower === 'cancel') {
+              conversationManager.clearPendingCommand()
+              setPendingCommand(null)
+              toast.info('Operation cancelled')
+              setIsProcessing(false)
+              return
+            }
+            
+            const result = processStepInput(step, command)
+            
+            if (result.error) {
+              toast.error(result.error)
+              setIsProcessing(false)
+              return
+            }
+            
+            const collectedData = { ...(existingPending.collectedData || {}) }
+            if (!result.skipped && result.value !== null) {
+              collectedData[step.field] = result.value
+            }
+            
+            if (result.skipped && step.skipText) {
+              toast.info(step.skipText)
+            }
+            
+            // Move to next step or complete
+            if (existingPending.currentStep < existingPending.totalSteps) {
+              let nextStep = existingPending.currentStep + 1
+              while (nextStep <= existingPending.totalSteps) {
+                const stepField = flow.steps[nextStep - 1].field
+                if (!(stepField in collectedData)) {
+                  break
+                }
+                nextStep++
+              }
+              
+              if (nextStep <= existingPending.totalSteps) {
+                const nextStepIndex = nextStep - 1
+                const nextStepDef = flow.steps[nextStepIndex]
+                const customerName = String(existingPending.context?.name || '')
+                
+                const updatedPending = conversationManager.createPendingCommand(
+                  existingPending.action,
+                  existingPending.parameters,
+                  [],
+                  nextStepDef.prompt(customerName),
+                  existingPending.pendingAction,
+                  existingPending.context,
+                  ['Skip'],
+                  nextStep,
+                  existingPending.totalSteps,
+                  collectedData
+                )
+                
+                setPendingCommand(updatedPending)
+                setIsProcessing(false)
+                return
+              }
+            }
+            
+            // All steps completed, execute the action
+            actionToExecute = 'CREATE_CUSTOMER'
+            paramsToExecute = {
+              ...existingPending.context,
+              ...collectedData,
+              flowCompleted: true
+            }
+            conversationManager.clearPendingCommand()
+            setPendingCommand(null)
+          } else {
+            // Initial confirmation (yes/no)
+            if (commandLower === 'yes' || /\byes\b/.test(commandLower)) {
+              // User confirmed, start multi-step flow
+              const flow = getFlow('CREATE_CUSTOMER')
+              if (!flow) {
+                toast.error('Flow configuration error')
+                conversationManager.clearPendingCommand()
+                setPendingCommand(null)
+                setIsProcessing(false)
+                return
+              }
+              
+              const customerName = String(existingPending.context?.name || '')
+              
+              const pending = conversationManager.createPendingCommand(
+                'CREATE_CUSTOMER',
+                existingPending.parameters,
+                [],
+                flow.steps[0].prompt(customerName),
+                'CREATE_CUSTOMER',
+                existingPending.context,
+                flow.steps[0].optional ? ['Skip'] : undefined,
+                1,
+                flow.steps.length,
+                {}
+              )
+              
+              setPendingCommand(pending)
+              setIsProcessing(false)
+              return
+            } else if (commandLower === 'no' || commandLower === 'cancel') {
+              // User cancelled
+              conversationManager.clearPendingCommand()
+              setPendingCommand(null)
+              toast.info('Operation cancelled')
+              setIsProcessing(false)
+              return
+            } else {
+              toast.warning('Please reply with "yes" to add details or "no" to cancel')
+              setIsProcessing(false)
+              return
+            }
+          }
+        } else if (existingPending.pendingAction === 'CREATE_SUPPLIER') {
+          if (existingPending.currentStep !== undefined && existingPending.totalSteps !== undefined) {
+            // Multi-step flow in progress
+            const flow = getFlow('CREATE_SUPPLIER')
+            if (!flow) {
+              toast.error('Flow configuration error')
+              conversationManager.clearPendingCommand()
+              setPendingCommand(null)
+              setIsProcessing(false)
+              return
+            }
+            
+            const currentStepIndex = existingPending.currentStep - 1
+            const step = flow.steps[currentStepIndex]
+            
+            if (commandLower === 'cancel') {
+              conversationManager.clearPendingCommand()
+              setPendingCommand(null)
+              toast.info('Operation cancelled')
+              setIsProcessing(false)
+              return
+            }
+            
+            const result = processStepInput(step, command)
+            
+            if (result.error) {
+              toast.error(result.error)
+              setIsProcessing(false)
+              return
+            }
+            
+            const collectedData = { ...(existingPending.collectedData || {}) }
+            if (!result.skipped && result.value !== null) {
+              collectedData[step.field] = result.value
+            }
+            
+            if (result.skipped && step.skipText) {
+              toast.info(step.skipText)
+            }
+            
+            // Move to next step or complete
+            if (existingPending.currentStep < existingPending.totalSteps) {
+              let nextStep = existingPending.currentStep + 1
+              while (nextStep <= existingPending.totalSteps) {
+                const stepField = flow.steps[nextStep - 1].field
+                if (!(stepField in collectedData)) {
+                  break
+                }
+                nextStep++
+              }
+              
+              if (nextStep <= existingPending.totalSteps) {
+                const nextStepIndex = nextStep - 1
+                const nextStepDef = flow.steps[nextStepIndex]
+                const supplierName = String(existingPending.context?.name || '')
+                
+                const updatedPending = conversationManager.createPendingCommand(
+                  existingPending.action,
+                  existingPending.parameters,
+                  [],
+                  nextStepDef.prompt(supplierName),
+                  existingPending.pendingAction,
+                  existingPending.context,
+                  ['Skip'],
+                  nextStep,
+                  existingPending.totalSteps,
+                  collectedData
+                )
+                
+                setPendingCommand(updatedPending)
+                setIsProcessing(false)
+                return
+              }
+            }
+            
+            // All steps completed, execute the action
+            actionToExecute = 'CREATE_SUPPLIER'
+            paramsToExecute = {
+              ...existingPending.context,
+              ...collectedData,
+              flowCompleted: true
+            }
+            conversationManager.clearPendingCommand()
+            setPendingCommand(null)
+          } else {
+            // Initial confirmation (yes/no)
+            if (commandLower === 'yes' || /\byes\b/.test(commandLower)) {
+              // User confirmed, start multi-step flow
+              const flow = getFlow('CREATE_SUPPLIER')
+              if (!flow) {
+                toast.error('Flow configuration error')
+                conversationManager.clearPendingCommand()
+                setPendingCommand(null)
+                setIsProcessing(false)
+                return
+              }
+              
+              const supplierName = String(existingPending.context?.name || '')
+              
+              const pending = conversationManager.createPendingCommand(
+                'CREATE_SUPPLIER',
+                existingPending.parameters,
+                [],
+                flow.steps[0].prompt(supplierName),
+                'CREATE_SUPPLIER',
+                existingPending.context,
+                flow.steps[0].optional ? ['Skip'] : undefined,
+                1,
+                flow.steps.length,
+                {}
+              )
+              
+              setPendingCommand(pending)
+              setIsProcessing(false)
+              return
+            } else if (commandLower === 'no' || commandLower === 'cancel') {
+              // User cancelled
+              conversationManager.clearPendingCommand()
+              setPendingCommand(null)
+              toast.info('Operation cancelled')
+              setIsProcessing(false)
+              return
+            } else {
+              toast.warning('Please reply with "yes" to add details or "no" to cancel')
+              setIsProcessing(false)
+              return
+            }
+          }
+        } else if (existingPending.pendingAction === 'CREATE_JOB') {
+          if (existingPending.currentStep !== undefined && existingPending.totalSteps !== undefined) {
+            // Multi-step flow in progress
+            const flow = getFlow('CREATE_JOB')
+            if (!flow) {
+              toast.error('Flow configuration error')
+              conversationManager.clearPendingCommand()
+              setPendingCommand(null)
+              setIsProcessing(false)
+              return
+            }
+            
+            const currentStepIndex = existingPending.currentStep - 1
+            const step = flow.steps[currentStepIndex]
+            
+            if (commandLower === 'cancel') {
+              conversationManager.clearPendingCommand()
+              setPendingCommand(null)
+              toast.info('Operation cancelled')
+              setIsProcessing(false)
+              return
+            }
+            
+            const result = processStepInput(step, command)
+            
+            if (result.error) {
+              toast.error(result.error)
+              setIsProcessing(false)
+              return
+            }
+            
+            const collectedData = { ...(existingPending.collectedData || {}) }
+            if (!result.skipped && result.value !== null) {
+              collectedData[step.field] = result.value
+            }
+            
+            if (result.skipped && step.skipText) {
+              toast.info(step.skipText)
+            }
+            
+            // Move to next step or complete
+            if (existingPending.currentStep < existingPending.totalSteps) {
+              let nextStep = existingPending.currentStep + 1
+              while (nextStep <= existingPending.totalSteps) {
+                const stepField = flow.steps[nextStep - 1].field
+                if (!(stepField in collectedData)) {
+                  break
+                }
+                nextStep++
+              }
+              
+              if (nextStep <= existingPending.totalSteps) {
+                const nextStepIndex = nextStep - 1
+                const nextStepDef = flow.steps[nextStepIndex]
+                const customerName = String(existingPending.context?.customerName || '')
+                
+                const updatedPending = conversationManager.createPendingCommand(
+                  existingPending.action,
+                  existingPending.parameters,
+                  [],
+                  nextStepDef.prompt(customerName),
+                  existingPending.pendingAction,
+                  existingPending.context,
+                  ['Skip'],
+                  nextStep,
+                  existingPending.totalSteps,
+                  collectedData
+                )
+                
+                setPendingCommand(updatedPending)
+                setIsProcessing(false)
+                return
+              }
+            }
+            
+            // All steps completed, execute the action
+            actionToExecute = 'CREATE_JOB'
+            paramsToExecute = {
+              ...existingPending.context,
+              ...collectedData,
+              flowCompleted: true
+            }
+            conversationManager.clearPendingCommand()
+            setPendingCommand(null)
+          } else {
+            // Initial confirmation (yes/no)
+            if (commandLower === 'yes' || /\byes\b/.test(commandLower)) {
+              // User confirmed, start multi-step flow
+              const flow = getFlow('CREATE_JOB')
+              if (!flow) {
+                toast.error('Flow configuration error')
+                conversationManager.clearPendingCommand()
+                setPendingCommand(null)
+                setIsProcessing(false)
+                return
+              }
+              
+              const customerName = String(existingPending.context?.customerName || '')
+              
+              const pending = conversationManager.createPendingCommand(
+                'CREATE_JOB',
+                existingPending.parameters,
+                [],
+                flow.steps[0].prompt(customerName),
+                'CREATE_JOB',
+                existingPending.context,
+                flow.steps[0].optional ? ['Skip'] : undefined,
+                1,
+                flow.steps.length,
+                {}
+              )
+              
+              setPendingCommand(pending)
+              setIsProcessing(false)
+              return
+            } else if (commandLower === 'no' || commandLower === 'cancel') {
+              // User cancelled
+              conversationManager.clearPendingCommand()
+              setPendingCommand(null)
+              toast.info('Operation cancelled')
+              setIsProcessing(false)
+              return
+            } else {
+              toast.warning('Please reply with "yes" to add details or "no" to cancel')
+              setIsProcessing(false)
+              return
+            }
+          }
+        } else if (existingPending.pendingAction === 'CREATE_EQUIPMENT') {
+          if (existingPending.currentStep !== undefined && existingPending.totalSteps !== undefined) {
+            // Multi-step flow in progress
+            const flow = getFlow('CREATE_EQUIPMENT')
+            if (!flow) {
+              toast.error('Flow configuration error')
+              conversationManager.clearPendingCommand()
+              setPendingCommand(null)
+              setIsProcessing(false)
+              return
+            }
+            
+            const currentStepIndex = existingPending.currentStep - 1
+            const step = flow.steps[currentStepIndex]
+            
+            if (commandLower === 'cancel') {
+              conversationManager.clearPendingCommand()
+              setPendingCommand(null)
+              toast.info('Operation cancelled')
+              setIsProcessing(false)
+              return
+            }
+            
+            const result = processStepInput(step, command)
+            
+            if (result.error) {
+              toast.error(result.error)
+              setIsProcessing(false)
+              return
+            }
+            
+            const collectedData = { ...(existingPending.collectedData || {}) }
+            if (!result.skipped && result.value !== null) {
+              collectedData[step.field] = result.value
+            }
+            
+            if (result.skipped && step.skipText) {
+              toast.info(step.skipText)
+            }
+            
+            // Move to next step or complete
+            if (existingPending.currentStep < existingPending.totalSteps) {
+              let nextStep = existingPending.currentStep + 1
+              while (nextStep <= existingPending.totalSteps) {
+                const stepField = flow.steps[nextStep - 1].field
+                if (!(stepField in collectedData)) {
+                  break
+                }
+                nextStep++
+              }
+              
+              if (nextStep <= existingPending.totalSteps) {
+                const nextStepIndex = nextStep - 1
+                const nextStepDef = flow.steps[nextStepIndex]
+                const equipmentName = String(existingPending.context?.equipmentName || '')
+                
+                const updatedPending = conversationManager.createPendingCommand(
+                  existingPending.action,
+                  existingPending.parameters,
+                  [],
+                  nextStepDef.prompt(equipmentName),
+                  existingPending.pendingAction,
+                  existingPending.context,
+                  ['Skip'],
+                  nextStep,
+                  existingPending.totalSteps,
+                  collectedData
+                )
+                
+                setPendingCommand(updatedPending)
+                setIsProcessing(false)
+                return
+              }
+            }
+            
+            // All steps completed, execute the action
+            actionToExecute = 'CREATE_EQUIPMENT'
+            paramsToExecute = {
+              ...existingPending.context,
+              ...collectedData,
+              flowCompleted: true
+            }
+            conversationManager.clearPendingCommand()
+            setPendingCommand(null)
+          } else {
+            // Initial confirmation (yes/no)
+            if (commandLower === 'yes' || /\byes\b/.test(commandLower)) {
+              // User confirmed, start multi-step flow
+              const flow = getFlow('CREATE_EQUIPMENT')
+              if (!flow) {
+                toast.error('Flow configuration error')
+                conversationManager.clearPendingCommand()
+                setPendingCommand(null)
+                setIsProcessing(false)
+                return
+              }
+              
+              const equipmentName = String(existingPending.context?.equipmentName || '')
+              
+              const pending = conversationManager.createPendingCommand(
+                'CREATE_EQUIPMENT',
+                existingPending.parameters,
+                [],
+                flow.steps[0].prompt(equipmentName),
+                'CREATE_EQUIPMENT',
+                existingPending.context,
+                flow.steps[0].optional ? ['Skip'] : undefined,
+                1,
+                flow.steps.length,
+                {}
+              )
+              
+              setPendingCommand(pending)
+              setIsProcessing(false)
+              return
+            } else if (commandLower === 'no' || commandLower === 'cancel') {
+              // User cancelled
+              conversationManager.clearPendingCommand()
+              setPendingCommand(null)
+              toast.info('Operation cancelled')
+              setIsProcessing(false)
+              return
+            } else {
+              toast.warning('Please reply with "yes" to add details or "no" to cancel')
+              setIsProcessing(false)
+              return
+            }
+          }
+        } else if (existingPending.pendingAction === 'CREATE_PURCHASE_ORDER') {
+          if (existingPending.currentStep !== undefined && existingPending.totalSteps !== undefined) {
+            // Multi-step flow in progress
+            const flow = getFlow('CREATE_PURCHASE_ORDER')
+            if (!flow) {
+              toast.error('Flow configuration error')
+              conversationManager.clearPendingCommand()
+              setPendingCommand(null)
+              setIsProcessing(false)
+              return
+            }
+            
+            const currentStepIndex = existingPending.currentStep - 1
+            const step = flow.steps[currentStepIndex]
+            
+            if (commandLower === 'cancel') {
+              conversationManager.clearPendingCommand()
+              setPendingCommand(null)
+              toast.info('Operation cancelled')
+              setIsProcessing(false)
+              return
+            }
+            
+            const result = processStepInput(step, command)
+            
+            if (result.error) {
+              toast.error(result.error)
+              setIsProcessing(false)
+              return
+            }
+            
+            const collectedData = { ...(existingPending.collectedData || {}) }
+            if (!result.skipped && result.value !== null) {
+              collectedData[step.field] = result.value
+            }
+            
+            if (result.skipped && step.skipText) {
+              toast.info(step.skipText)
+            }
+            
+            // Move to next step or complete
+            if (existingPending.currentStep < existingPending.totalSteps) {
+              let nextStep = existingPending.currentStep + 1
+              while (nextStep <= existingPending.totalSteps) {
+                const stepField = flow.steps[nextStep - 1].field
+                if (!(stepField in collectedData)) {
+                  break
+                }
+                nextStep++
+              }
+              
+              if (nextStep <= existingPending.totalSteps) {
+                const nextStepIndex = nextStep - 1
+                const nextStepDef = flow.steps[nextStepIndex]
+                const supplierName = String(existingPending.context?.supplierName || '')
+                
+                const updatedPending = conversationManager.createPendingCommand(
+                  existingPending.action,
+                  existingPending.parameters,
+                  [],
+                  nextStepDef.prompt(supplierName),
+                  existingPending.pendingAction,
+                  existingPending.context,
+                  ['Skip'],
+                  nextStep,
+                  existingPending.totalSteps,
+                  collectedData
+                )
+                
+                setPendingCommand(updatedPending)
+                setIsProcessing(false)
+                return
+              }
+            }
+            
+            // All steps completed, execute the action
+            actionToExecute = 'CREATE_PURCHASE_ORDER'
+            paramsToExecute = {
+              ...existingPending.context,
+              ...collectedData,
+              flowCompleted: true
+            }
+            conversationManager.clearPendingCommand()
+            setPendingCommand(null)
+          } else {
+            // Initial confirmation (yes/no)
+            if (commandLower === 'yes' || /\byes\b/.test(commandLower)) {
+              // User confirmed, start multi-step flow
+              const flow = getFlow('CREATE_PURCHASE_ORDER')
+              if (!flow) {
+                toast.error('Flow configuration error')
+                conversationManager.clearPendingCommand()
+                setPendingCommand(null)
+                setIsProcessing(false)
+                return
+              }
+              
+              const supplierName = String(existingPending.context?.supplierName || '')
+              
+              const pending = conversationManager.createPendingCommand(
+                'CREATE_PURCHASE_ORDER',
+                existingPending.parameters,
+                [],
+                flow.steps[0].prompt(supplierName),
+                'CREATE_PURCHASE_ORDER',
+                existingPending.context,
+                flow.steps[0].optional ? ['Skip'] : undefined,
+                1,
+                flow.steps.length,
+                {}
+              )
+              
+              setPendingCommand(pending)
+              setIsProcessing(false)
+              return
+            } else if (commandLower === 'no' || commandLower === 'cancel') {
+              // User cancelled
+              conversationManager.clearPendingCommand()
+              setPendingCommand(null)
+              toast.info('Operation cancelled')
+              setIsProcessing(false)
+              return
+            } else {
+              toast.warning('Please reply with "yes" to add details or "no" to cancel')
+              setIsProcessing(false)
+              return
+            }
+          }
         } else {
           // Try to extract missing parameters from the user's response
           // Pass pending context to help AI understand this is a secondary input
