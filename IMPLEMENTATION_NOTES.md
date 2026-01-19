@@ -107,15 +107,51 @@ const getTypeIcon = () => {
 ```typescript
 const handleCardClick = () => {
   if (!isExpanded && !isEditing) {
-    // On mobile, show modal instead of expanding in place
-    if (window.innerWidth < 768) {
-      setShowMobileModal(true)
-    } else {
-      onExpand()
-    }
+    onExpand()
+  }
+}
+
+// On mobile, we'll show a modal when clicking the card
+const handleMobileCardClick = () => {
+  if (!isExpanded && !isEditing) {
+    setShowMobileModal(true)
   }
 }
 ```
+
+#### Responsive Rendering (CSS-based)
+```typescript
+return (
+  <>
+    {/* Desktop: inline expansion */}
+    <motion.div
+      className="hidden md:block"
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.2 }}
+      layout
+    >
+      {isExpanded ? expandedView : condensedView}
+    </motion.div>
+
+    {/* Mobile: condensed card that opens modal */}
+    <motion.div
+      className="md:hidden"
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.2 }}
+      onClick={handleMobileCardClick}
+    >
+      {condensedView}
+    </motion.div>
+
+    {/* Mobile modal */}
+    {mobileModal}
+  </>
+)
+```
+
+**Note**: The responsive behavior is achieved through CSS media queries (`hidden md:block` and `md:hidden`) rather than JavaScript-based window size detection. This ensures SSR compatibility and better performance.
 
 #### Layout Animations
 ```typescript
