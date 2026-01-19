@@ -52,7 +52,7 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
 export function useNavigation() {
   const context = useContext(NavigationContext)
   if (!context) {
-    throw new Error('useNavigation must be used within a NavigationProvider')
+    throw new Error('useNavigation must be used within a NavigationProvider. Wrap your component tree with <NavigationProvider>.')
   }
   return context
 }

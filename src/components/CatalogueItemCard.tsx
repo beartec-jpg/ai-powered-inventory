@@ -156,7 +156,7 @@ export function CatalogueItemCard({
               ))}
               {stockLevels.length > 2 && (
                 <div className="text-xs text-muted-foreground">
-                  +{stockLevels.length - 2} more location{stockLevels.length - 2 > 1 ? 's' :  ''}
+                  +{stockLevels.length - 2} more location{stockLevels.length - 2 > 1 ? 's' : ''}
                 </div>
               )}
             </div>
