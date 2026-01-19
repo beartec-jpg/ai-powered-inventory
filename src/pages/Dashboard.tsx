@@ -1244,7 +1244,7 @@ export function Dashboard() {
               if (nextStep <= existingPending.totalSteps) {
                 const nextStepIndex = nextStep - 1
                 const nextStepDef = flow.steps[nextStepIndex]
-                const customerName = String(existingPending.context?.customerName || '')
+                const customerName = String(existingPending.context?.name || '')
                 
                 const updatedPending = conversationManager.createPendingCommand(
                   existingPending.action,
@@ -1372,7 +1372,7 @@ export function Dashboard() {
               if (nextStep <= existingPending.totalSteps) {
                 const nextStepIndex = nextStep - 1
                 const nextStepDef = flow.steps[nextStepIndex]
-                const equipmentName = String(existingPending.context?.equipmentName || '')
+                const equipmentName = String(existingPending. context?.name || '')
                 
                 const updatedPending = conversationManager.createPendingCommand(
                   existingPending.action,
@@ -1500,7 +1500,8 @@ export function Dashboard() {
               if (nextStep <= existingPending.totalSteps) {
                 const nextStepIndex = nextStep - 1
                 const nextStepDef = flow.steps[nextStepIndex]
-                const supplierName = String(existingPending.context?.supplierName || '')
+                const supplierName = String(existingPending. context?.name || '')
+
                 
                 const updatedPending = conversationManager.createPendingCommand(
                   existingPending.action,
