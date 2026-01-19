@@ -166,6 +166,16 @@ export default async function handler(
         return badRequestResponse(res, 'Invalid type. Must be one of: commercial, residential, industrial');
       }
 
+      // Serialize tags with error handling
+      let serializedTags = null;
+      if (tags) {
+        try {
+          serializedTags = JSON.stringify(tags);
+        } catch (error) {
+          return badRequestResponse(res, 'Invalid tags format. Must be a valid JSON serializable array.');
+        }
+      }
+
       const newCustomer = {
         id: generateId(),
         userId, // Add userId for user scoping
@@ -180,7 +190,7 @@ export default async function handler(
         vatNumber: vatNumber || null,
         paymentTerms: paymentTerms || null,
         notes: notes || null,
-        tags: tags ? JSON.stringify(tags) : null,
+        tags: serializedTags,
         active: true,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -224,9 +234,13 @@ export default async function handler(
         updatedAt: new Date(),
       };
 
-      // Handle tags serialization
+      // Handle tags serialization with error handling
       if (updates.tags && typeof updates.tags === 'object') {
-        updates.tags = JSON.stringify(updates.tags);
+        try {
+          updates.tags = JSON.stringify(updates.tags);
+        } catch (error) {
+          return badRequestResponse(res, 'Invalid tags format. Must be a valid JSON serializable array.');
+        }
       }
 
       await db

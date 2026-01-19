@@ -25,6 +25,16 @@ function generateJobNumber(): string {
   return `JOB-${timestamp}-${random}`;
 }
 
+// Helper to serialize partsUsed with error handling
+function serializePartsUsed(partsUsed: any): string | null {
+  if (!partsUsed) return null;
+  try {
+    return JSON.stringify(partsUsed);
+  } catch (error) {
+    throw new Error('Invalid partsUsed format. Must be a valid JSON serializable array.');
+  }
+}
+
 // Helper function to get jobs with user scoping and search
 async function getJobs(userId: string, search?: string, customerId?: string, status?: string, page: number = 1, perPage: number = 30) {
   const conditions = [eq(jobs.userId, userId)];
@@ -228,6 +238,14 @@ export default async function handler(
         return badRequestResponse(res, `Invalid status. Must be one of: ${validStatuses.join(', ')}`);
       }
 
+      // Serialize partsUsed with error handling
+      let serializedPartsUsed = null;
+      try {
+        serializedPartsUsed = serializePartsUsed(partsUsed);
+      } catch (error: any) {
+        return badRequestResponse(res, error.message);
+      }
+
       const newJob = {
         id: generateId(),
         userId, // Add userId for user scoping
@@ -255,7 +273,7 @@ export default async function handler(
         workCarriedOut: workCarriedOut || null,
         findings: findings || null,
         recommendations: recommendations || null,
-        partsUsed: partsUsed ? JSON.stringify(partsUsed) : null,
+        partsUsed: serializedPartsUsed,
         labourHours: labourHours || null,
         labourRate: labourRate || null,
         partsCost: partsCost || null,
@@ -329,9 +347,13 @@ export default async function handler(
       if (updates.completedAt) updates.completedAt = new Date(updates.completedAt);
       if (updates.signedAt) updates.signedAt = new Date(updates.signedAt);
 
-      // Handle partsUsed serialization
+      // Handle partsUsed serialization with error handling
       if (updates.partsUsed && typeof updates.partsUsed === 'object') {
-        updates.partsUsed = JSON.stringify(updates.partsUsed);
+        try {
+          updates.partsUsed = serializePartsUsed(updates.partsUsed);
+        } catch (error: any) {
+          return badRequestResponse(res, error.message);
+        }
       }
 
       await db

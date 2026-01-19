@@ -8,6 +8,7 @@ import {
   paginatedResponse,
   notFoundResponse,
   badRequestResponse,
+  conflictResponse,
   internalServerErrorResponse,
   setCorsHeaders,
 } from '../lib/utils.js';
@@ -146,11 +147,10 @@ export default async function handler(
         .limit(1);
 
       if (existing.length > 0) {
-        return res.status(409).json({
-          success: false,
-          error: 'Conflict',
-          message: `Supplier with name "${name}" already exists`,
-        });
+        return conflictResponse(
+          res,
+          `Supplier with name "${name}" already exists`
+        );
       }
 
       const newSupplier = {
