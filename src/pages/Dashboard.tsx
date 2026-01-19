@@ -15,13 +15,14 @@ import { JobsView } from '@/components/JobsView'
 import { CommandHistory } from '@/components/CommandHistory'
 import { EquipmentView } from '@/components/EquipmentView'
 import { SuppliersView } from '@/components/SuppliersView'
+import { CustomersView } from '@/components/CustomersView'
 import { CatalogueView } from '@/components/CatalogueView'
 import { interpretCommand } from '@/lib/ai-commands'
 import { executeCommand } from '@/lib/command-executor'
 import { generateId } from '@/lib/ai-commands'
 import { conversationManager } from '@/lib/conversation-manager'
 import { getFlow, processStepInput, supplierExists, SUPPLIER_DETAILS_SUB_FLOW } from '@/lib/multi-step-flows'
-import { useCatalogue, useStockLevels } from '@/hooks/useInventoryData'
+import { useCatalogue, useStockLevels, useUpdateStockLevel } from '@/hooks/useInventoryData'
 import { useKV } from '@github/spark/hooks' // Legacy KV for non-catalogue/stock data
 import type { 
   InventoryItem, 
@@ -34,9 +35,10 @@ import type {
   InstalledPart,
   PurchaseOrder,
   DebugInfo,
-  PendingCommand
+  PendingCommand,
+  StockLevel
 } from '@/lib/types'
-import { Package, FileText, ClockCounterClockwise, Sparkle, Gear, User, Bug, BookOpen } from '@phosphor-icons/react'
+import { Package, FileText, ClockCounterClockwise, Sparkle, Gear, User, Bug, BookOpen, UserCircle } from '@phosphor-icons/react'
 
 export function Dashboard() {
   const { userId } = useAuth()
@@ -62,6 +64,7 @@ export function Dashboard() {
   // NEW: Database-backed storage for catalogue and stock levels (persistent across reloads)
   const { catalogue, loading: catalogueLoading, refetch: refetchCatalogue, setCatalogue } = useCatalogue()
   const { stockLevels, loading: stockLevelsLoading, refetch: refetchStockLevels, setStockLevels } = useStockLevels()
+  const { updateStockLevel } = useUpdateStockLevel()
 
   const [isProcessing, setIsProcessing] = useState(false)
   const [latestResponse, setLatestResponse] = useState<CommandLog | null>(null)
@@ -73,6 +76,30 @@ export function Dashboard() {
   const [debugMode, setDebugMode] = useState(false)
   const [latestDebugInfo, setLatestDebugInfo] = useState<DebugInfo | null>(null)
   const [selectedTab, setSelectedTab] = useState<string>('inventory')
+
+  // Handler for updating stock levels from the UI
+  const handleStockUpdate = async (id: string, updates: Partial<InventoryItem | StockLevel>) => {
+    try {
+      // Optimistic update
+      setStockLevels((current) => 
+        (current || []).map(item => 
+          item.id === id ? { ...item, ...updates, updatedAt: Date.now() } : item
+        )
+      )
+
+      // Update in database
+      await updateStockLevel({ id, ...updates })
+      toast.success('Stock level updated successfully')
+      
+      // Refetch to ensure consistency
+      await refetchStockLevels()
+    } catch (error) {
+      toast.error('Failed to update stock level')
+      console.error('Failed to update stock level:', error)
+      // Refetch to restore correct state
+      await refetchStockLevels()
+    }
+  }
 
   // Keyboard shortcut to toggle debug mode (Ctrl/Cmd + D)
   useEffect(() => {
@@ -1872,8 +1899,8 @@ export function Dashboard() {
         <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
           {/* Desktop: Horizontal tabs (md and above) */}
           <div className="hidden md:block">
-            {/* Note: grid-cols-6 is hardcoded for 6 tabs. Update if adding more tabs. */}
-            <TabsList className="grid w-full max-w-4xl grid-cols-6 mb-6">
+            {/* Note: grid-cols-7 is hardcoded for 7 tabs. Update if adding more tabs. */}
+            <TabsList className="grid w-full max-w-5xl grid-cols-7 mb-6">
               <TabsTrigger value="inventory" className="gap-2">
                 <Package size={16} />
                 Inventory
@@ -1889,6 +1916,10 @@ export function Dashboard() {
               <TabsTrigger value="suppliers" className="gap-2">
                 <User size={16} />
                 Suppliers
+              </TabsTrigger>
+              <TabsTrigger value="customers" className="gap-2">
+                <UserCircle size={16} />
+                Customers
               </TabsTrigger>
               <TabsTrigger value="jobs" className="gap-2">
                 <FileText size={16} />
@@ -1932,6 +1963,12 @@ export function Dashboard() {
                     Suppliers
                   </div>
                 </SelectItem>
+                <SelectItem value="customers">
+                  <div className="flex items-center gap-2">
+                    <UserCircle size={16} />
+                    Customers
+                  </div>
+                </SelectItem>
                 <SelectItem value="jobs">
                   <div className="flex items-center gap-2">
                     <FileText size={16} />
@@ -1955,7 +1992,7 @@ export function Dashboard() {
                 {stockLevelsArray.length} items across {new Set(stockLevelsArray.map(i => i.location)).size} locations
               </p>
             </div>
-            <InventoryTable items={stockLevelsArray} />
+            <InventoryTable items={stockLevelsArray} onUpdate={handleStockUpdate} />
           </TabsContent>
 
           <TabsContent value="catalogue">
@@ -1986,6 +2023,16 @@ export function Dashboard() {
               </p>
             </div>
             <SuppliersView suppliers={suppliersArray} />
+          </TabsContent>
+
+          <TabsContent value="customers">
+            <div className="mb-4">
+              <h2 className="text-xl font-bold mb-1">Customers</h2>
+              <p className="text-sm text-muted-foreground">
+                {customersArray.length} customers registered
+              </p>
+            </div>
+            <CustomersView customers={customersArray} />
           </TabsContent>
 
           <TabsContent value="jobs">
