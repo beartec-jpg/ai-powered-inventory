@@ -50,12 +50,14 @@ export function InventoryCard({ item, isExpanded, onExpand, onCollapse, onUpdate
 
   const handleCardClick = () => {
     if (!isExpanded && !isEditing) {
-      // On mobile, show modal instead of expanding in place
-      if (window.innerWidth < 768) {
-        setShowMobileModal(true)
-      } else {
-        onExpand()
-      }
+      onExpand()
+    }
+  }
+
+  // On mobile, we'll show a modal when clicking the card
+  const handleMobileCardClick = () => {
+    if (!isExpanded && !isEditing) {
+      setShowMobileModal(true)
     }
   }
 
@@ -328,7 +330,9 @@ export function InventoryCard({ item, isExpanded, onExpand, onCollapse, onUpdate
 
   return (
     <>
+      {/* Desktop: inline expansion */}
       <motion.div
+        className="hidden md:block"
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.2 }}
@@ -336,6 +340,19 @@ export function InventoryCard({ item, isExpanded, onExpand, onCollapse, onUpdate
       >
         {isExpanded ? expandedView : condensedView}
       </motion.div>
+
+      {/* Mobile: condensed card that opens modal */}
+      <motion.div
+        className="md:hidden"
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.2 }}
+        onClick={handleMobileCardClick}
+      >
+        {condensedView}
+      </motion.div>
+
+      {/* Mobile modal */}
       {mobileModal}
     </>
   )

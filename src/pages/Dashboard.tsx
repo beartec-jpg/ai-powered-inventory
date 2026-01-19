@@ -35,7 +35,8 @@ import type {
   InstalledPart,
   PurchaseOrder,
   DebugInfo,
-  PendingCommand
+  PendingCommand,
+  StockLevel
 } from '@/lib/types'
 import { Package, FileText, ClockCounterClockwise, Sparkle, Gear, User, Bug, BookOpen, UserCircle } from '@phosphor-icons/react'
 
@@ -77,7 +78,7 @@ export function Dashboard() {
   const [selectedTab, setSelectedTab] = useState<string>('inventory')
 
   // Handler for updating stock levels from the UI
-  const handleStockUpdate = async (id: string, updates: Partial<InventoryItem | import('@/lib/types').StockLevel>) => {
+  const handleStockUpdate = async (id: string, updates: Partial<InventoryItem | StockLevel>) => {
     try {
       // Optimistic update
       setStockLevels((current) => 
