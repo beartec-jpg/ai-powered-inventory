@@ -24,6 +24,7 @@ import { conversationManager } from '@/lib/conversation-manager'
 import { getFlow, processStepInput, supplierExists, SUPPLIER_DETAILS_SUB_FLOW } from '@/lib/multi-step-flows'
 import { useCatalogue, useStockLevels, useUpdateStockLevel } from '@/hooks/useInventoryData'
 import { useKV } from '@github/spark/hooks' // Legacy KV for non-catalogue/stock data
+import { useNavigation } from '@/contexts/NavigationContext'
 import type { 
   InventoryItem, 
   Location, 
@@ -42,6 +43,7 @@ import { Package, FileText, ClockCounterClockwise, Sparkle, Gear, User, Bug, Boo
 
 export function Dashboard() {
   const { userId } = useAuth()
+  const { selectedTab, setSelectedTab } = useNavigation()
 
   // Check if speech feature is enabled
   const isSpeechEnabled = import.meta.env.VITE_FEATURE_SPEECH === 'true'
@@ -75,7 +77,6 @@ export function Dashboard() {
   const [pendingCommand, setPendingCommand] = useState<PendingCommand | null>(null)
   const [debugMode, setDebugMode] = useState(false)
   const [latestDebugInfo, setLatestDebugInfo] = useState<DebugInfo | null>(null)
-  const [selectedTab, setSelectedTab] = useState<string>('inventory')
 
   // Handler for updating stock levels from the UI
   const handleStockUpdate = async (id: string, updates: Partial<InventoryItem | StockLevel>) => {
@@ -99,6 +100,46 @@ export function Dashboard() {
       // Refetch to restore correct state
       await refetchStockLevels()
     }
+  }
+
+  // Handler for updating customers from the UI
+  const handleCustomerUpdate = (id: string, updates: Partial<Customer>) => {
+    setCustomers((current) => 
+      (current || []).map(customer => 
+        customer.id === id ? { ...customer, ...updates } : customer
+      )
+    )
+    toast.success('Customer updated successfully')
+  }
+
+  // Handler for updating equipment from the UI
+  const handleEquipmentUpdate = (id: string, updates: Partial<Equipment>) => {
+    setEquipment((current) => 
+      (current || []).map(equip => 
+        equip.id === id ? { ...equip, ...updates } : equip
+      )
+    )
+    toast.success('Equipment updated successfully')
+  }
+
+  // Handler for updating jobs from the UI
+  const handleJobUpdate = (id: string, updates: Partial<Job>) => {
+    setJobs((current) => 
+      (current || []).map(job => 
+        job.id === id ? { ...job, ...updates } : job
+      )
+    )
+    toast.success('Job updated successfully')
+  }
+
+  // Handler for updating suppliers from the UI
+  const handleSupplierUpdate = (id: string, updates: Partial<Supplier>) => {
+    setSuppliers((current) => 
+      (current || []).map(supplier => 
+        supplier.id === id ? { ...supplier, ...updates } : supplier
+      )
+    )
+    toast.success('Supplier updated successfully')
   }
 
   // Keyboard shortcut to toggle debug mode (Ctrl/Cmd + D)
@@ -2002,7 +2043,7 @@ export function Dashboard() {
                 {catalogueArray.length} catalogue items
               </p>
             </div>
-            <CatalogueView catalogue={catalogueArray} stockLevels={stockLevelsArray} />
+            <CatalogueView catalogue={catalogueArray} stockLevels={stockLevelsArray} suppliers={suppliersArray} />
           </TabsContent>
 
           <TabsContent value="equipment">
@@ -2012,7 +2053,7 @@ export function Dashboard() {
                 {equipmentArray.length} equipment items for {customersArray.length} customers
               </p>
             </div>
-            <EquipmentView equipment={equipmentArray} />
+            <EquipmentView equipment={equipmentArray} onUpdate={handleEquipmentUpdate} />
           </TabsContent>
 
           <TabsContent value="suppliers">
@@ -2022,7 +2063,7 @@ export function Dashboard() {
                 {suppliersArray.length} suppliers registered
               </p>
             </div>
-            <SuppliersView suppliers={suppliersArray} />
+            <SuppliersView suppliers={suppliersArray} onUpdate={handleSupplierUpdate} />
           </TabsContent>
 
           <TabsContent value="customers">
@@ -2032,7 +2073,7 @@ export function Dashboard() {
                 {customersArray.length} customers registered
               </p>
             </div>
-            <CustomersView customers={customersArray} />
+            <CustomersView customers={customersArray} onUpdate={handleCustomerUpdate} />
           </TabsContent>
 
           <TabsContent value="jobs">
@@ -2042,7 +2083,7 @@ export function Dashboard() {
                 {jobsArray.length} jobs for {customersArray.length} customers
               </p>
             </div>
-            <JobsView jobs={jobsArray} />
+            <JobsView jobs={jobsArray} onUpdate={handleJobUpdate} />
           </TabsContent>
 
           <TabsContent value="history">
