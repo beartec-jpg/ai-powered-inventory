@@ -12,13 +12,16 @@ export function AIDebugPanel({ debugInfo }: AIDebugPanelProps) {
   const { stage1, stage2, usedFallback, fallbackReason, rawCommand } = debugInfo
 
   const getConfidenceBadge = (confidence: number) => {
-    if (confidence >= 0.9) {
-      return <Badge variant="default" className="bg-green-500">High ({confidence.toFixed(2)})</Badge>
-    } else if (confidence >= 0.7) {
-      return <Badge variant="default" className="bg-yellow-500">Medium ({confidence.toFixed(2)})</Badge>
-    } else {
-      return <Badge variant="destructive">Low ({confidence.toFixed(2)})</Badge>
+    if (confidence !== undefined && confidence !== null) {
+      if (confidence >= 0.9) {
+        return <Badge variant="default" className="bg-green-500">High ({confidence.toFixed(2)})</Badge>
+      } else if (confidence >= 0.7) {
+        return <Badge variant="default" className="bg-yellow-500">Medium ({confidence.toFixed(2)})</Badge>
+      } else {
+        return <Badge variant="destructive">Low ({confidence.toFixed(2)})</Badge>
+      }
     }
+    return <Badge variant="outline">N/A</Badge>
   }
 
   return (

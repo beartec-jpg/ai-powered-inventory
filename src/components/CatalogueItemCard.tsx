@@ -337,7 +337,7 @@ export function CatalogueItemCard({
               </button>
             </div>
           )}
-          {item.unitCost !== undefined && (
+          {item.unitCost !== undefined && item.unitCost !== null && (
             <div>
               <div className="text-sm text-muted-foreground mb-1">Unit Cost</div>
               <div className="flex items-center gap-2">
@@ -346,13 +346,13 @@ export function CatalogueItemCard({
               </div>
             </div>
           )}
-          {item.markup !== undefined && (
+          {item.markup !== undefined && item.markup !== null && (
             <div>
               <div className="text-sm text-muted-foreground mb-1">Markup</div>
               <span className="font-mono">{item.markup.toFixed(1)}%</span>
             </div>
           )}
-          {item.sellPrice !== undefined && (
+          {item.sellPrice !== undefined && item.sellPrice !== null && (
             <div>
               <div className="text-sm text-muted-foreground mb-1">Sell Price</div>
               <div className="flex items-center gap-2">
@@ -473,13 +473,13 @@ export function CatalogueItemCard({
                 </button>
               </div>
             )}
-            {item.unitCost !== undefined && (
+            {item.unitCost !== undefined && item.unitCost !== null && (
               <div>
                 <div className="text-sm text-muted-foreground mb-1">Unit Cost</div>
                 <div className="font-mono">£{item.unitCost.toFixed(2)}</div>
               </div>
             )}
-            {item.sellPrice !== undefined && (
+            {item.sellPrice !== undefined && item.sellPrice !== null && (
               <div>
                 <div className="text-sm text-muted-foreground mb-1">Sell Price</div>
                 <div className="font-mono font-bold text-accent">£{item.sellPrice.toFixed(2)}</div>
