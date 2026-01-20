@@ -239,7 +239,7 @@ export default async function handler(
       }
 
       // Serialize partsUsed with error handling
-      let serializedPartsUsed = null;
+      let serializedPartsUsed: string | null = null;
       try {
         serializedPartsUsed = serializePartsUsed(partsUsed);
       } catch (error: any) {
