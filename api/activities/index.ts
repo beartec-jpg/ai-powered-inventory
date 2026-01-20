@@ -1,7 +1,7 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import { db } from '../lib/db.js';
 import { activities, users } from '../lib/schema.js';
-import { eq, desc, and } from 'drizzle-orm';
+import { eq, desc, and, SQL } from 'drizzle-orm';
 import {
   successResponse,
   createdResponse,
@@ -56,7 +56,7 @@ export default async function handler(
       const entityId = req.query.entityId as string;
 
       // Build where conditions
-      const conditions = [];
+      const conditions: SQL<unknown>[] = [];
       
       if (entityType) {
         conditions.push(eq(activities.entityType, entityType));

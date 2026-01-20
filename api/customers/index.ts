@@ -167,7 +167,7 @@ export default async function handler(
       }
 
       // Serialize tags with error handling
-      let serializedTags = null;
+      let serializedTags: string | null = null;
       if (tags) {
         try {
           serializedTags = JSON.stringify(tags);
