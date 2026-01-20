@@ -11,7 +11,7 @@ interface AIDebugPanelProps {
 export function AIDebugPanel({ debugInfo }: AIDebugPanelProps) {
   const { stage1, stage2, usedFallback, fallbackReason, rawCommand } = debugInfo
 
-  const getConfidenceBadge = (confidence: number) => {
+  const getConfidenceBadge = (confidence: number | null | undefined) => {
     if (confidence !== undefined && confidence !== null) {
       if (confidence >= 0.9) {
         return <Badge variant="default" className="bg-green-500">High ({confidence.toFixed(2)})</Badge>
