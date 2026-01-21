@@ -1,7 +1,7 @@
 import type { PendingCommand, ConversationContext } from './types'
 import { generateId } from './ai-commands'
 
-const CONTEXT_RETENTION_MS = 5 * 60 * 1000 // 5 minutes
+const CONTEXT_RETENTION_MS = 30 * 60 * 1000 // 30 minutes
 
 /**
  * Conversation Manager
@@ -58,15 +58,35 @@ export class ConversationManager {
    */
   getPendingCommand(): PendingCommand | null {
     if (!this.context.pendingCommand) {
+      console.log('[ConversationManager] No pending command found')
       return null
     }
 
     const now = Date.now()
     if (now > this.context.pendingCommand.expiresAt) {
       // Expired, clear it
+      console.log('[ConversationManager] Pending command expired:', {
+        id: this.context.pendingCommand.id,
+        action: this.context.pendingCommand.action,
+        pendingAction: this.context.pendingCommand.pendingAction,
+        createdAt: new Date(this.context.pendingCommand.createdAt).toISOString(),
+        expiresAt: new Date(this.context.pendingCommand.expiresAt).toISOString()
+      })
       this.context.pendingCommand = null
       return null
     }
+
+    console.log('[ConversationManager] Active pending command:', {
+      id: this.context.pendingCommand.id,
+      action: this.context.pendingCommand.action,
+      pendingAction: this.context.pendingCommand.pendingAction,
+      currentStep: this.context.pendingCommand.currentStep,
+      totalSteps: this.context.pendingCommand.totalSteps,
+      inSubFlow: this.context.pendingCommand.inSubFlow,
+      subFlowType: this.context.pendingCommand.subFlowType,
+      resumeAction: this.context.pendingCommand.resumeAction,
+      hasResumeParams: !!this.context.pendingCommand.resumeParams
+    })
 
     return this.context.pendingCommand
   }
