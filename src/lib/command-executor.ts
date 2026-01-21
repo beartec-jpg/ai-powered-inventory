@@ -1362,15 +1362,7 @@ function createEquipment(params: Record<string, unknown>, state: StateSetters): 
       context: { 
         customerName,
         resumeAction: 'CREATE_EQUIPMENT',
-        resumeParams: {
-          customerName,
-          equipmentName: params.equipmentName,
-          type: params.type,
-          manufacturer: params.manufacturer,
-          model: params.model,
-          serialNumber: params.serialNumber,
-          location: params.location
-        }
+        resumeParams: params
       },
       options: ['Yes', 'No/Cancel']
     }
