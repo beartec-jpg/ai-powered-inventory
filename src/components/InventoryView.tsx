@@ -9,6 +9,20 @@ import type { InventoryItem, StockLevel } from '@/lib/types'
 import { Package, MapPin, PencilSimple, X, Check } from '@phosphor-icons/react'
 import { motion, AnimatePresence } from 'framer-motion'
 
+// Extended type for enriched inventory items with catalogue data
+type EnrichedInventoryItem = (InventoryItem | StockLevel) & {
+  description?: string
+  category?: string
+  subcategory?: string
+  manufacturer?: string
+  unitCost?: number
+  markup?: number
+  sellPrice?: number
+  preferredSupplierName?: string
+  minQuantity?: number
+  lastUpdated?: number
+}
+
 interface InventoryCardProps {
   item: InventoryItem | StockLevel
   isExpanded: boolean
@@ -18,6 +32,8 @@ interface InventoryCardProps {
 }
 
 export function InventoryCard({ item, isExpanded, onExpand, onCollapse, onUpdate }: InventoryCardProps) {
+  // Cast item to enriched type for accessing catalogue fields
+  const enrichedItem = item as EnrichedInventoryItem
   // Support both InventoryItem (minQuantity) and StockLevel (no minQuantity)
   const minQuantity = 'minQuantity' in item ? item.minQuantity : undefined
   const isLowStock = minQuantity ? item.quantity < minQuantity : item.quantity < 10
@@ -189,54 +205,54 @@ export function InventoryCard({ item, isExpanded, onExpand, onCollapse, onUpdate
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
           {/* Description - full width if available */}
-          {(item as any).description && (
+          {enrichedItem.description && (
             <div className="md:col-span-2 lg:col-span-3">
               <div className="text-sm text-muted-foreground mb-1">Description</div>
-              <div className="text-sm">{(item as any).description}</div>
+              <div className="text-sm">{enrichedItem.description}</div>
             </div>
           )}
           
           {/* Categorization */}
-          {(item as any).category && (
+          {enrichedItem.category && (
             <div>
               <div className="text-sm text-muted-foreground mb-1">Category</div>
-              <div>{(item as any).category}</div>
+              <div>{enrichedItem.category}</div>
             </div>
           )}
           
-          {(item as any).subcategory && (
+          {enrichedItem.subcategory && (
             <div>
               <div className="text-sm text-muted-foreground mb-1">Subcategory</div>
-              <div>{(item as any).subcategory}</div>
+              <div>{enrichedItem.subcategory}</div>
             </div>
           )}
           
-          {(item as any).manufacturer && (
+          {enrichedItem.manufacturer && (
             <div>
               <div className="text-sm text-muted-foreground mb-1">Manufacturer</div>
-              <div>{(item as any).manufacturer}</div>
+              <div>{enrichedItem.manufacturer}</div>
             </div>
           )}
           
           {/* Pricing */}
-          {(item as any).unitCost !== undefined && (item as any).unitCost !== null && (
+          {typeof enrichedItem.unitCost === 'number' && (
             <div>
               <div className="text-sm text-muted-foreground mb-1">Unit Cost</div>
-              <div className="font-semibold text-lg">£{(item as any).unitCost.toFixed(2)}</div>
+              <div className="font-semibold text-lg">£{enrichedItem.unitCost.toFixed(2)}</div>
             </div>
           )}
           
-          {(item as any).markup !== undefined && (item as any).markup !== null && (
+          {typeof enrichedItem.markup === 'number' && (
             <div>
               <div className="text-sm text-muted-foreground mb-1">Markup</div>
-              <div className="font-semibold">{(item as any).markup.toFixed(1)}%</div>
+              <div className="font-semibold">{enrichedItem.markup.toFixed(1)}%</div>
             </div>
           )}
           
-          {(item as any).sellPrice !== undefined && (item as any).sellPrice !== null && (
+          {typeof enrichedItem.sellPrice === 'number' && (
             <div>
               <div className="text-sm text-muted-foreground mb-1">Sell Price</div>
-              <div className="font-semibold text-lg text-accent">£{(item as any).sellPrice.toFixed(2)}</div>
+              <div className="font-semibold text-lg text-accent">£{enrichedItem.sellPrice.toFixed(2)}</div>
             </div>
           )}
           
@@ -274,18 +290,18 @@ export function InventoryCard({ item, isExpanded, onExpand, onCollapse, onUpdate
           </div>
           
           {/* Supplier Information */}
-          {(item as any).preferredSupplierName && (
+          {enrichedItem.preferredSupplierName && (
             <div className="md:col-span-2">
               <div className="text-sm text-muted-foreground mb-1">Preferred Supplier</div>
-              <div>{(item as any).preferredSupplierName}</div>
+              <div>{enrichedItem.preferredSupplierName}</div>
             </div>
           )}
           
           {/* Metadata */}
-          {(item as any).lastUpdated && (
+          {enrichedItem.lastUpdated && (
             <div className="md:col-span-2 lg:col-span-3 pt-4 border-t border-border">
               <div className="text-xs text-muted-foreground">
-                Last updated: {new Date((item as any).lastUpdated).toLocaleDateString()} at {new Date((item as any).lastUpdated).toLocaleTimeString()}
+                Last updated: {new Date(enrichedItem.lastUpdated).toLocaleDateString()} at {new Date(enrichedItem.lastUpdated).toLocaleTimeString()}
               </div>
             </div>
           )}
@@ -342,54 +358,54 @@ export function InventoryCard({ item, isExpanded, onExpand, onCollapse, onUpdate
         ) : (
           <div className="space-y-4 py-4">
             {/* Description */}
-            {(item as any).description && (
+            {enrichedItem.description && (
               <div>
                 <div className="text-sm text-muted-foreground mb-1">Description</div>
-                <div className="text-sm">{(item as any).description}</div>
+                <div className="text-sm">{enrichedItem.description}</div>
               </div>
             )}
             
             {/* Categorization */}
-            {(item as any).category && (
+            {enrichedItem.category && (
               <div>
                 <div className="text-sm text-muted-foreground mb-1">Category</div>
-                <div>{(item as any).category}</div>
+                <div>{enrichedItem.category}</div>
               </div>
             )}
             
-            {(item as any).subcategory && (
+            {enrichedItem.subcategory && (
               <div>
                 <div className="text-sm text-muted-foreground mb-1">Subcategory</div>
-                <div>{(item as any).subcategory}</div>
+                <div>{enrichedItem.subcategory}</div>
               </div>
             )}
             
-            {(item as any).manufacturer && (
+            {enrichedItem.manufacturer && (
               <div>
                 <div className="text-sm text-muted-foreground mb-1">Manufacturer</div>
-                <div>{(item as any).manufacturer}</div>
+                <div>{enrichedItem.manufacturer}</div>
               </div>
             )}
             
             {/* Pricing */}
-            {(item as any).unitCost !== undefined && (item as any).unitCost !== null && (
+            {typeof enrichedItem.unitCost === 'number' && (
               <div>
                 <div className="text-sm text-muted-foreground mb-1">Unit Cost</div>
-                <div className="font-semibold text-lg">£{(item as any).unitCost.toFixed(2)}</div>
+                <div className="font-semibold text-lg">£{enrichedItem.unitCost.toFixed(2)}</div>
               </div>
             )}
             
-            {(item as any).markup !== undefined && (item as any).markup !== null && (
+            {typeof enrichedItem.markup === 'number' && (
               <div>
                 <div className="text-sm text-muted-foreground mb-1">Markup</div>
-                <div className="font-semibold">{(item as any).markup.toFixed(1)}%</div>
+                <div className="font-semibold">{enrichedItem.markup.toFixed(1)}%</div>
               </div>
             )}
             
-            {(item as any).sellPrice !== undefined && (item as any).sellPrice !== null && (
+            {typeof enrichedItem.sellPrice === 'number' && (
               <div>
                 <div className="text-sm text-muted-foreground mb-1">Sell Price</div>
-                <div className="font-semibold text-lg text-accent">£{(item as any).sellPrice.toFixed(2)}</div>
+                <div className="font-semibold text-lg text-accent">£{enrichedItem.sellPrice.toFixed(2)}</div>
               </div>
             )}
             
@@ -427,18 +443,18 @@ export function InventoryCard({ item, isExpanded, onExpand, onCollapse, onUpdate
             </div>
             
             {/* Supplier Information */}
-            {(item as any).preferredSupplierName && (
+            {enrichedItem.preferredSupplierName && (
               <div>
                 <div className="text-sm text-muted-foreground mb-1">Preferred Supplier</div>
-                <div>{(item as any).preferredSupplierName}</div>
+                <div>{enrichedItem.preferredSupplierName}</div>
               </div>
             )}
             
             {/* Metadata */}
-            {(item as any).lastUpdated && (
+            {enrichedItem.lastUpdated && (
               <div className="pt-4 border-t border-border">
                 <div className="text-xs text-muted-foreground">
-                  Last updated: {new Date((item as any).lastUpdated).toLocaleDateString()} at {new Date((item as any).lastUpdated).toLocaleTimeString()}
+                  Last updated: {new Date(enrichedItem.lastUpdated).toLocaleDateString()} at {new Date(enrichedItem.lastUpdated).toLocaleTimeString()}
                 </div>
               </div>
             )}
