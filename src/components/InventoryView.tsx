@@ -187,7 +187,60 @@ export function InventoryCard({ item, isExpanded, onExpand, onCollapse, onUpdate
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
+          {/* Description - full width if available */}
+          {(item as any).description && (
+            <div className="md:col-span-2 lg:col-span-3">
+              <div className="text-sm text-muted-foreground mb-1">Description</div>
+              <div className="text-sm">{(item as any).description}</div>
+            </div>
+          )}
+          
+          {/* Categorization */}
+          {(item as any).category && (
+            <div>
+              <div className="text-sm text-muted-foreground mb-1">Category</div>
+              <div>{(item as any).category}</div>
+            </div>
+          )}
+          
+          {(item as any).subcategory && (
+            <div>
+              <div className="text-sm text-muted-foreground mb-1">Subcategory</div>
+              <div>{(item as any).subcategory}</div>
+            </div>
+          )}
+          
+          {(item as any).manufacturer && (
+            <div>
+              <div className="text-sm text-muted-foreground mb-1">Manufacturer</div>
+              <div>{(item as any).manufacturer}</div>
+            </div>
+          )}
+          
+          {/* Pricing */}
+          {(item as any).unitCost !== undefined && (item as any).unitCost !== null && (
+            <div>
+              <div className="text-sm text-muted-foreground mb-1">Unit Cost</div>
+              <div className="font-semibold text-lg">£{(item as any).unitCost.toFixed(2)}</div>
+            </div>
+          )}
+          
+          {(item as any).markup !== undefined && (item as any).markup !== null && (
+            <div>
+              <div className="text-sm text-muted-foreground mb-1">Markup</div>
+              <div className="font-semibold">{(item as any).markup.toFixed(1)}%</div>
+            </div>
+          )}
+          
+          {(item as any).sellPrice !== undefined && (item as any).sellPrice !== null && (
+            <div>
+              <div className="text-sm text-muted-foreground mb-1">Sell Price</div>
+              <div className="font-semibold text-lg text-accent">£{(item as any).sellPrice.toFixed(2)}</div>
+            </div>
+          )}
+          
+          {/* Stock Information */}
           <div>
             <div className="text-sm text-muted-foreground mb-1">Location</div>
             <div className="flex items-center gap-2">
@@ -195,18 +248,21 @@ export function InventoryCard({ item, isExpanded, onExpand, onCollapse, onUpdate
               <span className="font-mono font-semibold">{item.location}</span>
             </div>
           </div>
+          
           <div>
-            <div className="text-sm text-muted-foreground mb-1">Quantity</div>
+            <div className="text-sm text-muted-foreground mb-1">Current Stock</div>
             <div className="text-3xl font-mono font-bold text-accent">
               {item.quantity} <span className="text-sm text-muted-foreground">units</span>
             </div>
           </div>
+          
           {minQuantity && (
             <div>
               <div className="text-sm text-muted-foreground mb-1">Min Quantity</div>
-              <div className="font-mono">{minQuantity} units</div>
+              <div className="font-mono text-lg">{minQuantity} units</div>
             </div>
           )}
+          
           <div>
             <div className="text-sm text-muted-foreground mb-1">Status</div>
             <Badge 
@@ -216,6 +272,23 @@ export function InventoryCard({ item, isExpanded, onExpand, onCollapse, onUpdate
               {isOutOfStock ? 'Out of Stock' : isLowStock ? 'Low Stock' : 'In Stock'}
             </Badge>
           </div>
+          
+          {/* Supplier Information */}
+          {(item as any).preferredSupplierName && (
+            <div className="md:col-span-2">
+              <div className="text-sm text-muted-foreground mb-1">Preferred Supplier</div>
+              <div>{(item as any).preferredSupplierName}</div>
+            </div>
+          )}
+          
+          {/* Metadata */}
+          {(item as any).lastUpdated && (
+            <div className="md:col-span-2 lg:col-span-3 pt-4 border-t border-border">
+              <div className="text-xs text-muted-foreground">
+                Last updated: {new Date((item as any).lastUpdated).toLocaleDateString()} at {new Date((item as any).lastUpdated).toLocaleTimeString()}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </Card>
@@ -268,6 +341,59 @@ export function InventoryCard({ item, isExpanded, onExpand, onCollapse, onUpdate
           </div>
         ) : (
           <div className="space-y-4 py-4">
+            {/* Description */}
+            {(item as any).description && (
+              <div>
+                <div className="text-sm text-muted-foreground mb-1">Description</div>
+                <div className="text-sm">{(item as any).description}</div>
+              </div>
+            )}
+            
+            {/* Categorization */}
+            {(item as any).category && (
+              <div>
+                <div className="text-sm text-muted-foreground mb-1">Category</div>
+                <div>{(item as any).category}</div>
+              </div>
+            )}
+            
+            {(item as any).subcategory && (
+              <div>
+                <div className="text-sm text-muted-foreground mb-1">Subcategory</div>
+                <div>{(item as any).subcategory}</div>
+              </div>
+            )}
+            
+            {(item as any).manufacturer && (
+              <div>
+                <div className="text-sm text-muted-foreground mb-1">Manufacturer</div>
+                <div>{(item as any).manufacturer}</div>
+              </div>
+            )}
+            
+            {/* Pricing */}
+            {(item as any).unitCost !== undefined && (item as any).unitCost !== null && (
+              <div>
+                <div className="text-sm text-muted-foreground mb-1">Unit Cost</div>
+                <div className="font-semibold text-lg">£{(item as any).unitCost.toFixed(2)}</div>
+              </div>
+            )}
+            
+            {(item as any).markup !== undefined && (item as any).markup !== null && (
+              <div>
+                <div className="text-sm text-muted-foreground mb-1">Markup</div>
+                <div className="font-semibold">{(item as any).markup.toFixed(1)}%</div>
+              </div>
+            )}
+            
+            {(item as any).sellPrice !== undefined && (item as any).sellPrice !== null && (
+              <div>
+                <div className="text-sm text-muted-foreground mb-1">Sell Price</div>
+                <div className="font-semibold text-lg text-accent">£{(item as any).sellPrice.toFixed(2)}</div>
+              </div>
+            )}
+            
+            {/* Stock Information */}
             <div>
               <div className="text-sm text-muted-foreground mb-1">Location</div>
               <div className="flex items-center gap-2">
@@ -275,18 +401,21 @@ export function InventoryCard({ item, isExpanded, onExpand, onCollapse, onUpdate
                 <span className="font-mono font-semibold">{item.location}</span>
               </div>
             </div>
+            
             <div>
-              <div className="text-sm text-muted-foreground mb-1">Quantity</div>
+              <div className="text-sm text-muted-foreground mb-1">Current Stock</div>
               <div className="text-3xl font-mono font-bold text-accent">
                 {item.quantity} <span className="text-sm text-muted-foreground">units</span>
               </div>
             </div>
+            
             {minQuantity && (
               <div>
                 <div className="text-sm text-muted-foreground mb-1">Min Quantity</div>
-                <div className="font-mono">{minQuantity} units</div>
+                <div className="font-mono text-lg">{minQuantity} units</div>
               </div>
             )}
+            
             <div>
               <div className="text-sm text-muted-foreground mb-1">Status</div>
               <Badge 
@@ -296,6 +425,23 @@ export function InventoryCard({ item, isExpanded, onExpand, onCollapse, onUpdate
                 {isOutOfStock ? 'Out of Stock' : isLowStock ? 'Low Stock' : 'In Stock'}
               </Badge>
             </div>
+            
+            {/* Supplier Information */}
+            {(item as any).preferredSupplierName && (
+              <div>
+                <div className="text-sm text-muted-foreground mb-1">Preferred Supplier</div>
+                <div>{(item as any).preferredSupplierName}</div>
+              </div>
+            )}
+            
+            {/* Metadata */}
+            {(item as any).lastUpdated && (
+              <div className="pt-4 border-t border-border">
+                <div className="text-xs text-muted-foreground">
+                  Last updated: {new Date((item as any).lastUpdated).toLocaleDateString()} at {new Date((item as any).lastUpdated).toLocaleTimeString()}
+                </div>
+              </div>
+            )}
           </div>
         )}
 

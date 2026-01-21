@@ -2132,6 +2132,30 @@ export function Dashboard() {
   const suppliersArray = suppliers || []
   const catalogueArray = catalogue || []
 
+  // Enrich stock levels with catalogue data for comprehensive inventory view
+  const enrichedInventoryArray = stockLevelsArray.map(stockLevel => {
+    const catalogueItem = catalogueArray.find(cat => cat.id === stockLevel.catalogueItemId)
+    if (catalogueItem) {
+      return {
+        ...stockLevel,
+        description: catalogueItem.description,
+        category: catalogueItem.category,
+        subcategory: catalogueItem.subcategory,
+        manufacturer: catalogueItem.manufacturer,
+        unitCost: catalogueItem.unitCost,
+        markup: catalogueItem.markup,
+        sellPrice: catalogueItem.sellPrice,
+        preferredSupplierName: catalogueItem.preferredSupplierName,
+        minQuantity: catalogueItem.minQuantity,
+        lastUpdated: stockLevel.updatedAt,
+      }
+    }
+    return {
+      ...stockLevel,
+      lastUpdated: stockLevel.updatedAt,
+    }
+  })
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="container mx-auto px-4 py-8 max-w-7xl">
@@ -2307,10 +2331,10 @@ export function Dashboard() {
             <div className="mb-4">
               <h2 className="text-xl font-bold mb-1">Inventory Overview</h2>
               <p className="text-sm text-muted-foreground">
-                {stockLevelsArray.length} items across {new Set(stockLevelsArray.map(i => i.location)).size} locations
+                {enrichedInventoryArray.length} items across {new Set(enrichedInventoryArray.map(i => i.location)).size} locations
               </p>
             </div>
-            <InventoryTable items={stockLevelsArray} onUpdate={handleStockUpdate} />
+            <InventoryTable items={enrichedInventoryArray} onUpdate={handleStockUpdate} />
           </TabsContent>
 
           <TabsContent value="catalogue">
