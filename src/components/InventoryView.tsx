@@ -34,8 +34,8 @@ interface InventoryCardProps {
 export function InventoryCard({ item, isExpanded, onExpand, onCollapse, onUpdate }: InventoryCardProps) {
   // Cast item to enriched type for accessing catalogue fields
   const enrichedItem = item as EnrichedInventoryItem
-  // Support both InventoryItem (minQuantity) and StockLevel (no minQuantity)
-  const minQuantity = 'minQuantity' in item ? item.minQuantity : undefined
+  // Support both InventoryItem (minQuantity) and StockLevel (with enriched minQuantity from catalogue)
+  const minQuantity = enrichedItem.minQuantity
   const isLowStock = minQuantity ? item.quantity < minQuantity : item.quantity < 10
   const isOutOfStock = item.quantity === 0
 
