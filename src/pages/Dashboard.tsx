@@ -333,8 +333,8 @@ export function Dashboard() {
               'CREATE_EQUIPMENT',
               {
                 ...existingPending.context,
-                equipmentName: existingPending.context?.equipmentName,  // Explicitly preserve
-                customerName: existingPending.context?.customerName,     // Explicitly preserve
+                equipmentName: existingPending.context?.equipmentName,  // Explicitly preserve (defensive programming)
+                customerName: existingPending.context?.customerName,     // Explicitly preserve (defensive programming)
               },
               firstSubStep.optional ? ['Skip'] : undefined,
               1,
@@ -421,7 +421,7 @@ export function Dashboard() {
               'CREATE_CATALOGUE_ITEM_WITH_DETAILS',
               {
                 ...existingPending.context,
-                partNumber: existingPending.context?.partNumber,  // Explicitly preserve
+                partNumber: existingPending.context?.partNumber,  // Explicitly preserve (defensive programming)
                 name: existingPending.context?.name || existingPending.context?.partNumber,  // Default name to partNumber
               },
               firstSubStep.optional ? ['Skip'] : undefined,
@@ -1186,7 +1186,7 @@ export function Dashboard() {
                 paramsToExecute = {
                   ...existingPending.context,
                   ...alreadyKnown,
-                  partNumber: existingPending.context?.partNumber,  // Explicitly preserve
+                  partNumber: existingPending.context?.partNumber,  // Explicitly preserve (defensive programming)
                   name: alreadyKnown.name || existingPending.context?.name || existingPending.context?.partNumber,  // Map with fallbacks
                   // Calculate sell price if both unitCost and markup are provided
                   sellPrice: alreadyKnown.unitCost && alreadyKnown.markup 
@@ -1596,7 +1596,7 @@ export function Dashboard() {
             paramsToExecute = {
               ...existingPending.context,
               ...collectedData,
-              customerName: existingPending.context?.customerName,  // Explicitly preserve customerName
+              customerName: existingPending.context?.customerName,  // Explicitly preserve (defensive programming)
               flowCompleted: true
             }
             
@@ -1742,8 +1742,8 @@ export function Dashboard() {
             paramsToExecute = {
               ...existingPending.context,
               ...collectedData,
-              equipmentName: existingPending.context?.equipmentName,  // Explicitly preserve
-              customerName: existingPending.context?.customerName,    // Explicitly preserve
+              equipmentName: existingPending.context?.equipmentName,  // Explicitly preserve (defensive programming)
+              customerName: existingPending.context?.customerName,    // Explicitly preserve (defensive programming)
               flowCompleted: true
             }
             
