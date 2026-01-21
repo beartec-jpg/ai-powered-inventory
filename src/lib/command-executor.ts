@@ -1260,7 +1260,7 @@ function createCustomer(params: Record<string, unknown>, state: StateSetters): E
       message: `Customer "${name}" ready to create. Would you like to add contact details?`,
       needsInput: true,
       prompt: `Would you like to add contact details for customer "${name}"?`,
-      pendingAction: 'CONFIRM_ADD_CUSTOMER',
+      pendingAction: 'CREATE_CUSTOMER',
       context: { name },
       options: ['Yes', 'No - Create Now']
     }
@@ -1385,7 +1385,7 @@ function createEquipment(params: Record<string, unknown>, state: StateSetters): 
       message: `Equipment "${equipmentName}" ready to create. Would you like to add details?`,
       needsInput: true,
       prompt: `Would you like to add details for equipment "${equipmentName}" at ${customerName}?`,
-      pendingAction: 'CONFIRM_ADD_EQUIPMENT',
+      pendingAction: 'CREATE_EQUIPMENT',
       context: { customerName, equipmentName },
       options: ['Yes', 'No - Create Now']
     }
@@ -1828,7 +1828,7 @@ function createJob(params: Record<string, unknown>, state: StateSetters): Execut
       message: `Job for "${customerName}" ready to create. Would you like to add details?`,
       needsInput: true,
       prompt: `Would you like to add details for this job for "${customerName}"?`,
-      pendingAction: 'CONFIRM_ADD_JOB',
+      pendingAction: 'CREATE_JOB',
       context: { customerName },
       options: ['Yes', 'No - Create Now']
     }

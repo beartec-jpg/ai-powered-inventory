@@ -279,8 +279,8 @@ export function Dashboard() {
             subFlowPending.inSubFlow = true
             subFlowPending.subFlowType = 'CUSTOMER_DETAILS'
             subFlowPending.subFlowData = {}
-            subFlowPending.resumeAction = existingPending.context?.resumeAction
-            subFlowPending.resumeParams = existingPending.context?.resumeParams
+            subFlowPending.resumeAction = existingPending.context?.resumeAction as string | undefined
+            subFlowPending.resumeParams = existingPending.context?.resumeParams as Record<string, unknown> | undefined
             
             setPendingCommand(subFlowPending)
             setIsProcessing(false)
@@ -321,8 +321,8 @@ export function Dashboard() {
             subFlowPending.inSubFlow = true
             subFlowPending.subFlowType = 'EQUIPMENT_DETAILS'
             subFlowPending.subFlowData = {}
-            subFlowPending.resumeAction = existingPending.context?.resumeAction
-            subFlowPending.resumeParams = existingPending.context?.resumeParams
+            subFlowPending.resumeAction = existingPending.context?.resumeAction as string | undefined
+            subFlowPending.resumeParams = existingPending.context?.resumeParams as Record<string, unknown> | undefined
             
             setPendingCommand(subFlowPending)
             setIsProcessing(false)
@@ -363,8 +363,8 @@ export function Dashboard() {
             subFlowPending.inSubFlow = true
             subFlowPending.subFlowType = 'JOB_DETAILS'
             subFlowPending.subFlowData = {}
-            subFlowPending.resumeAction = existingPending.context?.resumeAction
-            subFlowPending.resumeParams = existingPending.context?.resumeParams
+            subFlowPending.resumeAction = existingPending.context?.resumeAction as string | undefined
+            subFlowPending.resumeParams = existingPending.context?.resumeParams as Record<string, unknown> | undefined
             
             setPendingCommand(subFlowPending)
             setIsProcessing(false)
@@ -405,8 +405,8 @@ export function Dashboard() {
             subFlowPending.inSubFlow = true
             subFlowPending.subFlowType = 'CATALOGUE_DETAILS'
             subFlowPending.subFlowData = {}
-            subFlowPending.resumeAction = existingPending.context?.resumeAction
-            subFlowPending.resumeParams = existingPending.context?.resumeParams
+            subFlowPending.resumeAction = existingPending.context?.resumeAction as string | undefined
+            subFlowPending.resumeParams = existingPending.context?.resumeParams as Record<string, unknown> | undefined
             
             setPendingCommand(subFlowPending)
             setIsProcessing(false)
@@ -2010,15 +2010,16 @@ export function Dashboard() {
         
         if (resumeAction && resumeParams) {
           // Notify user we're continuing with the original action
-          const actionName = actionToExecute.replace(/_/g, ' ').toLowerCase()
-          toast.info(`${actionName.charAt(0).toUpperCase() + actionName.slice(1)} created. Continuing with ${resumeAction.replace(/_/g, ' ').toLowerCase()}...`)
+          const actionName = String(actionToExecute).replace(/_/g, ' ').toLowerCase()
+          const resumeName = String(resumeAction).replace(/_/g, ' ').toLowerCase()
+          toast.info(`${actionName.charAt(0).toUpperCase() + actionName.slice(1)} created. Continuing with ${resumeName}...`)
           
           // Execute the resumed action after a short delay to let the user see the message
           setTimeout(async () => {
             try {
               const resumeResult = await executeCommand(
-                resumeAction,
-                resumeParams,
+                String(resumeAction),
+                resumeParams as Record<string, unknown>,
                 inventory || [],
                 setInventory,
                 locations || [],
@@ -2052,8 +2053,8 @@ export function Dashboard() {
               // Log the resumed action
               const resumeLog: CommandLog = {
                 id: generateId(),
-                command: `[Resumed] ${resumeAction}`,
-                action: resumeAction,
+                command: `[Resumed] ${String(resumeAction)}`,
+                action: String(resumeAction),
                 timestamp: Date.now(),
                 success: resumeResult.success,
                 result: resumeResult.message,
