@@ -671,7 +671,19 @@ function updateCatalogueItem(params: Record<string, unknown>, state: StateSetter
   )
   
   if (!item) {
-    return { success: false, message: `Catalogue item ${partNumber} not found` }
+    return {
+      success: false,
+      message: `Catalogue item "${partNumber}" not found. Would you like to add it?`,
+      needsInput: true,
+      prompt: `Catalogue item "${partNumber}" doesn't exist in the catalogue. Would you like to create this catalogue item?`,
+      pendingAction: 'CONFIRM_ADD_CATALOGUE_ITEM',
+      context: { 
+        partNumber,
+        resumeAction: 'UPDATE_CATALOGUE_ITEM',
+        resumeParams: params
+      },
+      options: ['Yes', 'No/Cancel']
+    }
   }
   
   state.setCatalogue((current) =>
@@ -915,6 +927,27 @@ function useStock(params: Record<string, unknown>, state: StateSetters): Executi
     return { success: false, message: 'Part number, positive quantity, and location are required' }
   }
   
+  // Check if part exists in catalogue
+  const catalogueItem = state.catalogue.find(i =>
+    i.partNumber.toLowerCase() === partNumber.toLowerCase()
+  )
+  
+  if (!catalogueItem) {
+    return {
+      success: false,
+      message: `Part "${partNumber}" not found in catalogue. Would you like to add it?`,
+      needsInput: true,
+      prompt: `Part "${partNumber}" doesn't exist in the catalogue. Would you like to create this catalogue item?`,
+      pendingAction: 'CONFIRM_ADD_CATALOGUE_ITEM',
+      context: { 
+        partNumber,
+        resumeAction: 'USE_STOCK',
+        resumeParams: params
+      },
+      options: ['Yes', 'No/Cancel']
+    }
+  }
+  
   const stockItem = state.stockLevels.find(s =>
     s.partNumber.toLowerCase() === partNumber.toLowerCase() &&
     s.location.toLowerCase() === location.toLowerCase()
@@ -956,6 +989,27 @@ function transferStock(params: Record<string, unknown>, state: StateSetters): Ex
   
   if (!partNumber || !fromLocation || !toLocation || quantity <= 0) {
     return { success: false, message: 'Part number, from/to locations, and positive quantity are required' }
+  }
+  
+  // Check if part exists in catalogue
+  const catalogueItem = state.catalogue.find(i =>
+    i.partNumber.toLowerCase() === partNumber.toLowerCase()
+  )
+  
+  if (!catalogueItem) {
+    return {
+      success: false,
+      message: `Part "${partNumber}" not found in catalogue. Would you like to add it?`,
+      needsInput: true,
+      prompt: `Part "${partNumber}" doesn't exist in the catalogue. Would you like to create this catalogue item?`,
+      pendingAction: 'CONFIRM_ADD_CATALOGUE_ITEM',
+      context: { 
+        partNumber,
+        resumeAction: 'TRANSFER_STOCK',
+        resumeParams: params
+      },
+      options: ['Yes', 'No/Cancel']
+    }
   }
   
   const sourceStock = state.stockLevels.find(s =>
@@ -1249,7 +1303,19 @@ function addSiteAddress(params: Record<string, unknown>, state: StateSetters): E
   )
   
   if (!customer) {
-    return { success: false, message: `Customer ${customerName} not found` }
+    return {
+      success: false,
+      message: `Customer "${customerName}" not found. Would you like to add them?`,
+      needsInput: true,
+      prompt: `Customer "${customerName}" doesn't exist yet. Would you like to create this customer?`,
+      pendingAction: 'CONFIRM_ADD_CUSTOMER',
+      context: { 
+        customerName,
+        resumeAction: 'ADD_SITE_ADDRESS',
+        resumeParams: params
+      },
+      options: ['Yes', 'No/Cancel']
+    }
   }
   
   const newSite = {
@@ -1287,7 +1353,19 @@ function createEquipment(params: Record<string, unknown>, state: StateSetters): 
   )
   
   if (!customer) {
-    return { success: false, message: `Customer ${customerName} not found` }
+    return {
+      success: false,
+      message: `Customer "${customerName}" not found. Would you like to add them?`,
+      needsInput: true,
+      prompt: `Customer "${customerName}" doesn't exist yet. Would you like to create this customer?`,
+      pendingAction: 'CONFIRM_ADD_CUSTOMER',
+      context: { 
+        customerName,
+        resumeAction: 'CREATE_EQUIPMENT',
+        resumeParams: params
+      },
+      options: ['Yes', 'No/Cancel']
+    }
   }
   
   // Check for missing optional fields
@@ -1346,13 +1424,47 @@ function updateEquipment(params: Record<string, unknown>, state: StateSetters): 
     return { success: false, message: 'Customer name and equipment name are required' }
   }
   
+  // Check customer exists
+  const customer = state.customers.find(c =>
+    c.name.toLowerCase() === customerName.toLowerCase()
+  )
+  
+  if (!customer) {
+    return {
+      success: false,
+      message: `Customer "${customerName}" not found. Would you like to add them?`,
+      needsInput: true,
+      prompt: `Customer "${customerName}" doesn't exist yet. Would you like to create this customer?`,
+      pendingAction: 'CONFIRM_ADD_CUSTOMER',
+      context: { 
+        customerName,
+        resumeAction: 'UPDATE_EQUIPMENT',
+        resumeParams: params
+      },
+      options: ['Yes', 'No/Cancel']
+    }
+  }
+  
   const equipment = state.equipment.find(e =>
     e.customerName.toLowerCase() === customerName.toLowerCase() &&
     e.name.toLowerCase() === equipmentName.toLowerCase()
   )
   
   if (!equipment) {
-    return { success: false, message: `Equipment ${equipmentName} not found for ${customerName}` }
+    return {
+      success: false,
+      message: `Equipment "${equipmentName}" not found for ${customerName}. Would you like to add it?`,
+      needsInput: true,
+      prompt: `Equipment "${equipmentName}" doesn't exist yet for ${customerName}. Would you like to create this equipment?`,
+      pendingAction: 'CONFIRM_ADD_EQUIPMENT',
+      context: { 
+        customerName,
+        equipmentName,
+        resumeAction: 'UPDATE_EQUIPMENT',
+        resumeParams: params
+      },
+      options: ['Yes', 'No/Cancel']
+    }
   }
   
   state.setEquipment((current) =>
@@ -1381,6 +1493,27 @@ function listEquipment(params: Record<string, unknown>, state: StateSetters): Ex
     return { success: false, message: 'Customer name is required' }
   }
   
+  // Check customer exists
+  const customer = state.customers.find(c =>
+    c.name.toLowerCase() === customerName.toLowerCase()
+  )
+  
+  if (!customer) {
+    return {
+      success: false,
+      message: `Customer "${customerName}" not found. Would you like to add them?`,
+      needsInput: true,
+      prompt: `Customer "${customerName}" doesn't exist yet. Would you like to create this customer?`,
+      pendingAction: 'CONFIRM_ADD_CUSTOMER',
+      context: { 
+        customerName,
+        resumeAction: 'LIST_EQUIPMENT',
+        resumeParams: params
+      },
+      options: ['Yes', 'No/Cancel']
+    }
+  }
+  
   const equipment = state.equipment.filter(e =>
     e.customerName.toLowerCase() === customerName.toLowerCase()
   )
@@ -1405,6 +1538,27 @@ function installFromStock(params: Record<string, unknown>, state: StateSetters):
     return { success: false, message: 'Part number, quantity, customer, equipment, and stock location are required' }
   }
   
+  // Check customer exists
+  const customer = state.customers.find(c =>
+    c.name.toLowerCase() === customerName.toLowerCase()
+  )
+  
+  if (!customer) {
+    return {
+      success: false,
+      message: `Customer "${customerName}" not found. Would you like to add them?`,
+      needsInput: true,
+      prompt: `Customer "${customerName}" doesn't exist yet. Would you like to create this customer?`,
+      pendingAction: 'CONFIRM_ADD_CUSTOMER',
+      context: { 
+        customerName,
+        resumeAction: 'INSTALL_FROM_STOCK',
+        resumeParams: params
+      },
+      options: ['Yes', 'No/Cancel']
+    }
+  }
+  
   // Find equipment
   const equipment = state.equipment.find(e =>
     e.customerName.toLowerCase() === customerName.toLowerCase() &&
@@ -1412,7 +1566,20 @@ function installFromStock(params: Record<string, unknown>, state: StateSetters):
   )
   
   if (!equipment) {
-    return { success: false, message: `Equipment ${equipmentName} not found for ${customerName}` }
+    return {
+      success: false,
+      message: `Equipment "${equipmentName}" not found for ${customerName}. Would you like to add it?`,
+      needsInput: true,
+      prompt: `Equipment "${equipmentName}" doesn't exist yet for ${customerName}. Would you like to create this equipment?`,
+      pendingAction: 'CONFIRM_ADD_EQUIPMENT',
+      context: { 
+        customerName,
+        equipmentName,
+        resumeAction: 'INSTALL_FROM_STOCK',
+        resumeParams: params
+      },
+      options: ['Yes', 'No/Cancel']
+    }
   }
   
   // Check stock and decrement
@@ -1464,6 +1631,27 @@ function installDirectOrder(params: Record<string, unknown>, state: StateSetters
     return { success: false, message: 'Part number, name, quantity, customer, equipment, and supplier are required' }
   }
   
+  // Check customer exists
+  const customer = state.customers.find(c =>
+    c.name.toLowerCase() === customerName.toLowerCase()
+  )
+  
+  if (!customer) {
+    return {
+      success: false,
+      message: `Customer "${customerName}" not found. Would you like to add them?`,
+      needsInput: true,
+      prompt: `Customer "${customerName}" doesn't exist yet. Would you like to create this customer?`,
+      pendingAction: 'CONFIRM_ADD_CUSTOMER',
+      context: { 
+        customerName,
+        resumeAction: 'INSTALL_DIRECT_ORDER',
+        resumeParams: params
+      },
+      options: ['Yes', 'No/Cancel']
+    }
+  }
+  
   // Find equipment
   const equipment = state.equipment.find(e =>
     e.customerName.toLowerCase() === customerName.toLowerCase() &&
@@ -1471,7 +1659,20 @@ function installDirectOrder(params: Record<string, unknown>, state: StateSetters
   )
   
   if (!equipment) {
-    return { success: false, message: `Equipment ${equipmentName} not found for ${customerName}` }
+    return {
+      success: false,
+      message: `Equipment "${equipmentName}" not found for ${customerName}. Would you like to add it?`,
+      needsInput: true,
+      prompt: `Equipment "${equipmentName}" doesn't exist yet for ${customerName}. Would you like to create this equipment?`,
+      pendingAction: 'CONFIRM_ADD_EQUIPMENT',
+      context: { 
+        customerName,
+        equipmentName,
+        resumeAction: 'INSTALL_DIRECT_ORDER',
+        resumeParams: params
+      },
+      options: ['Yes', 'No/Cancel']
+    }
   }
   
   // Create installed part record
@@ -1506,6 +1707,50 @@ function queryEquipmentParts(params: Record<string, unknown>, state: StateSetter
   
   if (!customerName || !equipmentName) {
     return { success: false, message: 'Customer name and equipment name are required' }
+  }
+  
+  // Check customer exists
+  const customer = state.customers.find(c =>
+    c.name.toLowerCase() === customerName.toLowerCase()
+  )
+  
+  if (!customer) {
+    return {
+      success: false,
+      message: `Customer "${customerName}" not found. Would you like to add them?`,
+      needsInput: true,
+      prompt: `Customer "${customerName}" doesn't exist yet. Would you like to create this customer?`,
+      pendingAction: 'CONFIRM_ADD_CUSTOMER',
+      context: { 
+        customerName,
+        resumeAction: 'QUERY_EQUIPMENT_PARTS',
+        resumeParams: params
+      },
+      options: ['Yes', 'No/Cancel']
+    }
+  }
+  
+  // Check equipment exists
+  const equipment = state.equipment.find(e =>
+    e.customerName.toLowerCase() === customerName.toLowerCase() &&
+    e.name.toLowerCase() === equipmentName.toLowerCase()
+  )
+  
+  if (!equipment) {
+    return {
+      success: false,
+      message: `Equipment "${equipmentName}" not found for ${customerName}. Would you like to add it?`,
+      needsInput: true,
+      prompt: `Equipment "${equipmentName}" doesn't exist yet for ${customerName}. Would you like to create this equipment?`,
+      pendingAction: 'CONFIRM_ADD_EQUIPMENT',
+      context: { 
+        customerName,
+        equipmentName,
+        resumeAction: 'QUERY_EQUIPMENT_PARTS',
+        resumeParams: params
+      },
+      options: ['Yes', 'No/Cancel']
+    }
   }
   
   const parts = state.installedParts.filter(p =>
@@ -1552,7 +1797,19 @@ function createJob(params: Record<string, unknown>, state: StateSetters): Execut
   )
   
   if (!customer) {
-    return { success: false, message: `Customer ${customerName} not found` }
+    return {
+      success: false,
+      message: `Customer "${customerName}" not found. Would you like to add them?`,
+      needsInput: true,
+      prompt: `Customer "${customerName}" doesn't exist yet. Would you like to create this customer?`,
+      pendingAction: 'CONFIRM_ADD_CUSTOMER',
+      context: { 
+        customerName,
+        resumeAction: 'CREATE_JOB',
+        resumeParams: params
+      },
+      options: ['Yes', 'No/Cancel']
+    }
   }
   
   // Check for missing optional fields
@@ -1619,7 +1876,19 @@ function scheduleJob(params: Record<string, unknown>, state: StateSetters): Exec
   const job = state.jobs.find(j => j.jobNumber === jobNumber)
   
   if (!job) {
-    return { success: false, message: `Job ${jobNumber} not found` }
+    return {
+      success: false,
+      message: `Job "${jobNumber}" not found. Would you like to create it?`,
+      needsInput: true,
+      prompt: `Job "${jobNumber}" doesn't exist yet. Would you like to create this job?`,
+      pendingAction: 'CONFIRM_ADD_JOB',
+      context: { 
+        jobNumber,
+        resumeAction: 'SCHEDULE_JOB',
+        resumeParams: params
+      },
+      options: ['Yes', 'No/Cancel']
+    }
   }
   
   state.setJobs((current) =>
@@ -1651,7 +1920,19 @@ function startJob(params: Record<string, unknown>, state: StateSetters): Executi
   const job = state.jobs.find(j => j.jobNumber === jobNumber)
   
   if (!job) {
-    return { success: false, message: `Job ${jobNumber} not found` }
+    return {
+      success: false,
+      message: `Job "${jobNumber}" not found. Would you like to create it?`,
+      needsInput: true,
+      prompt: `Job "${jobNumber}" doesn't exist yet. Would you like to create this job?`,
+      pendingAction: 'CONFIRM_ADD_JOB',
+      context: { 
+        jobNumber,
+        resumeAction: 'START_JOB',
+        resumeParams: params
+      },
+      options: ['Yes', 'No/Cancel']
+    }
   }
   
   state.setJobs((current) =>
@@ -1683,7 +1964,19 @@ function completeJob(params: Record<string, unknown>, state: StateSetters): Exec
   const job = state.jobs.find(j => j.jobNumber === jobNumber)
   
   if (!job) {
-    return { success: false, message: `Job ${jobNumber} not found` }
+    return {
+      success: false,
+      message: `Job "${jobNumber}" not found. Would you like to create it?`,
+      needsInput: true,
+      prompt: `Job "${jobNumber}" doesn't exist yet. Would you like to create this job?`,
+      pendingAction: 'CONFIRM_ADD_JOB',
+      context: { 
+        jobNumber,
+        resumeAction: 'COMPLETE_JOB',
+        resumeParams: params
+      },
+      options: ['Yes', 'No/Cancel']
+    }
   }
   
   state.setJobs((current) =>
@@ -1717,7 +2010,19 @@ function updateJob(params: Record<string, unknown>, state: StateSetters): Execut
   const job = state.jobs.find(j => j.jobNumber === jobNumber)
   
   if (!job) {
-    return { success: false, message: `Job ${jobNumber} not found` }
+    return {
+      success: false,
+      message: `Job "${jobNumber}" not found. Would you like to create it?`,
+      needsInput: true,
+      prompt: `Job "${jobNumber}" doesn't exist yet. Would you like to create this job?`,
+      pendingAction: 'CONFIRM_ADD_JOB',
+      context: { 
+        jobNumber,
+        resumeAction: 'UPDATE_JOB',
+        resumeParams: params
+      },
+      options: ['Yes', 'No/Cancel']
+    }
   }
   
   // Build update object from provided params

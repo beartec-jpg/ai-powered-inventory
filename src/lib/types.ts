@@ -439,9 +439,12 @@ export interface PendingCommand {
   flowCompleted?: boolean  // Signal that the multi-step flow has already been completed
   // Sub-flow support for nested flows (e.g., supplier details within catalogue item creation)
   inSubFlow?: boolean
-  subFlowType?: string
+  subFlowType?: 'SUPPLIER_DETAILS' | 'CUSTOMER_DETAILS' | 'EQUIPMENT_DETAILS' | 'CATALOGUE_DETAILS' | 'JOB_DETAILS'
   subFlowData?: Record<string, unknown>
   parentStep?: number
+  // Resume support for continuing original action after sub-flow completion
+  resumeAction?: string  // Action to execute after sub-flow completes
+  resumeParams?: Record<string, unknown>  // Params for resumed action
 }
 
 export interface ConversationContext {
