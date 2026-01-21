@@ -182,6 +182,16 @@ export function Dashboard() {
       // Check if we have a pending command from a previous interaction
       const existingPending = conversationManager.getPendingCommand()
       
+      console.log('[Dashboard] Handling command:', {
+        command,
+        hasExistingPending: !!existingPending,
+        pendingAction: existingPending?.pendingAction,
+        currentStep: existingPending?.currentStep,
+        totalSteps: existingPending?.totalSteps,
+        inSubFlow: existingPending?.inSubFlow,
+        subFlowType: existingPending?.subFlowType
+      })
+      
       let actionToExecute: string
       let paramsToExecute: Record<string, unknown>
       
@@ -245,6 +255,12 @@ export function Dashboard() {
               flow.steps.length,
               existingPending.collectedData
             )
+            
+            // Preserve sub-flow state
+            updatedPending.inSubFlow = existingPending.inSubFlow
+            updatedPending.subFlowType = existingPending.subFlowType
+            updatedPending.resumeAction = existingPending.resumeAction
+            updatedPending.resumeParams = existingPending.resumeParams
             
             setPendingCommand(updatedPending)
             setIsProcessing(false)
@@ -632,6 +648,10 @@ export function Dashboard() {
                   existingPending.collectedData
                 )
                 
+                // Preserve sub-flow state (resumeAction and resumeParams, but clear inSubFlow since we're returning)
+                updatedPending.resumeAction = existingPending.resumeAction
+                updatedPending.resumeParams = existingPending.resumeParams
+                
                 setPendingCommand(updatedPending)
                 setIsProcessing(false)
                 return
@@ -736,6 +756,12 @@ export function Dashboard() {
                   existingPending.totalSteps,
                   collectedData
                 )
+                
+                // Preserve sub-flow state
+                updatedPending.inSubFlow = existingPending.inSubFlow
+                updatedPending.subFlowType = existingPending.subFlowType
+                updatedPending.resumeAction = existingPending.resumeAction
+                updatedPending.resumeParams = existingPending.resumeParams
                 
                 setPendingCommand(updatedPending)
                 setIsProcessing(false)
@@ -959,6 +985,10 @@ export function Dashboard() {
                   existingPending.collectedData
                 )
                 
+                // Preserve sub-flow state (resumeAction and resumeParams, but clear inSubFlow since we're returning)
+                updatedPending.resumeAction = existingPending.resumeAction
+                updatedPending.resumeParams = existingPending.resumeParams
+                
                 setPendingCommand(updatedPending)
                 setIsProcessing(false)
                 return
@@ -1057,6 +1087,12 @@ export function Dashboard() {
                   existingPending.totalSteps,
                   collectedData
                 )
+                
+                // Preserve sub-flow state
+                updatedPending.inSubFlow = existingPending.inSubFlow
+                updatedPending.subFlowType = existingPending.subFlowType
+                updatedPending.resumeAction = existingPending.resumeAction
+                updatedPending.resumeParams = existingPending.resumeParams
                 
                 setPendingCommand(updatedPending)
                 setIsProcessing(false)
@@ -1250,6 +1286,12 @@ export function Dashboard() {
                   collectedData
                 )
                 
+                // Preserve sub-flow state
+                updatedPending.inSubFlow = existingPending.inSubFlow
+                updatedPending.subFlowType = existingPending.subFlowType
+                updatedPending.resumeAction = existingPending.resumeAction
+                updatedPending.resumeParams = existingPending.resumeParams
+                
                 setPendingCommand(updatedPending)
                 setIsProcessing(false)
                 return
@@ -1389,6 +1431,12 @@ export function Dashboard() {
                   collectedData
                 )
                 
+                // Preserve sub-flow state
+                updatedPending.inSubFlow = existingPending.inSubFlow
+                updatedPending.subFlowType = existingPending.subFlowType
+                updatedPending.resumeAction = existingPending.resumeAction
+                updatedPending.resumeParams = existingPending.resumeParams
+                
                 setPendingCommand(updatedPending)
                 setIsProcessing(false)
                 return
@@ -1516,6 +1564,12 @@ export function Dashboard() {
                   existingPending.totalSteps,
                   collectedData
                 )
+                
+                // Preserve sub-flow state
+                updatedPending.inSubFlow = existingPending.inSubFlow
+                updatedPending.subFlowType = existingPending.subFlowType
+                updatedPending.resumeAction = existingPending.resumeAction
+                updatedPending.resumeParams = existingPending.resumeParams
                 
                 setPendingCommand(updatedPending)
                 setIsProcessing(false)
@@ -1656,6 +1710,12 @@ export function Dashboard() {
                   collectedData
                 )
                 
+                // Preserve sub-flow state
+                updatedPending.inSubFlow = existingPending.inSubFlow
+                updatedPending.subFlowType = existingPending.subFlowType
+                updatedPending.resumeAction = existingPending.resumeAction
+                updatedPending.resumeParams = existingPending.resumeParams
+                
                 setPendingCommand(updatedPending)
                 setIsProcessing(false)
                 return
@@ -1795,6 +1855,12 @@ export function Dashboard() {
                   existingPending.totalSteps,
                   collectedData
                 )
+                
+                // Preserve sub-flow state
+                updatedPending.inSubFlow = existingPending.inSubFlow
+                updatedPending.subFlowType = existingPending.subFlowType
+                updatedPending.resumeAction = existingPending.resumeAction
+                updatedPending.resumeParams = existingPending.resumeParams
                 
                 setPendingCommand(updatedPending)
                 setIsProcessing(false)
