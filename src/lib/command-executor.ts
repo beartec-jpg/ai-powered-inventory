@@ -676,7 +676,7 @@ function updateCatalogueItem(params: Record<string, unknown>, state: StateSetter
       message: `Catalogue item "${partNumber}" not found. Would you like to add it?`,
       needsInput: true,
       prompt: `Catalogue item "${partNumber}" doesn't exist in the catalogue. Would you like to create this catalogue item?`,
-      pendingAction: 'CREATE_CATALOGUE_ITEM',
+      pendingAction: 'CONFIRM_ADD_CATALOGUE_ITEM',
       context: { 
         partNumber,
         resumeAction: 'UPDATE_CATALOGUE_ITEM',
@@ -938,7 +938,7 @@ function useStock(params: Record<string, unknown>, state: StateSetters): Executi
       message: `Part "${partNumber}" not found in catalogue. Would you like to add it?`,
       needsInput: true,
       prompt: `Part "${partNumber}" doesn't exist in the catalogue. Would you like to create this catalogue item?`,
-      pendingAction: 'CREATE_CATALOGUE_ITEM',
+      pendingAction: 'CONFIRM_ADD_CATALOGUE_ITEM',
       context: { 
         partNumber,
         resumeAction: 'USE_STOCK',
@@ -1002,7 +1002,7 @@ function transferStock(params: Record<string, unknown>, state: StateSetters): Ex
       message: `Part "${partNumber}" not found in catalogue. Would you like to add it?`,
       needsInput: true,
       prompt: `Part "${partNumber}" doesn't exist in the catalogue. Would you like to create this catalogue item?`,
-      pendingAction: 'CREATE_CATALOGUE_ITEM',
+      pendingAction: 'CONFIRM_ADD_CATALOGUE_ITEM',
       context: { 
         partNumber,
         resumeAction: 'TRANSFER_STOCK',
@@ -1260,7 +1260,7 @@ function createCustomer(params: Record<string, unknown>, state: StateSetters): E
       message: `Customer "${name}" ready to create. Would you like to add contact details?`,
       needsInput: true,
       prompt: `Would you like to add contact details for customer "${name}"?`,
-      pendingAction: 'CREATE_CUSTOMER',
+      pendingAction: 'CONFIRM_ADD_CUSTOMER',
       context: { name },
       options: ['Yes', 'No - Create Now']
     }
@@ -1308,7 +1308,7 @@ function addSiteAddress(params: Record<string, unknown>, state: StateSetters): E
       message: `Customer "${customerName}" not found. Would you like to add them?`,
       needsInput: true,
       prompt: `Customer "${customerName}" doesn't exist yet. Would you like to create this customer?`,
-      pendingAction: 'CREATE_CUSTOMER',
+      pendingAction: 'CONFIRM_ADD_CUSTOMER',
       context: { 
         customerName,
         resumeAction: 'ADD_SITE_ADDRESS',
@@ -1358,7 +1358,7 @@ function createEquipment(params: Record<string, unknown>, state: StateSetters): 
       message: `Customer "${customerName}" not found. Would you like to add them?`,
       needsInput: true,
       prompt: `Customer "${customerName}" doesn't exist yet. Would you like to create this customer?`,
-      pendingAction: 'CREATE_CUSTOMER',
+      pendingAction: 'CONFIRM_ADD_CUSTOMER',
       context: { 
         customerName,
         resumeAction: 'CREATE_EQUIPMENT',
@@ -1385,7 +1385,7 @@ function createEquipment(params: Record<string, unknown>, state: StateSetters): 
       message: `Equipment "${equipmentName}" ready to create. Would you like to add details?`,
       needsInput: true,
       prompt: `Would you like to add details for equipment "${equipmentName}" at ${customerName}?`,
-      pendingAction: 'CREATE_EQUIPMENT',
+      pendingAction: 'CONFIRM_ADD_EQUIPMENT',
       context: { customerName, equipmentName },
       options: ['Yes', 'No - Create Now']
     }
@@ -1435,7 +1435,7 @@ function updateEquipment(params: Record<string, unknown>, state: StateSetters): 
       message: `Customer "${customerName}" not found. Would you like to add them?`,
       needsInput: true,
       prompt: `Customer "${customerName}" doesn't exist yet. Would you like to create this customer?`,
-      pendingAction: 'CREATE_CUSTOMER',
+      pendingAction: 'CONFIRM_ADD_CUSTOMER',
       context: { 
         customerName,
         resumeAction: 'UPDATE_EQUIPMENT',
@@ -1456,7 +1456,7 @@ function updateEquipment(params: Record<string, unknown>, state: StateSetters): 
       message: `Equipment "${equipmentName}" not found for ${customerName}. Would you like to add it?`,
       needsInput: true,
       prompt: `Equipment "${equipmentName}" doesn't exist yet for ${customerName}. Would you like to create this equipment?`,
-      pendingAction: 'CREATE_EQUIPMENT',
+      pendingAction: 'CONFIRM_ADD_EQUIPMENT',
       context: { 
         customerName,
         equipmentName,
@@ -1504,7 +1504,7 @@ function listEquipment(params: Record<string, unknown>, state: StateSetters): Ex
       message: `Customer "${customerName}" not found. Would you like to add them?`,
       needsInput: true,
       prompt: `Customer "${customerName}" doesn't exist yet. Would you like to create this customer?`,
-      pendingAction: 'CREATE_CUSTOMER',
+      pendingAction: 'CONFIRM_ADD_CUSTOMER',
       context: { 
         customerName,
         resumeAction: 'LIST_EQUIPMENT',
@@ -1549,7 +1549,7 @@ function installFromStock(params: Record<string, unknown>, state: StateSetters):
       message: `Customer "${customerName}" not found. Would you like to add them?`,
       needsInput: true,
       prompt: `Customer "${customerName}" doesn't exist yet. Would you like to create this customer?`,
-      pendingAction: 'CREATE_CUSTOMER',
+      pendingAction: 'CONFIRM_ADD_CUSTOMER',
       context: { 
         customerName,
         resumeAction: 'INSTALL_FROM_STOCK',
@@ -1571,7 +1571,7 @@ function installFromStock(params: Record<string, unknown>, state: StateSetters):
       message: `Equipment "${equipmentName}" not found for ${customerName}. Would you like to add it?`,
       needsInput: true,
       prompt: `Equipment "${equipmentName}" doesn't exist yet for ${customerName}. Would you like to create this equipment?`,
-      pendingAction: 'CREATE_EQUIPMENT',
+      pendingAction: 'CONFIRM_ADD_EQUIPMENT',
       context: { 
         customerName,
         equipmentName,
@@ -1642,7 +1642,7 @@ function installDirectOrder(params: Record<string, unknown>, state: StateSetters
       message: `Customer "${customerName}" not found. Would you like to add them?`,
       needsInput: true,
       prompt: `Customer "${customerName}" doesn't exist yet. Would you like to create this customer?`,
-      pendingAction: 'CREATE_CUSTOMER',
+      pendingAction: 'CONFIRM_ADD_CUSTOMER',
       context: { 
         customerName,
         resumeAction: 'INSTALL_DIRECT_ORDER',
@@ -1664,7 +1664,7 @@ function installDirectOrder(params: Record<string, unknown>, state: StateSetters
       message: `Equipment "${equipmentName}" not found for ${customerName}. Would you like to add it?`,
       needsInput: true,
       prompt: `Equipment "${equipmentName}" doesn't exist yet for ${customerName}. Would you like to create this equipment?`,
-      pendingAction: 'CREATE_EQUIPMENT',
+      pendingAction: 'CONFIRM_ADD_EQUIPMENT',
       context: { 
         customerName,
         equipmentName,
@@ -1720,7 +1720,7 @@ function queryEquipmentParts(params: Record<string, unknown>, state: StateSetter
       message: `Customer "${customerName}" not found. Would you like to add them?`,
       needsInput: true,
       prompt: `Customer "${customerName}" doesn't exist yet. Would you like to create this customer?`,
-      pendingAction: 'CREATE_CUSTOMER',
+      pendingAction: 'CONFIRM_ADD_CUSTOMER',
       context: { 
         customerName,
         resumeAction: 'QUERY_EQUIPMENT_PARTS',
@@ -1742,7 +1742,7 @@ function queryEquipmentParts(params: Record<string, unknown>, state: StateSetter
       message: `Equipment "${equipmentName}" not found for ${customerName}. Would you like to add it?`,
       needsInput: true,
       prompt: `Equipment "${equipmentName}" doesn't exist yet for ${customerName}. Would you like to create this equipment?`,
-      pendingAction: 'CREATE_EQUIPMENT',
+      pendingAction: 'CONFIRM_ADD_EQUIPMENT',
       context: { 
         customerName,
         equipmentName,
@@ -1802,7 +1802,7 @@ function createJob(params: Record<string, unknown>, state: StateSetters): Execut
       message: `Customer "${customerName}" not found. Would you like to add them?`,
       needsInput: true,
       prompt: `Customer "${customerName}" doesn't exist yet. Would you like to create this customer?`,
-      pendingAction: 'CREATE_CUSTOMER',
+      pendingAction: 'CONFIRM_ADD_CUSTOMER',
       context: { 
         customerName,
         resumeAction: 'CREATE_JOB',
@@ -1828,7 +1828,7 @@ function createJob(params: Record<string, unknown>, state: StateSetters): Execut
       message: `Job for "${customerName}" ready to create. Would you like to add details?`,
       needsInput: true,
       prompt: `Would you like to add details for this job for "${customerName}"?`,
-      pendingAction: 'CREATE_JOB',
+      pendingAction: 'CONFIRM_ADD_JOB',
       context: { customerName },
       options: ['Yes', 'No - Create Now']
     }
@@ -1881,7 +1881,7 @@ function scheduleJob(params: Record<string, unknown>, state: StateSetters): Exec
       message: `Job "${jobNumber}" not found. Would you like to create it?`,
       needsInput: true,
       prompt: `Job "${jobNumber}" doesn't exist yet. Would you like to create this job?`,
-      pendingAction: 'CREATE_JOB',
+      pendingAction: 'CONFIRM_ADD_JOB',
       context: { 
         jobNumber,
         resumeAction: 'SCHEDULE_JOB',
@@ -1925,7 +1925,7 @@ function startJob(params: Record<string, unknown>, state: StateSetters): Executi
       message: `Job "${jobNumber}" not found. Would you like to create it?`,
       needsInput: true,
       prompt: `Job "${jobNumber}" doesn't exist yet. Would you like to create this job?`,
-      pendingAction: 'CREATE_JOB',
+      pendingAction: 'CONFIRM_ADD_JOB',
       context: { 
         jobNumber,
         resumeAction: 'START_JOB',
@@ -1969,7 +1969,7 @@ function completeJob(params: Record<string, unknown>, state: StateSetters): Exec
       message: `Job "${jobNumber}" not found. Would you like to create it?`,
       needsInput: true,
       prompt: `Job "${jobNumber}" doesn't exist yet. Would you like to create this job?`,
-      pendingAction: 'CREATE_JOB',
+      pendingAction: 'CONFIRM_ADD_JOB',
       context: { 
         jobNumber,
         resumeAction: 'COMPLETE_JOB',
@@ -2015,7 +2015,7 @@ function updateJob(params: Record<string, unknown>, state: StateSetters): Execut
       message: `Job "${jobNumber}" not found. Would you like to create it?`,
       needsInput: true,
       prompt: `Job "${jobNumber}" doesn't exist yet. Would you like to create this job?`,
-      pendingAction: 'CREATE_JOB',
+      pendingAction: 'CONFIRM_ADD_JOB',
       context: { 
         jobNumber,
         resumeAction: 'UPDATE_JOB',
