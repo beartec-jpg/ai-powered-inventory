@@ -541,8 +541,8 @@ export async function executeCommand(
 // ===== CATALOGUE MANAGEMENT =====
 
 async function createCatalogueItem(params: Record<string, unknown>, state: StateSetters, userId?: string | null): Promise<ExecutionResult> {
-  const partNumber = String(params.partNumber || '').trim()
-  const name = String(params.name || '').trim()
+  const partNumber = String(params.partNumber || params.item || params.part || '').trim()
+  const name = String(params.name || params.partNumber || '').trim()
   
   if (!partNumber || !name) {
     return { success: false, message: 'Part number and name are required' }
@@ -1230,7 +1230,7 @@ function setMinStock(params: Record<string, unknown>, state: StateSetters): Exec
 // ===== CUSTOMER & EQUIPMENT =====
 
 function createCustomer(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
-  const name = String(params.name || '').trim()
+  const name = String(params.name || params.customerName || '').trim()
   
   if (!name) {
     return { success: false, message: 'Customer name is required' }
@@ -1342,7 +1342,7 @@ function addSiteAddress(params: Record<string, unknown>, state: StateSetters): E
 
 function createEquipment(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
   const customerName = String(params.customerName || '').trim()
-  const equipmentName = String(params.equipmentName || '').trim()
+  const equipmentName = String(params.equipmentName || params.name || '').trim()
   
   if (!customerName || !equipmentName) {
     return { success: false, message: 'Customer name and equipment name are required' }
