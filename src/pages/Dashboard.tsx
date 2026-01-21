@@ -286,7 +286,10 @@ export function Dashboard() {
               [],
               firstSubStep.prompt(customerName),
               'CREATE_CUSTOMER',
-              existingPending.context,
+              {
+                ...existingPending.context,
+                name: customerName,  // Map customerName → name
+              },
               firstSubStep.optional ? ['Skip'] : undefined,
               1,
               flow.steps.length,
@@ -328,7 +331,11 @@ export function Dashboard() {
               [],
               firstSubStep.prompt(equipmentName),
               'CREATE_EQUIPMENT',
-              existingPending.context,
+              {
+                ...existingPending.context,
+                equipmentName: existingPending.context?.equipmentName,  // Explicitly preserve (defensive programming)
+                customerName: existingPending.context?.customerName,     // Explicitly preserve (defensive programming)
+              },
               firstSubStep.optional ? ['Skip'] : undefined,
               1,
               flow.steps.length,
@@ -412,7 +419,11 @@ export function Dashboard() {
               [],
               firstSubStep.prompt(partNumber),
               'CREATE_CATALOGUE_ITEM_WITH_DETAILS',
-              existingPending.context,
+              {
+                ...existingPending.context,
+                partNumber: existingPending.context?.partNumber,  // Explicitly preserve (defensive programming)
+                name: existingPending.context?.name || existingPending.context?.partNumber,  // Default name to partNumber
+              },
               firstSubStep.optional ? ['Skip'] : undefined,
               1,
               flow.steps.length,
@@ -1107,7 +1118,7 @@ export function Dashboard() {
             paramsToExecute = {
               // Original command parameters
               partNumber: existingPending.context?.partNumber || existingPending.context?.item,
-              name: existingPending.context?.name || existingPending.context?.item,
+              name: collectedData.name || existingPending.context?.name || existingPending.context?.partNumber,  // Map with fallbacks
               // Collected data from multi-step flow (spread first so context can override)
               ...collectedData,
               // Calculate sell price if both unitCost and markup are provided
@@ -1175,6 +1186,8 @@ export function Dashboard() {
                 paramsToExecute = {
                   ...existingPending.context,
                   ...alreadyKnown,
+                  partNumber: existingPending.context?.partNumber,  // Explicitly preserve (defensive programming)
+                  name: alreadyKnown.name || existingPending.context?.name || existingPending.context?.partNumber,  // Map with fallbacks
                   // Calculate sell price if both unitCost and markup are provided
                   sellPrice: alreadyKnown.unitCost && alreadyKnown.markup 
                     ? Number(alreadyKnown.unitCost) * (1 + Number(alreadyKnown.markup) / 100)
@@ -1303,6 +1316,7 @@ export function Dashboard() {
             paramsToExecute = {
               ...existingPending.context,
               ...collectedData,
+              name: existingPending.context?.name || existingPending.context?.customerName,  // Map customerName → name
               flowCompleted: true
             }
             
@@ -1582,6 +1596,7 @@ export function Dashboard() {
             paramsToExecute = {
               ...existingPending.context,
               ...collectedData,
+              customerName: existingPending.context?.customerName,  // Explicitly preserve (defensive programming)
               flowCompleted: true
             }
             
@@ -1727,6 +1742,8 @@ export function Dashboard() {
             paramsToExecute = {
               ...existingPending.context,
               ...collectedData,
+              equipmentName: existingPending.context?.equipmentName,  // Explicitly preserve (defensive programming)
+              customerName: existingPending.context?.customerName,    // Explicitly preserve (defensive programming)
               flowCompleted: true
             }
             
