@@ -250,6 +250,174 @@ export function Dashboard() {
             setIsProcessing(false)
             return
           }
+        } else if (existingPending.pendingAction === 'CONFIRM_ADD_CUSTOMER') {
+          // Handle customer creation confirmation
+          if (commandLower === 'yes' || /\byes\b/.test(commandLower)) {
+            // User wants to add customer details, start sub-flow
+            const flow = getFlow('CREATE_CUSTOMER')
+            if (!flow) {
+              toast.error('Flow configuration error')
+              setIsProcessing(false)
+              return
+            }
+            
+            const customerName = String(existingPending.context?.customerName || '')
+            const firstSubStep = flow.steps[0]
+            
+            const subFlowPending = conversationManager.createPendingCommand(
+              existingPending.action,
+              existingPending.parameters,
+              [],
+              firstSubStep.prompt(customerName),
+              'CREATE_CUSTOMER',
+              existingPending.context,
+              firstSubStep.optional ? ['Skip'] : undefined,
+              1,
+              flow.steps.length,
+              {}
+            )
+            subFlowPending.inSubFlow = true
+            subFlowPending.subFlowType = 'CUSTOMER_DETAILS'
+            subFlowPending.subFlowData = {}
+            subFlowPending.resumeAction = existingPending.context?.resumeAction
+            subFlowPending.resumeParams = existingPending.context?.resumeParams
+            
+            setPendingCommand(subFlowPending)
+            setIsProcessing(false)
+            return
+          } else {
+            conversationManager.clearPendingCommand()
+            setPendingCommand(null)
+            toast.info('Operation cancelled')
+            setIsProcessing(false)
+            return
+          }
+        } else if (existingPending.pendingAction === 'CONFIRM_ADD_EQUIPMENT') {
+          // Handle equipment creation confirmation
+          if (commandLower === 'yes' || /\byes\b/.test(commandLower)) {
+            // User wants to add equipment details, start sub-flow
+            const flow = getFlow('CREATE_EQUIPMENT')
+            if (!flow) {
+              toast.error('Flow configuration error')
+              setIsProcessing(false)
+              return
+            }
+            
+            const equipmentName = String(existingPending.context?.equipmentName || '')
+            const firstSubStep = flow.steps[0]
+            
+            const subFlowPending = conversationManager.createPendingCommand(
+              existingPending.action,
+              existingPending.parameters,
+              [],
+              firstSubStep.prompt(equipmentName),
+              'CREATE_EQUIPMENT',
+              existingPending.context,
+              firstSubStep.optional ? ['Skip'] : undefined,
+              1,
+              flow.steps.length,
+              {}
+            )
+            subFlowPending.inSubFlow = true
+            subFlowPending.subFlowType = 'EQUIPMENT_DETAILS'
+            subFlowPending.subFlowData = {}
+            subFlowPending.resumeAction = existingPending.context?.resumeAction
+            subFlowPending.resumeParams = existingPending.context?.resumeParams
+            
+            setPendingCommand(subFlowPending)
+            setIsProcessing(false)
+            return
+          } else {
+            conversationManager.clearPendingCommand()
+            setPendingCommand(null)
+            toast.info('Operation cancelled')
+            setIsProcessing(false)
+            return
+          }
+        } else if (existingPending.pendingAction === 'CONFIRM_ADD_JOB') {
+          // Handle job creation confirmation
+          if (commandLower === 'yes' || /\byes\b/.test(commandLower)) {
+            // User wants to add job details, start sub-flow
+            const flow = getFlow('CREATE_JOB')
+            if (!flow) {
+              toast.error('Flow configuration error')
+              setIsProcessing(false)
+              return
+            }
+            
+            const jobNumber = String(existingPending.context?.jobNumber || '')
+            const firstSubStep = flow.steps[0]
+            
+            const subFlowPending = conversationManager.createPendingCommand(
+              existingPending.action,
+              existingPending.parameters,
+              [],
+              firstSubStep.prompt(jobNumber),
+              'CREATE_JOB',
+              existingPending.context,
+              firstSubStep.optional ? ['Skip'] : undefined,
+              1,
+              flow.steps.length,
+              {}
+            )
+            subFlowPending.inSubFlow = true
+            subFlowPending.subFlowType = 'JOB_DETAILS'
+            subFlowPending.subFlowData = {}
+            subFlowPending.resumeAction = existingPending.context?.resumeAction
+            subFlowPending.resumeParams = existingPending.context?.resumeParams
+            
+            setPendingCommand(subFlowPending)
+            setIsProcessing(false)
+            return
+          } else {
+            conversationManager.clearPendingCommand()
+            setPendingCommand(null)
+            toast.info('Operation cancelled')
+            setIsProcessing(false)
+            return
+          }
+        } else if (existingPending.pendingAction === 'CONFIRM_ADD_CATALOGUE_ITEM') {
+          // Handle catalogue item creation confirmation
+          if (commandLower === 'yes' || /\byes\b/.test(commandLower)) {
+            // User wants to add catalogue item details, start sub-flow
+            const flow = getFlow('CREATE_CATALOGUE_ITEM_WITH_DETAILS')
+            if (!flow) {
+              toast.error('Flow configuration error')
+              setIsProcessing(false)
+              return
+            }
+            
+            const partNumber = String(existingPending.context?.partNumber || '')
+            const firstSubStep = flow.steps[0]
+            
+            const subFlowPending = conversationManager.createPendingCommand(
+              existingPending.action,
+              existingPending.parameters,
+              [],
+              firstSubStep.prompt(partNumber),
+              'CREATE_CATALOGUE_ITEM_WITH_DETAILS',
+              existingPending.context,
+              firstSubStep.optional ? ['Skip'] : undefined,
+              1,
+              flow.steps.length,
+              {}
+            )
+            subFlowPending.inSubFlow = true
+            subFlowPending.subFlowType = 'CATALOGUE_DETAILS'
+            subFlowPending.subFlowData = {}
+            subFlowPending.resumeAction = existingPending.context?.resumeAction
+            subFlowPending.resumeParams = existingPending.context?.resumeParams
+            
+            setPendingCommand(subFlowPending)
+            setIsProcessing(false)
+            return
+          } else {
+            conversationManager.clearPendingCommand()
+            setPendingCommand(null)
+            toast.info('Operation cancelled')
+            setIsProcessing(false)
+            return
+          }
         } else if (existingPending && existingPending.currentStep === undefined && existingPending.pendingAction) {
           // Generalized multi-step flow start behavior
           // When user replies "yes" and pendingAction is set, check if a flow exists and start it
@@ -914,6 +1082,17 @@ export function Dashboard() {
               ...existingPending.context,
               flowCompleted: true  // Signal that user already went through the flow
             }
+            
+            // Check if we need to resume a previous action after completion
+            const resumeAction = existingPending.resumeAction || existingPending.context?.resumeAction
+            const resumeParams = existingPending.resumeParams || existingPending.context?.resumeParams
+            
+            if (resumeAction && resumeParams) {
+              // Store resume info for after this action completes
+              paramsToExecute.resumeAction = resumeAction
+              paramsToExecute.resumeParams = resumeParams
+            }
+            
             conversationManager.clearPendingCommand()
             setPendingCommand(null)
           } else {
@@ -1084,6 +1263,17 @@ export function Dashboard() {
               ...collectedData,
               flowCompleted: true
             }
+            
+            // Check if we need to resume a previous action after completion
+            const resumeAction = existingPending.resumeAction || existingPending.context?.resumeAction
+            const resumeParams = existingPending.resumeParams || existingPending.context?.resumeParams
+            
+            if (resumeAction && resumeParams) {
+              // Store resume info for after this action completes
+              paramsToExecute.resumeAction = resumeAction
+              paramsToExecute.resumeParams = resumeParams
+            }
+            
             conversationManager.clearPendingCommand()
             setPendingCommand(null)
           } else {
@@ -1340,6 +1530,17 @@ export function Dashboard() {
               ...collectedData,
               flowCompleted: true
             }
+            
+            // Check if we need to resume a previous action after completion
+            const resumeAction = existingPending.resumeAction || existingPending.context?.resumeAction
+            const resumeParams = existingPending.resumeParams || existingPending.context?.resumeParams
+            
+            if (resumeAction && resumeParams) {
+              // Store resume info for after this action completes
+              paramsToExecute.resumeAction = resumeAction
+              paramsToExecute.resumeParams = resumeParams
+            }
+            
             conversationManager.clearPendingCommand()
             setPendingCommand(null)
           } else {
@@ -1468,6 +1669,17 @@ export function Dashboard() {
               ...collectedData,
               flowCompleted: true
             }
+            
+            // Check if we need to resume a previous action after completion
+            const resumeAction = existingPending.resumeAction || existingPending.context?.resumeAction
+            const resumeParams = existingPending.resumeParams || existingPending.context?.resumeParams
+            
+            if (resumeAction && resumeParams) {
+              // Store resume info for after this action completes
+              paramsToExecute.resumeAction = resumeAction
+              paramsToExecute.resumeParams = resumeParams
+            }
+            
             conversationManager.clearPendingCommand()
             setPendingCommand(null)
           } else {
@@ -1791,6 +2003,70 @@ export function Dashboard() {
 
       if (result.success) {
         toast.success(result.message)
+        
+        // Check if we need to resume a previous action after this completion
+        const resumeAction = paramsToExecute?.resumeAction
+        const resumeParams = paramsToExecute?.resumeParams
+        
+        if (resumeAction && resumeParams) {
+          // Notify user we're continuing with the original action
+          const actionName = actionToExecute.replace(/_/g, ' ').toLowerCase()
+          toast.info(`${actionName.charAt(0).toUpperCase() + actionName.slice(1)} created. Continuing with ${resumeAction.replace(/_/g, ' ').toLowerCase()}...`)
+          
+          // Execute the resumed action after a short delay to let the user see the message
+          setTimeout(async () => {
+            try {
+              const resumeResult = await executeCommand(
+                resumeAction,
+                resumeParams,
+                inventory || [],
+                setInventory,
+                locations || [],
+                setLocations,
+                customers || [],
+                setCustomers,
+                jobs || [],
+                setJobs,
+                catalogue || [],
+                setCatalogue,
+                stockLevels || [],
+                setStockLevels,
+                suppliers || [],
+                setSuppliers,
+                equipment || [],
+                setEquipment,
+                installedParts || [],
+                setInstalledParts,
+                purchaseOrders || [],
+                setPurchaseOrders,
+                command,
+                userId
+              )
+              
+              if (resumeResult.success) {
+                toast.success(resumeResult.message)
+              } else {
+                toast.error(resumeResult.message)
+              }
+              
+              // Log the resumed action
+              const resumeLog: CommandLog = {
+                id: generateId(),
+                command: `[Resumed] ${resumeAction}`,
+                action: resumeAction,
+                timestamp: Date.now(),
+                success: resumeResult.success,
+                result: resumeResult.message,
+                data: resumeResult.data
+              }
+              setCommandLogs((current) => [...(current || []), resumeLog])
+              setLatestResponse(resumeLog)
+            } catch (error) {
+              const errorMessage = error instanceof Error ? error.message : 'Failed to resume action'
+              toast.error(errorMessage)
+            }
+          }, 1000)
+        }
         
         // Refetch data from database after successful mutations
         // Check if the action modified catalogue or stock data
