@@ -9,7 +9,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@clerk/clerk-react'
-import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api-client'
+import { apiGet, apiPost, apiPut } from '@/lib/api-client'
 import type { Customer, Equipment, Job, Supplier, PurchaseOrder } from '@/lib/types'
 
 /**

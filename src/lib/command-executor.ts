@@ -1229,7 +1229,7 @@ function setMinStock(params: Record<string, unknown>, state: StateSetters): Exec
 
 // ===== CUSTOMER & EQUIPMENT =====
 
-async function createCustomer(params: Record<string, unknown>, state: StateSetters, userId?: string): Promise<ExecutionResult> {
+async function createCustomer(params: Record<string, unknown>, state: StateSetters, userId?: string | null): Promise<ExecutionResult> {
   const name = String(params.name || params.customerName || '').trim()
   
   if (!name) {
@@ -1283,10 +1283,7 @@ async function createCustomer(params: Record<string, unknown>, state: StateSette
   // Call API to persist to database
   if (userId) {
     try {
-      const createdCustomer = await apiPost<Customer>('/api/customers', userId, {
-        ...newCustomer,
-        type: newCustomer.type,
-      })
+      const createdCustomer = await apiPost<Customer>('/api/customers', userId, newCustomer)
       
       // Optimistically update local state
       state.setCustomers((current) => [...current, createdCustomer])
@@ -1298,7 +1295,8 @@ async function createCustomer(params: Record<string, unknown>, state: StateSette
       }
     } catch (error) {
       console.error('Failed to create customer:', error)
-      return { success: false, message: `Failed to create customer: ${error}` }
+      const message = error instanceof Error ? error.message : 'Failed to create customer. Please try again.'
+      return { success: false, message }
     }
   }
   
@@ -1363,7 +1361,7 @@ function addSiteAddress(params: Record<string, unknown>, state: StateSetters): E
   }
 }
 
-async function createEquipment(params: Record<string, unknown>, state: StateSetters, userId?: string): Promise<ExecutionResult> {
+async function createEquipment(params: Record<string, unknown>, state: StateSetters, userId?: string | null): Promise<ExecutionResult> {
   const customerName = String(params.customerName || '').trim()
   const equipmentName = String(params.equipmentName || params.name || '').trim()
   
@@ -1445,7 +1443,8 @@ async function createEquipment(params: Record<string, unknown>, state: StateSett
       }
     } catch (error) {
       console.error('Failed to create equipment:', error)
-      return { success: false, message: `Failed to create equipment: ${error}` }
+      const message = error instanceof Error ? error.message : 'Failed to create equipment. Please try again.'
+      return { success: false, message }
     }
   }
   
@@ -1459,7 +1458,7 @@ async function createEquipment(params: Record<string, unknown>, state: StateSett
   }
 }
 
-async function updateEquipment(params: Record<string, unknown>, state: StateSetters, userId?: string): Promise<ExecutionResult> {
+async function updateEquipment(params: Record<string, unknown>, state: StateSetters, userId?: string | null): Promise<ExecutionResult> {
   const customerName = String(params.customerName || '').trim()
   const equipmentName = String(params.equipmentName || '').trim()
   
@@ -1533,7 +1532,8 @@ async function updateEquipment(params: Record<string, unknown>, state: StateSett
       }
     } catch (error) {
       console.error('Failed to update equipment:', error)
-      return { success: false, message: `Failed to update equipment: ${error}` }
+      const message = error instanceof Error ? error.message : 'Failed to update equipment. Please try again.'
+      return { success: false, message }
     }
   }
   
@@ -1847,7 +1847,7 @@ function queryCustomerParts(params: Record<string, unknown>, state: StateSetters
 
 // ===== JOBS =====
 
-async function createJob(params: Record<string, unknown>, state: StateSetters, userId?: string): Promise<ExecutionResult> {
+async function createJob(params: Record<string, unknown>, state: StateSetters, userId?: string | null): Promise<ExecutionResult> {
   const customerName = String(params.customerName || '').trim()
   
   if (!customerName) {
@@ -1933,7 +1933,8 @@ async function createJob(params: Record<string, unknown>, state: StateSetters, u
       }
     } catch (error) {
       console.error('Failed to create job:', error)
-      return { success: false, message: `Failed to create job: ${error}` }
+      const message = error instanceof Error ? error.message : 'Failed to create job. Please try again.'
+      return { success: false, message }
     }
   }
   
@@ -2082,7 +2083,7 @@ function completeJob(params: Record<string, unknown>, state: StateSetters): Exec
   }
 }
 
-async function updateJob(params: Record<string, unknown>, state: StateSetters, userId?: string): Promise<ExecutionResult> {
+async function updateJob(params: Record<string, unknown>, state: StateSetters, userId?: string | null): Promise<ExecutionResult> {
   const jobNumber = String(params.jobNumber || '').trim()
   
   if (!jobNumber) {
@@ -2153,7 +2154,8 @@ async function updateJob(params: Record<string, unknown>, state: StateSetters, u
       }
     } catch (error) {
       console.error('Failed to update job:', error)
-      return { success: false, message: `Failed to update job: ${error}` }
+      const message = error instanceof Error ? error.message : 'Failed to update job. Please try again.'
+      return { success: false, message }
     }
   }
   
@@ -2242,7 +2244,7 @@ function listJobs(params: Record<string, unknown>, state: StateSetters): Executi
 
 // ===== SUPPLIERS & ORDERS =====
 
-async function createSupplier(params: Record<string, unknown>, state: StateSetters, userId?: string): Promise<ExecutionResult> {
+async function createSupplier(params: Record<string, unknown>, state: StateSetters, userId?: string | null): Promise<ExecutionResult> {
   const name = String(params.name || '').trim()
   
   if (!name) {
@@ -2304,7 +2306,8 @@ async function createSupplier(params: Record<string, unknown>, state: StateSette
       }
     } catch (error) {
       console.error('Failed to create supplier:', error)
-      return { success: false, message: `Failed to create supplier: ${error}` }
+      const message = error instanceof Error ? error.message : 'Failed to create supplier. Please try again.'
+      return { success: false, message }
     }
   }
   
@@ -2318,7 +2321,7 @@ async function createSupplier(params: Record<string, unknown>, state: StateSette
   }
 }
 
-async function createPurchaseOrder(params: Record<string, unknown>, state: StateSetters, userId?: string): Promise<ExecutionResult> {
+async function createPurchaseOrder(params: Record<string, unknown>, state: StateSetters, userId?: string | null): Promise<ExecutionResult> {
   const supplierName = String(params.supplierName || '').trim()
   const items = params.items as any[] || []
   
@@ -2388,7 +2391,8 @@ async function createPurchaseOrder(params: Record<string, unknown>, state: State
       }
     } catch (error) {
       console.error('Failed to create purchase order:', error)
-      return { success: false, message: `Failed to create purchase order: ${error}` }
+      const message = error instanceof Error ? error.message : 'Failed to create purchase order. Please try again.'
+      return { success: false, message }
     }
   }
   
