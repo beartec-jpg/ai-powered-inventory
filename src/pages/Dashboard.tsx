@@ -23,6 +23,7 @@ import { generateId } from '@/lib/ai-commands'
 import { conversationManager } from '@/lib/conversation-manager'
 import { getFlow, processStepInput, supplierExists, SUPPLIER_DETAILS_SUB_FLOW } from '@/lib/multi-step-flows'
 import { useCatalogue, useStockLevels, useUpdateStockLevel } from '@/hooks/useInventoryData'
+import { useCustomers, useEquipment, useJobs, useSuppliers, usePurchaseOrders } from '@/hooks/useEntityData'
 import { useKV } from '@github/spark/hooks' // Legacy KV for non-catalogue/stock data
 import { useNavigation } from '@/contexts/NavigationContext'
 import type { 
@@ -52,21 +53,24 @@ export function Dashboard() {
   // Use actual userId when available, hooks require stable keys
   const userPrefix = userId || 'temp'
   
-  // Legacy KV storage (for backward compatibility with non-catalogue/stock data)
+  // Legacy KV storage (for backward compatibility with non-database data)
   const [inventory, setInventory] = useKV<InventoryItem[]>(`${userPrefix}-inventory`, [])
   const [locations, setLocations] = useKV<Location[]>(`${userPrefix}-locations`, [])
-  const [customers, setCustomers] = useKV<Customer[]>(`${userPrefix}-customers`, [])
-  const [jobs, setJobs] = useKV<Job[]>(`${userPrefix}-jobs`, [])
   const [commandLogs, setCommandLogs] = useKV<CommandLog[]>(`${userPrefix}-command-logs`, [])
-  const [suppliers, setSuppliers] = useKV<Supplier[]>(`${userPrefix}-suppliers`, [])
-  const [equipment, setEquipment] = useKV<Equipment[]>(`${userPrefix}-equipment`, [])
+  // TODO: installedParts needs API endpoint - keep as useKV for now
   const [installedParts, setInstalledParts] = useKV<InstalledPart[]>(`${userPrefix}-installed-parts`, [])
-  const [purchaseOrders, setPurchaseOrders] = useKV<PurchaseOrder[]>(`${userPrefix}-purchase-orders`, [])
   
-  // NEW: Database-backed storage for catalogue and stock levels (persistent across reloads)
+  // Database-backed storage for all entities (persistent across reloads)
   const { catalogue, loading: catalogueLoading, refetch: refetchCatalogue, setCatalogue } = useCatalogue()
   const { stockLevels, loading: stockLevelsLoading, refetch: refetchStockLevels, setStockLevels } = useStockLevels()
   const { updateStockLevel } = useUpdateStockLevel()
+  
+  // Database-backed entity hooks (replaces useKV for customers, jobs, equipment, suppliers, purchase orders)
+  const { customers, loading: customersLoading, refetch: refetchCustomers, setCustomers } = useCustomers()
+  const { equipment, loading: equipmentLoading, refetch: refetchEquipment, setEquipment } = useEquipment()
+  const { jobs, loading: jobsLoading, refetch: refetchJobs, setJobs } = useJobs()
+  const { suppliers, loading: suppliersLoading, refetch: refetchSuppliers, setSuppliers } = useSuppliers()
+  const { purchaseOrders, loading: purchaseOrdersLoading, refetch: refetchPurchaseOrders, setPurchaseOrders } = usePurchaseOrders()
 
   const [isProcessing, setIsProcessing] = useState(false)
   const [latestResponse, setLatestResponse] = useState<CommandLog | null>(null)

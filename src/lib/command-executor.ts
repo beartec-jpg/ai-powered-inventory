@@ -484,13 +484,13 @@ export async function executeCommand(
   if (actionLower === 'set_min_stock') return setMinStock(parameters, state)
   
   // Customer & Equipment
-  if (actionLower === 'create_customer') return createCustomer(parameters, state)
-  if (actionLower === 'add_customer') return createCustomer(parameters, state)
+  if (actionLower === 'create_customer') return await createCustomer(parameters, state, userId)
+  if (actionLower === 'add_customer') return await createCustomer(parameters, state, userId)
   if (actionLower === 'add_site_address') return addSiteAddress(parameters, state)
   if (actionLower === 'add_site') return addSiteAddress(parameters, state)
-  if (actionLower === 'create_equipment') return createEquipment(parameters, state)
-  if (actionLower === 'add_equipment') return createEquipment(parameters, state)
-  if (actionLower === 'update_equipment') return updateEquipment(parameters, state)
+  if (actionLower === 'create_equipment') return await createEquipment(parameters, state, userId)
+  if (actionLower === 'add_equipment') return await createEquipment(parameters, state, userId)
+  if (actionLower === 'update_equipment') return await updateEquipment(parameters, state, userId)
   if (actionLower === 'list_equipment') return listEquipment(parameters, state)
   if (actionLower === 'search_equipment') return listEquipment(parameters, state)
   
@@ -502,21 +502,21 @@ export async function executeCommand(
   if (actionLower === 'query_customer_parts') return queryCustomerParts(parameters, state)
   
   // Jobs
-  if (actionLower === 'create_job') return createJob(parameters, state)
+  if (actionLower === 'create_job') return await createJob(parameters, state, userId)
   if (actionLower === 'schedule_job') return scheduleJob(parameters, state)
   if (actionLower === 'start_job') return startJob(parameters, state)
   if (actionLower === 'complete_job') return completeJob(parameters, state)
-  if (actionLower === 'update_job') return updateJob(parameters, state)
+  if (actionLower === 'update_job') return await updateJob(parameters, state, userId)
   if (actionLower === 'add_part_to_job') return addPartToJob(parameters, state)
   if (actionLower === 'add_parts_to_job') return addPartToJob(parameters, state)
   if (actionLower === 'list_jobs') return listJobs(parameters, state)
   if (actionLower === 'search_jobs') return listJobs(parameters, state)
   
   // Suppliers & Orders
-  if (actionLower === 'create_supplier') return createSupplier(parameters, state)
-  if (actionLower === 'add_supplier') return createSupplier(parameters, state)
-  if (actionLower === 'create_purchase_order') return createPurchaseOrder(parameters, state)
-  if (actionLower === 'create_order') return createPurchaseOrder(parameters, state)
+  if (actionLower === 'create_supplier') return await createSupplier(parameters, state, userId)
+  if (actionLower === 'add_supplier') return await createSupplier(parameters, state, userId)
+  if (actionLower === 'create_purchase_order') return await createPurchaseOrder(parameters, state, userId)
+  if (actionLower === 'create_order') return await createPurchaseOrder(parameters, state, userId)
   if (actionLower === 'receive_purchase_order') return receivePurchaseOrder(parameters, state)
   if (actionLower === 'receive_order') return receivePurchaseOrder(parameters, state)
   
@@ -1229,7 +1229,7 @@ function setMinStock(params: Record<string, unknown>, state: StateSetters): Exec
 
 // ===== CUSTOMER & EQUIPMENT =====
 
-function createCustomer(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
+async function createCustomer(params: Record<string, unknown>, state: StateSetters, userId?: string): Promise<ExecutionResult> {
   const name = String(params.name || params.customerName || '').trim()
   
   if (!name) {
@@ -1280,6 +1280,29 @@ function createCustomer(params: Record<string, unknown>, state: StateSetters): E
     createdAt: Date.now(),
   }
   
+  // Call API to persist to database
+  if (userId) {
+    try {
+      const createdCustomer = await apiPost<Customer>('/api/customers', userId, {
+        ...newCustomer,
+        type: newCustomer.type,
+      })
+      
+      // Optimistically update local state
+      state.setCustomers((current) => [...current, createdCustomer])
+      
+      return {
+        success: true,
+        message: `Created customer: ${name}`,
+        data: createdCustomer
+      }
+    } catch (error) {
+      console.error('Failed to create customer:', error)
+      return { success: false, message: `Failed to create customer: ${error}` }
+    }
+  }
+  
+  // Fallback if no userId (shouldn't happen)
   state.setCustomers((current) => [...current, newCustomer])
   
   return {
@@ -1340,7 +1363,7 @@ function addSiteAddress(params: Record<string, unknown>, state: StateSetters): E
   }
 }
 
-function createEquipment(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
+async function createEquipment(params: Record<string, unknown>, state: StateSetters, userId?: string): Promise<ExecutionResult> {
   const customerName = String(params.customerName || '').trim()
   const equipmentName = String(params.equipmentName || params.name || '').trim()
   
@@ -1407,6 +1430,26 @@ function createEquipment(params: Record<string, unknown>, state: StateSetters): 
     createdAt: Date.now(),
   }
   
+  // Call API to persist to database
+  if (userId) {
+    try {
+      const createdEquipment = await apiPost<Equipment>('/api/equipment', userId, newEquipment)
+      
+      // Optimistically update local state
+      state.setEquipment((current) => [...current, createdEquipment])
+      
+      return {
+        success: true,
+        message: `Created equipment: ${equipmentName} for ${customerName}`,
+        data: createdEquipment
+      }
+    } catch (error) {
+      console.error('Failed to create equipment:', error)
+      return { success: false, message: `Failed to create equipment: ${error}` }
+    }
+  }
+  
+  // Fallback if no userId
   state.setEquipment((current) => [...current, newEquipment])
   
   return {
@@ -1416,7 +1459,7 @@ function createEquipment(params: Record<string, unknown>, state: StateSetters): 
   }
 }
 
-function updateEquipment(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
+async function updateEquipment(params: Record<string, unknown>, state: StateSetters, userId?: string): Promise<ExecutionResult> {
   const customerName = String(params.customerName || '').trim()
   const equipmentName = String(params.equipmentName || '').trim()
   
@@ -1467,17 +1510,36 @@ function updateEquipment(params: Record<string, unknown>, state: StateSetters): 
     }
   }
   
+  const updatedEquipment = {
+    ...equipment,
+    lastServiceDate: params.lastServiceDate ? Number(params.lastServiceDate) : equipment.lastServiceDate,
+    nextServiceDue: params.nextServiceDue ? Number(params.nextServiceDue) : equipment.nextServiceDue,
+    technicalNotes: params.technicalNotes ? String(params.technicalNotes) : equipment.technicalNotes,
+  }
+  
+  // Call API to persist to database
+  if (userId) {
+    try {
+      const updated = await apiPut<Equipment>('/api/equipment', userId, updatedEquipment)
+      
+      // Update local state
+      state.setEquipment((current) =>
+        current.map(e => e.id === equipment.id ? updated : e)
+      )
+      
+      return {
+        success: true,
+        message: `Updated equipment: ${equipmentName}`
+      }
+    } catch (error) {
+      console.error('Failed to update equipment:', error)
+      return { success: false, message: `Failed to update equipment: ${error}` }
+    }
+  }
+  
+  // Fallback if no userId
   state.setEquipment((current) =>
-    current.map(e =>
-      e.id === equipment.id
-        ? {
-            ...e,
-            lastServiceDate: params.lastServiceDate ? Number(params.lastServiceDate) : e.lastServiceDate,
-            nextServiceDue: params.nextServiceDue ? Number(params.nextServiceDue) : e.nextServiceDue,
-            technicalNotes: params.technicalNotes ? String(params.technicalNotes) : e.technicalNotes,
-          }
-        : e
-    )
+    current.map(e => e.id === equipment.id ? updatedEquipment : e)
   )
   
   return {
@@ -1785,7 +1847,7 @@ function queryCustomerParts(params: Record<string, unknown>, state: StateSetters
 
 // ===== JOBS =====
 
-function createJob(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
+async function createJob(params: Record<string, unknown>, state: StateSetters, userId?: string): Promise<ExecutionResult> {
   const customerName = String(params.customerName || '').trim()
   
   if (!customerName) {
@@ -1856,6 +1918,26 @@ function createJob(params: Record<string, unknown>, state: StateSetters): Execut
     createdAt: Date.now(),
   }
   
+  // Call API to persist to database
+  if (userId) {
+    try {
+      const createdJob = await apiPost<Job>('/api/jobs', userId, newJob)
+      
+      // Optimistically update local state
+      state.setJobs((current) => [...current, createdJob])
+      
+      return {
+        success: true,
+        message: `Created job ${jobNumber} for ${customerName}`,
+        data: createdJob
+      }
+    } catch (error) {
+      console.error('Failed to create job:', error)
+      return { success: false, message: `Failed to create job: ${error}` }
+    }
+  }
+  
+  // Fallback if no userId
   state.setJobs((current) => [...current, newJob])
   
   return {
@@ -2000,7 +2082,7 @@ function completeJob(params: Record<string, unknown>, state: StateSetters): Exec
   }
 }
 
-function updateJob(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
+async function updateJob(params: Record<string, unknown>, state: StateSetters, userId?: string): Promise<ExecutionResult> {
   const jobNumber = String(params.jobNumber || '').trim()
   
   if (!jobNumber) {
@@ -2052,10 +2134,32 @@ function updateJob(params: Record<string, unknown>, state: StateSetters): Execut
     updates.recommendations = String(params.recommendations)
   }
   
+  const updatedJob = { ...job, ...updates }
+  
+  // Call API to persist to database
+  if (userId) {
+    try {
+      const updated = await apiPut<Job>('/api/jobs', userId, updatedJob)
+      
+      // Update local state
+      state.setJobs((current) =>
+        current.map(j => j.id === job.id ? updated : j)
+      )
+      
+      const updatedFields = Object.keys(updates).join(', ')
+      return {
+        success: true,
+        message: `Updated job ${jobNumber} (${updatedFields})`
+      }
+    } catch (error) {
+      console.error('Failed to update job:', error)
+      return { success: false, message: `Failed to update job: ${error}` }
+    }
+  }
+  
+  // Fallback if no userId
   state.setJobs((current) =>
-    current.map(j =>
-      j.id === job.id ? { ...j, ...updates } : j
-    )
+    current.map(j => j.id === job.id ? updatedJob : j)
   )
   
   const updatedFields = Object.keys(updates).join(', ')
@@ -2138,7 +2242,7 @@ function listJobs(params: Record<string, unknown>, state: StateSetters): Executi
 
 // ===== SUPPLIERS & ORDERS =====
 
-function createSupplier(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
+async function createSupplier(params: Record<string, unknown>, state: StateSetters, userId?: string): Promise<ExecutionResult> {
   const name = String(params.name || '').trim()
   
   if (!name) {
@@ -2185,6 +2289,26 @@ function createSupplier(params: Record<string, unknown>, state: StateSetters): E
     createdAt: Date.now(),
   }
   
+  // Call API to persist to database
+  if (userId) {
+    try {
+      const createdSupplier = await apiPost<Supplier>('/api/suppliers', userId, newSupplier)
+      
+      // Optimistically update local state
+      state.setSuppliers((current) => [...current, createdSupplier])
+      
+      return {
+        success: true,
+        message: `Created supplier: ${name}`,
+        data: createdSupplier
+      }
+    } catch (error) {
+      console.error('Failed to create supplier:', error)
+      return { success: false, message: `Failed to create supplier: ${error}` }
+    }
+  }
+  
+  // Fallback if no userId
   state.setSuppliers((current) => [...current, newSupplier])
   
   return {
@@ -2194,7 +2318,7 @@ function createSupplier(params: Record<string, unknown>, state: StateSetters): E
   }
 }
 
-function createPurchaseOrder(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
+async function createPurchaseOrder(params: Record<string, unknown>, state: StateSetters, userId?: string): Promise<ExecutionResult> {
   const supplierName = String(params.supplierName || '').trim()
   const items = params.items as any[] || []
   
@@ -2249,6 +2373,26 @@ function createPurchaseOrder(params: Record<string, unknown>, state: StateSetter
     createdDate: Date.now(),
   }
   
+  // Call API to persist to database
+  if (userId) {
+    try {
+      const createdPO = await apiPost<PurchaseOrder>('/api/purchase-orders', userId, newPO)
+      
+      // Optimistically update local state
+      state.setPurchaseOrders((current) => [...current, createdPO])
+      
+      return {
+        success: true,
+        message: `Created purchase order ${poNumber} for ${supplierName}`,
+        data: createdPO
+      }
+    } catch (error) {
+      console.error('Failed to create purchase order:', error)
+      return { success: false, message: `Failed to create purchase order: ${error}` }
+    }
+  }
+  
+  // Fallback if no userId
   state.setPurchaseOrders((current) => [...current, newPO])
   
   return {
