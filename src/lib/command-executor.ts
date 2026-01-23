@@ -771,9 +771,6 @@ function searchCatalogue(params: Record<string, unknown>, state: StateSetters): 
   }
 }
 
-Copilot said: # Part 2 of 2: Command Executor
-Part 2 of 2: Command Executor (Continuation from searchCatalogue)
-TypeScript
 // ===== STOCK MANAGEMENT =====
 
 async function receiveStock(params: Record<string, unknown>, state: StateSetters, userId?: string | null): Promise<ExecutionResult> {
