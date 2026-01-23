@@ -460,8 +460,8 @@ export async function executeCommand(
   if (actionLower === 'create_catalogue_item') return await createCatalogueItem(parameters, state, userId)
   if (actionLower === 'add_product') return await createCatalogueItem(parameters, state, userId)
   if (actionLower === 'create_product') return await createCatalogueItem(parameters, state, userId)
-  if (actionLower === 'update_catalogue_item') return updateCatalogueItem(parameters, state)
-  if (actionLower === 'update_product') return updateCatalogueItem(parameters, state)
+  if (actionLower === 'update_catalogue_item') return await updateCatalogueItem(parameters, state, userId)
+  if (actionLower === 'update_product') return await updateCatalogueItem(parameters, state, userId)
   if (actionLower === 'search_catalogue') return searchCatalogue(parameters, state)
   
   // Stock Management - Support both old and new action names
@@ -473,21 +473,21 @@ export async function executeCommand(
     console.log('[Executor] Matched ADD_STOCK action, calling receiveStock')
     return await receiveStock(parameters, state, userId)
   }
-  if (actionLower === 'put_away_stock') return putAwayStock(parameters, state)
-  if (actionLower === 'use_stock') return useStock(parameters, state)
-  if (actionLower === 'remove_stock') return useStock(parameters, state)
-  if (actionLower === 'transfer_stock') return transferStock(parameters, state)
-  if (actionLower === 'stock_count') return stockCount(parameters, state)
-  if (actionLower === 'count_stock') return stockCount(parameters, state)
+  if (actionLower === 'put_away_stock') return await putAwayStock(parameters, state, userId)
+  if (actionLower === 'use_stock') return await useStock(parameters, state, userId)
+  if (actionLower === 'remove_stock') return await useStock(parameters, state, userId)
+  if (actionLower === 'transfer_stock') return await transferStock(parameters, state, userId)
+  if (actionLower === 'stock_count') return await stockCount(parameters, state, userId)
+  if (actionLower === 'count_stock') return await stockCount(parameters, state, userId)
   if (actionLower === 'search_stock') return searchStock(parameters, state)
   if (actionLower === 'low_stock_report') return lowStockReport(parameters, state)
-  if (actionLower === 'set_min_stock') return setMinStock(parameters, state)
+  if (actionLower === 'set_min_stock') return await setMinStock(parameters, state, userId)
   
   // Customer & Equipment
   if (actionLower === 'create_customer') return await createCustomer(parameters, state, userId)
   if (actionLower === 'add_customer') return await createCustomer(parameters, state, userId)
-  if (actionLower === 'add_site_address') return addSiteAddress(parameters, state)
-  if (actionLower === 'add_site') return addSiteAddress(parameters, state)
+  if (actionLower === 'add_site_address') return await addSiteAddress(parameters, state, userId)
+  if (actionLower === 'add_site') return await addSiteAddress(parameters, state, userId)
   if (actionLower === 'create_equipment') return await createEquipment(parameters, state, userId)
   if (actionLower === 'add_equipment') return await createEquipment(parameters, state, userId)
   if (actionLower === 'update_equipment') return await updateEquipment(parameters, state, userId)
@@ -495,20 +495,20 @@ export async function executeCommand(
   if (actionLower === 'search_equipment') return listEquipment(parameters, state)
   
   // Parts Installation
-  if (actionLower === 'install_from_stock') return installFromStock(parameters, state)
-  if (actionLower === 'install_part') return installFromStock(parameters, state)
-  if (actionLower === 'install_direct_order') return installDirectOrder(parameters, state)
+  if (actionLower === 'install_from_stock') return await installFromStock(parameters, state, userId)
+  if (actionLower === 'install_part') return await installFromStock(parameters, state, userId)
+  if (actionLower === 'install_direct_order') return await installDirectOrder(parameters, state, userId)
   if (actionLower === 'query_equipment_parts') return queryEquipmentParts(parameters, state)
   if (actionLower === 'query_customer_parts') return queryCustomerParts(parameters, state)
   
   // Jobs
   if (actionLower === 'create_job') return await createJob(parameters, state, userId)
-  if (actionLower === 'schedule_job') return scheduleJob(parameters, state)
-  if (actionLower === 'start_job') return startJob(parameters, state)
-  if (actionLower === 'complete_job') return completeJob(parameters, state)
+  if (actionLower === 'schedule_job') return await scheduleJob(parameters, state, userId)
+  if (actionLower === 'start_job') return await startJob(parameters, state, userId)
+  if (actionLower === 'complete_job') return await completeJob(parameters, state, userId)
   if (actionLower === 'update_job') return await updateJob(parameters, state, userId)
-  if (actionLower === 'add_part_to_job') return addPartToJob(parameters, state)
-  if (actionLower === 'add_parts_to_job') return addPartToJob(parameters, state)
+  if (actionLower === 'add_part_to_job') return await addPartToJob(parameters, state, userId)
+  if (actionLower === 'add_parts_to_job') return await addPartToJob(parameters, state, userId)
   if (actionLower === 'list_jobs') return listJobs(parameters, state)
   if (actionLower === 'search_jobs') return listJobs(parameters, state)
   
@@ -517,8 +517,8 @@ export async function executeCommand(
   if (actionLower === 'add_supplier') return await createSupplier(parameters, state, userId)
   if (actionLower === 'create_purchase_order') return await createPurchaseOrder(parameters, state, userId)
   if (actionLower === 'create_order') return await createPurchaseOrder(parameters, state, userId)
-  if (actionLower === 'receive_purchase_order') return receivePurchaseOrder(parameters, state)
-  if (actionLower === 'receive_order') return receivePurchaseOrder(parameters, state)
+  if (actionLower === 'receive_purchase_order') return await receivePurchaseOrder(parameters, state, userId)
+  if (actionLower === 'receive_order') return await receivePurchaseOrder(parameters, state, userId)
   
   // Legacy actions
   if (actionLower === 'add_item') return addItem(parameters, inventory, setInventory)
@@ -659,7 +659,7 @@ async function createCatalogueItem(params: Record<string, unknown>, state: State
   }
 }
 
-function updateCatalogueItem(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
+async function updateCatalogueItem(params: Record<string, unknown>, state: StateSetters, userId?: string | null): Promise<ExecutionResult> {
   const partNumber = String(params.partNumber || '').trim()
   
   if (!partNumber) {
@@ -686,28 +686,51 @@ function updateCatalogueItem(params: Record<string, unknown>, state: StateSetter
     }
   }
   
+  // Build updated item
+  const updatedItem = {
+    ...item,
+    name: params.name ? String(params.name) : item.name,
+    unitCost: params.unitCost !== undefined ? Number(params.unitCost) : item.unitCost,
+    markup: params.markup !== undefined ? Number(params.markup) : item.markup,
+    sellPrice: params.sellPrice !== undefined ? Number(params.sellPrice) : 
+      (params.unitCost && params.markup ? Number(params.unitCost) * (1 + Number(params.markup) / 100) : item.sellPrice),
+    minQuantity: params.minQuantity !== undefined ? Number(params.minQuantity) : item.minQuantity,
+    isStocked: params.isStocked !== undefined ? Boolean(params.isStocked) : item.isStocked,
+    active: params.active !== undefined ? Boolean(params.active) : item.active,
+    updatedAt: Date.now(),
+  }
+  
+  // Call API to update
+  if (userId) {
+    try {
+      const result = await apiPut<CatalogueItem>('/api/inventory/catalogue', userId, updatedItem)
+      
+      // Update local state
+      state.setCatalogue((current) =>
+        current.map(i => i.id === item.id ? result : i)
+      )
+      
+      return {
+        success: true,
+        message: `Updated catalogue item: ${partNumber}`
+      }
+    } catch (error) {
+      console.error('[updateCatalogueItem] API error:', error)
+      return { 
+        success: false, 
+        message: error instanceof Error ? error.message : 'Failed to update catalogue item' 
+      }
+    }
+  }
+  
+  // Fallback to local state only
   state.setCatalogue((current) =>
-    current.map(i =>
-      i.id === item.id
-        ? {
-            ...i,
-            name: params.name ? String(params.name) : i.name,
-            unitCost: params.unitCost !== undefined ? Number(params.unitCost) : i.unitCost,
-            markup: params.markup !== undefined ? Number(params.markup) : i.markup,
-            sellPrice: params.sellPrice !== undefined ? Number(params.sellPrice) : 
-              (params.unitCost && params.markup ? Number(params.unitCost) * (1 + Number(params.markup) / 100) : i.sellPrice),
-            minQuantity: params.minQuantity !== undefined ? Number(params.minQuantity) : i.minQuantity,
-            isStocked: params.isStocked !== undefined ? Boolean(params.isStocked) : i.isStocked,
-            active: params.active !== undefined ? Boolean(params.active) : i.active,
-            updatedAt: Date.now(),
-          }
-        : i
-    )
+    current.map(i => i.id === item.id ? updatedItem : i)
   )
   
   return {
     success: true,
-    message: `Updated catalogue item: ${partNumber}`
+    message: `Updated catalogue item: ${partNumber} (local only)`
   }
 }
 
@@ -748,6 +771,9 @@ function searchCatalogue(params: Record<string, unknown>, state: StateSetters): 
   }
 }
 
+Copilot said: # Part 2 of 2: Command Executor
+Part 2 of 2: Command Executor (Continuation from searchCatalogue)
+TypeScript
 // ===== STOCK MANAGEMENT =====
 
 async function receiveStock(params: Record<string, unknown>, state: StateSetters, userId?: string | null): Promise<ExecutionResult> {
@@ -799,7 +825,7 @@ async function receiveStock(params: Record<string, unknown>, state: StateSetters
 console.log('[receiveStock] Catalog lookup:', {
   searchTerm: item,
   foundItem: catalogueItem ? {
-    id: catalogueItem. id,
+    id: catalogueItem.id,
     partNumber: catalogueItem.partNumber,
     name: catalogueItem.name
   } : null,
@@ -914,33 +940,68 @@ console.log('[receiveStock] Catalog lookup:', {
   }
 }
 
-function putAwayStock(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
-  return transferStock(params, state) // Same operation as transfer
+async function putAwayStock(params: Record<string, unknown>, state: StateSetters, userId?: string | null): Promise<ExecutionResult> {
+  return await transferStock(params, state, userId) // Same operation as transfer
 }
 
-function useStock(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
-  const partNumber = String(params.partNumber || '').trim()
+async function useStock(params: Record<string, unknown>, state: StateSetters, userId?: string | null): Promise<ExecutionResult> {
+  // Handle both 'item' and 'partNumber' parameter names
+  const item = String(params.item || params.partNumber || '').trim()
   const quantity = Number(params.quantity || 0)
   const location = String(params.location || '').trim()
   
-  if (!partNumber || quantity <= 0 || !location) {
-    return { success: false, message: 'Part number, positive quantity, and location are required' }
+  console.log('[useStock] Entry:', {
+    params: { item, quantity, location },
+    catalogueState: { itemCount: state.catalogue.length, stockLevelCount: state.stockLevels.length }
+  })
+  
+  // Check for missing required parameters
+  const missingFields: string[] = []
+  if (!item) missingFields.push('item')
+  if (!quantity || quantity <= 0) missingFields.push('quantity')
+  if (!location) missingFields.push('location')
+  
+  if (missingFields.length > 0) {
+    const fieldNames = missingFields.join(', ')
+    return {
+      success: false,
+      message: `Missing required information: ${fieldNames}`,
+      needsInput: true,
+      missingFields,
+      prompt: `Please provide the ${fieldNames} to complete removing stock.`,
+      context: { 
+        item, 
+        quantity, 
+        location,
+        ...params
+      }
+    }
   }
   
-  // Check if part exists in catalogue
-  const catalogueItem = state.catalogue.find(i =>
-    i.partNumber.toLowerCase() === partNumber.toLowerCase()
+  // Search for item in catalogue
+  let catalogueItem = state.catalogue.find(i => 
+    i.partNumber.toLowerCase() === item.toLowerCase() ||
+    i.name.toLowerCase().includes(item.toLowerCase())
   )
+  
+  console.log('[useStock] Catalog lookup:', {
+    searchTerm: item,
+    foundItem: catalogueItem ? {
+      id: catalogueItem.id,
+      partNumber: catalogueItem.partNumber,
+      name: catalogueItem.name
+    } : null
+  })
   
   if (!catalogueItem) {
     return {
       success: false,
-      message: `Part "${partNumber}" not found in catalogue. Would you like to add it?`,
+      message: `Part "${item}" not found in catalogue. Would you like to add it?`,
       needsInput: true,
-      prompt: `Part "${partNumber}" doesn't exist in the catalogue. Would you like to create this catalogue item?`,
+      prompt: `Part "${item}" doesn't exist in the catalogue. Would you like to create this catalogue item?`,
       pendingAction: 'CONFIRM_ADD_CATALOGUE_ITEM',
       context: { 
-        partNumber,
+        partNumber: item,
         resumeAction: 'USE_STOCK',
         resumeParams: params
       },
@@ -948,8 +1009,12 @@ function useStock(params: Record<string, unknown>, state: StateSetters): Executi
     }
   }
   
+  const partNumber = catalogueItem.partNumber
+  const catalogueItemId = catalogueItem.id
+  
+  // Find stock at location
   const stockItem = state.stockLevels.find(s =>
-    s.partNumber.toLowerCase() === partNumber.toLowerCase() &&
+    s.catalogueItemId === catalogueItemId &&
     s.location.toLowerCase() === location.toLowerCase()
   )
   
@@ -964,6 +1029,55 @@ function useStock(params: Record<string, unknown>, state: StateSetters): Executi
     }
   }
   
+  // Call API to update stock level (subtract quantity)
+  if (userId) {
+    try {
+      const stockData = {
+        id: stockItem.id,
+        catalogueItemId,
+        partNumber: catalogueItem.partNumber,
+        name: catalogueItem.name,
+        location,
+        quantity: -quantity, // Negative to subtract
+        action: 'add' as const, // API will add negative quantity (subtract)
+      }
+      
+      const result = await apiPost<StockLevel>('/api/stock/levels', userId, stockData)
+      
+      // Update local state
+      if (result.quantity === 0) {
+        // Remove from local state if quantity is now 0
+        state.setStockLevels((current) =>
+          current.filter(s => s.id !== stockItem.id)
+        )
+      } else {
+        // Update local state with new quantity
+        state.setStockLevels((current) =>
+          current.map(s =>
+            s.id === stockItem.id
+              ? { ...s, quantity: result.quantity, lastMovementAt: result.lastMovementAt, updatedAt: result.updatedAt }
+              : s
+          )
+        )
+      }
+      
+      const reason = params.reason ? ` (${params.reason})` : ''
+      const jobInfo = params.jobNumber ? ` for job ${params.jobNumber}` : ''
+      
+      return {
+        success: true,
+        message: `Used ${quantity} units of ${partNumber} from ${location}${reason}${jobInfo}`
+      }
+    } catch (error) {
+      console.error('[useStock] API error:', error)
+      return { 
+        success: false, 
+        message: error instanceof Error ? error.message : 'Failed to remove stock' 
+      }
+    }
+  }
+  
+  // Fallback to local state only (shouldn't happen in normal flow)
   state.setStockLevels((current) =>
     current.map(s =>
       s.id === stockItem.id
@@ -977,34 +1091,71 @@ function useStock(params: Record<string, unknown>, state: StateSetters): Executi
   
   return {
     success: true,
-    message: `Used ${quantity} units of ${partNumber} from ${location}${reason}${jobInfo}`
+    message: `Used ${quantity} units of ${partNumber} from ${location}${reason}${jobInfo} (local only - not persisted)`
   }
 }
 
-function transferStock(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
-  const partNumber = String(params.partNumber || '').trim()
+async function transferStock(params: Record<string, unknown>, state: StateSetters, userId?: string | null): Promise<ExecutionResult> {
+  // Handle both 'item' and 'partNumber' parameter names
+  const item = String(params.item || params.partNumber || '').trim()
   const fromLocation = String(params.fromLocation || '').trim()
   const toLocation = String(params.toLocation || '').trim()
   const quantity = Number(params.quantity || 0)
   
-  if (!partNumber || !fromLocation || !toLocation || quantity <= 0) {
-    return { success: false, message: 'Part number, from/to locations, and positive quantity are required' }
+  console.log('[transferStock] Entry:', {
+    params: { item, fromLocation, toLocation, quantity },
+    catalogueState: { itemCount: state.catalogue.length, stockLevelCount: state.stockLevels.length }
+  })
+  
+  // Check for missing required parameters
+  const missingFields: string[] = []
+  if (!item) missingFields.push('item')
+  if (!fromLocation) missingFields.push('fromLocation')
+  if (!toLocation) missingFields.push('toLocation')
+  if (!quantity || quantity <= 0) missingFields.push('quantity')
+  
+  if (missingFields.length > 0) {
+    const fieldNames = missingFields.join(', ')
+    return {
+      success: false,
+      message: `Missing required information: ${fieldNames}`,
+      needsInput: true,
+      missingFields,
+      prompt: `Please provide the ${fieldNames} to complete transferring stock.`,
+      context: { 
+        item,
+        fromLocation,
+        toLocation,
+        quantity,
+        ...params
+      }
+    }
   }
   
-  // Check if part exists in catalogue
-  const catalogueItem = state.catalogue.find(i =>
-    i.partNumber.toLowerCase() === partNumber.toLowerCase()
+  // Search for item in catalogue
+  let catalogueItem = state.catalogue.find(i => 
+    i.partNumber.toLowerCase() === item.toLowerCase() ||
+    i.name.toLowerCase().includes(item.toLowerCase())
   )
+  
+  console.log('[transferStock] Catalog lookup:', {
+    searchTerm: item,
+    foundItem: catalogueItem ? {
+      id: catalogueItem.id,
+      partNumber: catalogueItem.partNumber,
+      name: catalogueItem.name
+    } : null
+  })
   
   if (!catalogueItem) {
     return {
       success: false,
-      message: `Part "${partNumber}" not found in catalogue. Would you like to add it?`,
+      message: `Part "${item}" not found in catalogue. Would you like to add it?`,
       needsInput: true,
-      prompt: `Part "${partNumber}" doesn't exist in the catalogue. Would you like to create this catalogue item?`,
+      prompt: `Part "${item}" doesn't exist in the catalogue. Would you like to create this catalogue item?`,
       pendingAction: 'CONFIRM_ADD_CATALOGUE_ITEM',
       context: { 
-        partNumber,
+        partNumber: item,
         resumeAction: 'TRANSFER_STOCK',
         resumeParams: params
       },
@@ -1012,8 +1163,12 @@ function transferStock(params: Record<string, unknown>, state: StateSetters): Ex
     }
   }
   
+  const partNumber = catalogueItem.partNumber
+  const catalogueItemId = catalogueItem.id
+  
+  // Find source stock
   const sourceStock = state.stockLevels.find(s =>
-    s.partNumber.toLowerCase() === partNumber.toLowerCase() &&
+    s.catalogueItemId === catalogueItemId &&
     s.location.toLowerCase() === fromLocation.toLowerCase()
   )
   
@@ -1028,6 +1183,84 @@ function transferStock(params: Record<string, unknown>, state: StateSetters): Ex
     }
   }
   
+  // Call API to perform transfer (remove from source, add to destination)
+  if (userId) {
+    try {
+      // Step 1: Remove from source location
+      const removeData = {
+        id: sourceStock.id,
+        catalogueItemId,
+        partNumber: catalogueItem.partNumber,
+        name: catalogueItem.name,
+        location: fromLocation,
+        quantity: -quantity, // Negative to subtract
+        action: 'add' as const,
+      }
+      
+      const sourceResult = await apiPost<StockLevel>('/api/stock/levels', userId, removeData)
+      
+      // Step 2: Add to destination location
+      const addData = {
+        catalogueItemId,
+        partNumber: catalogueItem.partNumber,
+        name: catalogueItem.name,
+        location: toLocation,
+        quantity,
+        action: 'add' as const,
+      }
+      
+      const destResult = await apiPost<StockLevel>('/api/stock/levels', userId, addData)
+      
+      // Update local state
+      state.setStockLevels((current) => {
+        let updated = current
+        
+        // Remove or update source
+        if (sourceResult.quantity === 0) {
+          updated = updated.filter(s => s.id !== sourceStock.id)
+        } else {
+          updated = updated.map(s =>
+            s.id === sourceStock.id
+              ? { ...s, quantity: sourceResult.quantity, lastMovementAt: sourceResult.lastMovementAt, updatedAt: sourceResult.updatedAt }
+              : s
+          )
+        }
+        
+        // Add or update destination
+        const existingDest = updated.find(s =>
+          s.catalogueItemId === catalogueItemId &&
+          s.location.toLowerCase() === toLocation.toLowerCase()
+        )
+        
+        if (existingDest) {
+          updated = updated.map(s =>
+            s.id === existingDest.id
+              ? { ...s, quantity: destResult.quantity, lastMovementAt: destResult.lastMovementAt, updatedAt: destResult.updatedAt }
+              : s
+          )
+        } else {
+          updated = [...updated, destResult]
+        }
+        
+        return updated
+      })
+      
+      const notes = params.notes ? ` (${params.notes})` : ''
+      
+      return {
+        success: true,
+        message: `Transferred ${quantity} units of ${partNumber} from ${fromLocation} to ${toLocation}${notes}`
+      }
+    } catch (error) {
+      console.error('[transferStock] API error:', error)
+      return { 
+        success: false, 
+        message: error instanceof Error ? error.message : 'Failed to transfer stock' 
+      }
+    }
+  }
+  
+  // Fallback to local state only (shouldn't happen in normal flow)
   const destStock = state.stockLevels.find(s =>
     s.catalogueItemId === sourceStock.catalogueItemId &&
     s.location.toLowerCase() === toLocation.toLowerCase()
@@ -1062,51 +1295,120 @@ function transferStock(params: Record<string, unknown>, state: StateSetters): Ex
     return updated
   })
   
+  const notes = params.notes ? ` (${params.notes})` : ''
+  
   return {
     success: true,
-    message: `Transferred ${quantity} units of ${partNumber} from ${fromLocation} to ${toLocation}`
+    message: `Transferred ${quantity} units of ${partNumber} from ${fromLocation} to ${toLocation}${notes} (local only - not persisted)`
   }
 }
 
-function stockCount(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
+async function stockCount(params: Record<string, unknown>, state: StateSetters, userId?: string | null): Promise<ExecutionResult> {
   const partNumber = String(params.partNumber || '').trim()
   const location = String(params.location || '').trim()
-  const countedQuantity = Number(params.countedQuantity || 0)
+  const countedQuantity = Number(params.countedQuantity || params.quantity || 0)
   
   if (!partNumber || !location) {
     return { success: false, message: 'Part number and location are required' }
   }
   
+  const catalogueItem = state.catalogue.find(i =>
+    i.partNumber.toLowerCase() === partNumber.toLowerCase()
+  )
+  
+  if (!catalogueItem) {
+    return { success: false, message: `Part number ${partNumber} not found in catalogue` }
+  }
+  
   const stockItem = state.stockLevels.find(s =>
-    s.partNumber.toLowerCase() === partNumber.toLowerCase() &&
+    s.catalogueItemId === catalogueItem.id &&
     s.location.toLowerCase() === location.toLowerCase()
   )
   
-  if (!stockItem) {
-    // No existing stock, create new if counted > 0
-    if (countedQuantity > 0) {
-      const catalogueItem = state.catalogue.find(i =>
-        i.partNumber.toLowerCase() === partNumber.toLowerCase()
-      )
+  // Call API to set stock count
+  if (userId) {
+    try {
+      const stockData: any = {
+        catalogueItemId: catalogueItem.id,
+        partNumber: catalogueItem.partNumber,
+        name: catalogueItem.name,
+        location,
+        quantity: countedQuantity,
+        action: 'set' as const, // Set absolute quantity
+      }
       
-      if (catalogueItem) {
-        const newStock: StockLevel = {
-          id: generateId(),
-          catalogueItemId: catalogueItem.id,
-          partNumber: catalogueItem.partNumber,
-          name: catalogueItem.name,
-          location,
-          quantity: countedQuantity,
-          lastCountedAt: Date.now(),
-          lastMovementAt: Date.now(),
-          updatedAt: Date.now(),
-        }
-        state.setStockLevels((current) => [...current, newStock])
-        
+      if (stockItem) {
+        stockData.id = stockItem.id
+      }
+      
+      const result = await apiPost<StockLevel>('/api/stock/levels', userId, stockData)
+      
+      // Update local state
+      if (result.quantity === 0) {
+        state.setStockLevels((current) =>
+          current.filter(s => s.id !== stockItem?.id)
+        )
+      } else if (stockItem) {
+        state.setStockLevels((current) =>
+          current.map(s =>
+            s.id === stockItem.id
+              ? { ...s, quantity: result.quantity, lastCountedAt: Date.now(), updatedAt: result.updatedAt }
+              : s
+          )
+        )
+      } else {
+        state.setStockLevels((current) => [...current, { ...result, lastCountedAt: Date.now() }])
+      }
+      
+      if (!stockItem) {
         return {
           success: true,
           message: `Stock count: Found ${countedQuantity} units of ${partNumber} at ${location} (previously untracked)`
         }
+      }
+      
+      const expectedQuantity = stockItem.quantity
+      const difference = countedQuantity - expectedQuantity
+      
+      if (difference === 0) {
+        return {
+          success: true,
+          message: `Stock count verified: ${partNumber} at ${location} = ${countedQuantity} units (as expected)`
+        }
+      } else {
+        return {
+          success: true,
+          message: `Stock count updated: ${partNumber} at ${location}. Expected: ${expectedQuantity}, Counted: ${countedQuantity}, Difference: ${difference > 0 ? '+' : ''}${difference}`
+        }
+      }
+    } catch (error) {
+      console.error('[stockCount] API error:', error)
+      return { 
+        success: false, 
+        message: error instanceof Error ? error.message : 'Failed to update stock count' 
+      }
+    }
+  }
+  
+  // Fallback to local state only
+  if (!stockItem) {
+    if (countedQuantity > 0) {
+      const newStock: StockLevel = {
+        id: generateId(),
+        catalogueItemId: catalogueItem.id,
+        partNumber: catalogueItem.partNumber,
+        name: catalogueItem.name,
+        location,
+        quantity: countedQuantity,
+        lastCountedAt: Date.now(),
+        lastMovementAt: Date.now(),
+        updatedAt: Date.now(),
+      }
+      state.setStockLevels((current) => [...current, newStock])
+      
+      return {
+        success: true,
+        message: `Stock count: Found ${countedQuantity} units of ${partNumber} at ${location} (previously untracked) (local only)`
       }
     }
     
@@ -1130,12 +1432,12 @@ function stockCount(params: Record<string, unknown>, state: StateSetters): Execu
   if (difference === 0) {
     return {
       success: true,
-      message: `Stock count verified: ${partNumber} at ${location} = ${countedQuantity} units (as expected)`
+      message: `Stock count verified: ${partNumber} at ${location} = ${countedQuantity} units (as expected) (local only)`
     }
   } else {
     return {
       success: true,
-      message: `Stock count updated: ${partNumber} at ${location}. Expected: ${expectedQuantity}, Counted: ${countedQuantity}, Difference: ${difference > 0 ? '+' : ''}${difference}`
+      message: `Stock count updated: ${partNumber} at ${location}. Expected: ${expectedQuantity}, Counted: ${countedQuantity}, Difference: ${difference > 0 ? '+' : ''}${difference} (local only)`
     }
   }
 }
@@ -1192,7 +1494,7 @@ function lowStockReport(params: Record<string, unknown>, state: StateSetters): E
   }
 }
 
-function setMinStock(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
+async function setMinStock(params: Record<string, unknown>, state: StateSetters, userId?: string | null): Promise<ExecutionResult> {
   const partNumber = String(params.partNumber || '').trim()
   const minQuantity = Number(params.minQuantity || 0)
   
@@ -1208,6 +1510,37 @@ function setMinStock(params: Record<string, unknown>, state: StateSetters): Exec
     return { success: false, message: `Catalogue item ${partNumber} not found` }
   }
   
+  // Call API to update catalogue item
+  if (userId) {
+    try {
+      const updatedItem = {
+        ...item,
+        minQuantity,
+        reorderQuantity: params.reorderQuantity ? Number(params.reorderQuantity) : item.reorderQuantity,
+        updatedAt: Date.now(),
+      }
+      
+      const result = await apiPut<CatalogueItem>('/api/inventory/catalogue', userId, updatedItem)
+      
+      // Update local state
+      state.setCatalogue((current) =>
+        current.map(i => i.id === item.id ? result : i)
+      )
+      
+      return {
+        success: true,
+        message: `Set minimum stock level for ${partNumber} to ${minQuantity} units`
+      }
+    } catch (error) {
+      console.error('[setMinStock] API error:', error)
+      return { 
+        success: false, 
+        message: error instanceof Error ? error.message : 'Failed to set minimum stock level' 
+      }
+    }
+  }
+  
+  // Fallback to local state only
   state.setCatalogue((current) =>
     current.map(i =>
       i.id === item.id
@@ -1223,7 +1556,7 @@ function setMinStock(params: Record<string, unknown>, state: StateSetters): Exec
   
   return {
     success: true,
-    message: `Set minimum stock level for ${partNumber} to ${minQuantity} units`
+    message: `Set minimum stock level for ${partNumber} to ${minQuantity} units (local only)`
   }
 }
 
@@ -1310,7 +1643,7 @@ async function createCustomer(params: Record<string, unknown>, state: StateSette
   }
 }
 
-function addSiteAddress(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
+async function addSiteAddress(params: Record<string, unknown>, state: StateSetters, userId?: string | null): Promise<ExecutionResult> {
   const customerName = String(params.customerName || '').trim()
   const siteName = String(params.siteName || '').trim()
   const address = String(params.address || '').trim()
@@ -1347,17 +1680,46 @@ function addSiteAddress(params: Record<string, unknown>, state: StateSetters): E
     accessNotes: params.accessNotes ? String(params.accessNotes) : undefined,
   }
   
+  const updatedCustomer = {
+    ...customer,
+    siteAddresses: [...customer.siteAddresses, newSite]
+  }
+  
+  // Call API to update customer
+  if (userId) {
+    try {
+      const result = await apiPut<Customer>('/api/customers', userId, updatedCustomer)
+      
+      // Update local state
+      state.setCustomers((current) =>
+        current.map(c => c.id === customer.id ? result : c)
+      )
+      
+      return {
+        success: true,
+        message: `Added site address "${siteName}" to customer ${customerName}`
+      }
+    } catch (error) {
+      console.error('[addSiteAddress] API error:', error)
+      return { 
+        success: false, 
+        message: error instanceof Error ? error.message : 'Failed to add site address' 
+      }
+    }
+  }
+  
+  // Fallback to local state only
   state.setCustomers((current) =>
     current.map(c =>
       c.id === customer.id
-        ? { ...c, siteAddresses: [...c.siteAddresses, newSite] }
+        ? updatedCustomer
         : c
     )
   )
   
   return {
     success: true,
-    message: `Added site address "${siteName}" to customer ${customerName}`
+    message: `Added site address "${siteName}" to customer ${customerName} (local only)`
   }
 }
 
@@ -1589,7 +1951,7 @@ function listEquipment(params: Record<string, unknown>, state: StateSetters): Ex
 
 // ===== PARTS INSTALLATION =====
 
-function installFromStock(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
+async function installFromStock(params: Record<string, unknown>, state: StateSetters, userId?: string | null): Promise<ExecutionResult> {
   const partNumber = String(params.partNumber || '').trim()
   const quantity = Number(params.quantity || 0)
   const customerName = String(params.customerName || '').trim()
@@ -1644,8 +2006,8 @@ function installFromStock(params: Record<string, unknown>, state: StateSetters):
     }
   }
   
-  // Check stock and decrement
-  const useResult = useStock({ partNumber, quantity, location, reason: 'installation' }, state)
+  // Check stock and decrement (this will call the API)
+  const useResult = await useStock({ partNumber, quantity, location, reason: 'installation' }, state, userId)
   if (!useResult.success) {
     return useResult
   }
@@ -1672,6 +2034,8 @@ function installFromStock(params: Record<string, unknown>, state: StateSetters):
     jobNumber: params.jobNumber ? String(params.jobNumber) : undefined,
   }
   
+  // TODO: Add API call for installed parts when endpoint is available
+  // For now, just update local state
   state.setInstalledParts((current) => [...current, installedPart])
   
   return {
@@ -1681,7 +2045,7 @@ function installFromStock(params: Record<string, unknown>, state: StateSetters):
   }
 }
 
-function installDirectOrder(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
+async function installDirectOrder(params: Record<string, unknown>, state: StateSetters, userId?: string | null): Promise<ExecutionResult> {
   const partNumber = String(params.partNumber || '').trim()
   const name = String(params.name || '').trim()
   const quantity = Number(params.quantity || 0)
@@ -1754,6 +2118,8 @@ function installDirectOrder(params: Record<string, unknown>, state: StateSetters
     installedDate: Date.now(),
   }
   
+  // TODO: Add API call for installed parts when endpoint is available
+  // For now, just update local state
   state.setInstalledParts((current) => [...current, installedPart])
   
   return {
@@ -1948,7 +2314,7 @@ async function createJob(params: Record<string, unknown>, state: StateSetters, u
   }
 }
 
-function scheduleJob(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
+async function scheduleJob(params: Record<string, unknown>, state: StateSetters, userId?: string | null): Promise<ExecutionResult> {
   const jobNumber = String(params.jobNumber || '').trim()
   const scheduledDate = Number(params.scheduledDate || 0)
   
@@ -1974,26 +2340,47 @@ function scheduleJob(params: Record<string, unknown>, state: StateSetters): Exec
     }
   }
   
+  const updatedJob = {
+    ...job,
+    scheduledDate,
+    assignedEngineerName: params.assignedEngineerName ? String(params.assignedEngineerName) : job.assignedEngineerName,
+    status: 'scheduled' as Job['status'],
+  }
+  
+  // Call API to update
+  if (userId) {
+    try {
+      const result = await apiPut<Job>('/api/jobs', userId, updatedJob)
+      
+      state.setJobs((current) =>
+        current.map(j => j.id === job.id ? result : j)
+      )
+      
+      return {
+        success: true,
+        message: `Scheduled job ${jobNumber}${params.assignedEngineerName ? ` for ${params.assignedEngineerName}` : ''}`
+      }
+    } catch (error) {
+      console.error('[scheduleJob] API error:', error)
+      return { 
+        success: false, 
+        message: error instanceof Error ? error.message : 'Failed to schedule job' 
+      }
+    }
+  }
+  
+  // Fallback
   state.setJobs((current) =>
-    current.map(j =>
-      j.id === job.id
-        ? {
-            ...j,
-            scheduledDate,
-            assignedEngineerName: params.assignedEngineerName ? String(params.assignedEngineerName) : j.assignedEngineerName,
-            status: 'scheduled' as Job['status'],
-          }
-        : j
-    )
+    current.map(j => j.id === job.id ? updatedJob : j)
   )
   
   return {
     success: true,
-    message: `Scheduled job ${jobNumber}${params.assignedEngineerName ? ` for ${params.assignedEngineerName}` : ''}`
+    message: `Scheduled job ${jobNumber}${params.assignedEngineerName ? ` for ${params.assignedEngineerName}` : ''} (local only)`
   }
 }
 
-function startJob(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
+async function startJob(params: Record<string, unknown>, state: StateSetters, userId?: string | null): Promise<ExecutionResult> {
   const jobNumber = String(params.jobNumber || '').trim()
   
   if (!jobNumber) {
@@ -2018,25 +2405,46 @@ function startJob(params: Record<string, unknown>, state: StateSetters): Executi
     }
   }
   
+  const updatedJob = {
+    ...job,
+    status: 'in_progress' as Job['status'],
+    startedAt: Date.now(),
+  }
+  
+  // Call API to update
+  if (userId) {
+    try {
+      const result = await apiPut<Job>('/api/jobs', userId, updatedJob)
+      
+      state.setJobs((current) =>
+        current.map(j => j.id === job.id ? result : j)
+      )
+      
+      return {
+        success: true,
+        message: `Started job ${jobNumber}`
+      }
+    } catch (error) {
+      console.error('[startJob] API error:', error)
+      return { 
+        success: false, 
+        message: error instanceof Error ? error.message : 'Failed to start job' 
+      }
+    }
+  }
+  
+  // Fallback
   state.setJobs((current) =>
-    current.map(j =>
-      j.id === job.id
-        ? {
-            ...j,
-            status: 'in_progress' as Job['status'],
-            startedAt: Date.now(),
-          }
-        : j
-    )
+    current.map(j => j.id === job.id ? updatedJob : j)
   )
   
   return {
     success: true,
-    message: `Started job ${jobNumber}`
+    message: `Started job ${jobNumber} (local only)`
   }
 }
 
-function completeJob(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
+async function completeJob(params: Record<string, unknown>, state: StateSetters, userId?: string | null): Promise<ExecutionResult> {
   const jobNumber = String(params.jobNumber || '').trim()
   const workCarriedOut = String(params.workCarriedOut || '').trim()
   
@@ -2062,24 +2470,45 @@ function completeJob(params: Record<string, unknown>, state: StateSetters): Exec
     }
   }
   
+  const updatedJob = {
+    ...job,
+    status: 'completed' as Job['status'],
+    completedAt: Date.now(),
+    workCarriedOut,
+    findings: params.findings ? String(params.findings) : job.findings,
+    recommendations: params.recommendations ? String(params.recommendations) : job.recommendations,
+  }
+  
+  // Call API to update
+  if (userId) {
+    try {
+      const result = await apiPut<Job>('/api/jobs', userId, updatedJob)
+      
+      state.setJobs((current) =>
+        current.map(j => j.id === job.id ? result : j)
+      )
+      
+      return {
+        success: true,
+        message: `Completed job ${jobNumber}`
+      }
+    } catch (error) {
+      console.error('[completeJob] API error:', error)
+      return { 
+        success: false, 
+        message: error instanceof Error ? error.message : 'Failed to complete job' 
+      }
+    }
+  }
+  
+  // Fallback
   state.setJobs((current) =>
-    current.map(j =>
-      j.id === job.id
-        ? {
-            ...j,
-            status: 'completed' as Job['status'],
-            completedAt: Date.now(),
-            workCarriedOut,
-            findings: params.findings ? String(params.findings) : j.findings,
-            recommendations: params.recommendations ? String(params.recommendations) : j.recommendations,
-          }
-        : j
-    )
+    current.map(j => j.id === job.id ? updatedJob : j)
   )
   
   return {
     success: true,
-    message: `Completed job ${jobNumber}`
+    message: `Completed job ${jobNumber} (local only)`
   }
 }
 
@@ -2171,7 +2600,7 @@ async function updateJob(params: Record<string, unknown>, state: StateSetters, u
   }
 }
 
-function addPartToJob(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
+async function addPartToJob(params: Record<string, unknown>, state: StateSetters, userId?: string | null): Promise<ExecutionResult> {
   const jobNumber = String(params.jobNumber || '').trim()
   const partNumber = String(params.partNumber || '').trim()
   const quantity = Number(params.quantity || 0)
@@ -2201,17 +2630,45 @@ function addPartToJob(params: Record<string, unknown>, state: StateSetters): Exe
     sellPrice: catalogueItem?.sellPrice,
   }
   
+  const updatedJob = {
+    ...job,
+    partsUsed: [...job.partsUsed, usedPart]
+  }
+  
+  // Call API to update
+  if (userId) {
+    try {
+      const result = await apiPut<Job>('/api/jobs', userId, updatedJob)
+      
+      state.setJobs((current) =>
+        current.map(j => j.id === job.id ? result : j)
+      )
+      
+      return {
+        success: true,
+        message: `Added ${quantity} units of ${partNumber} to job ${jobNumber}`
+      }
+    } catch (error) {
+      console.error('[addPartToJob] API error:', error)
+      return { 
+        success: false, 
+        message: error instanceof Error ? error.message : 'Failed to add part to job' 
+      }
+    }
+  }
+  
+  // Fallback
   state.setJobs((current) =>
     current.map(j =>
       j.id === job.id
-        ? { ...j, partsUsed: [...j.partsUsed, usedPart] }
+        ? updatedJob
         : j
     )
   )
   
   return {
     success: true,
-    message: `Added ${quantity} units of ${partNumber} to job ${jobNumber}`
+    message: `Added ${quantity} units of ${partNumber} to job ${jobNumber} (local only)`
   }
 }
 
@@ -2406,7 +2863,7 @@ async function createPurchaseOrder(params: Record<string, unknown>, state: State
   }
 }
 
-function receivePurchaseOrder(params: Record<string, unknown>, state: StateSetters): ExecutionResult {
+async function receivePurchaseOrder(params: Record<string, unknown>, state: StateSetters, userId?: string | null): Promise<ExecutionResult> {
   const poNumber = String(params.poNumber || '').trim()
   
   if (!poNumber) {
@@ -2419,21 +2876,46 @@ function receivePurchaseOrder(params: Record<string, unknown>, state: StateSette
     return { success: false, message: `Purchase order ${poNumber} not found` }
   }
   
+  const updatedPO = {
+    ...po,
+    status: 'received' as PurchaseOrder['status'],
+    receivedDate: Date.now(),
+  }
+  
+  // Call API to update
+  if (userId) {
+    try {
+      const result = await apiPut<PurchaseOrder>('/api/purchase-orders', userId, updatedPO)
+      
+      state.setPurchaseOrders((current) =>
+        current.map(p => p.id === po.id ? result : p)
+      )
+      
+      return {
+        success: true,
+        message: `Marked purchase order ${poNumber} as received`
+      }
+    } catch (error) {
+      console.error('[receivePurchaseOrder] API error:', error)
+      return { 
+        success: false, 
+        message: error instanceof Error ? error.message : 'Failed to receive purchase order' 
+      }
+    }
+  }
+  
+  // Fallback
   state.setPurchaseOrders((current) =>
     current.map(p =>
       p.id === po.id
-        ? {
-            ...p,
-            status: 'received' as PurchaseOrder['status'],
-            receivedDate: Date.now(),
-          }
+        ? updatedPO
         : p
     )
   )
   
   return {
     success: true,
-    message: `Marked purchase order ${poNumber} as received`
+    message: `Marked purchase order ${poNumber} as received (local only)`
   }
 }
 
@@ -2870,3 +3352,4 @@ function listItems(
     data: filtered
   }
 }
+
