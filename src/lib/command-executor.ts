@@ -934,43 +934,7 @@ async function receiveStock(params: Record<string, unknown>, state: StateSetters
     message: `Received ${quantity} units of ${partNumber}${supplierInfo} into ${location} (local only - not persisted)`
   }
 }
-    } catch (error) {
-      console.error('[receiveStock] API error:', error)
-      return { 
-        success: false, 
-        message: error instanceof Error ? error.message : 'Failed to add stock' 
-      }
-    }
-  }
-  
-  // Fallback to local state only (shouldn't happen in normal flow)
-  const existingStock = state.stockLevels.find(s => 
-    s.catalogueItemId === catalogueItemId && 
-    s.location.toLowerCase() === location.toLowerCase()
-  )
-  
-  if (existingStock) {
-    state.setStockLevels((current) =>
-      current.map(s =>
-        s.id === existingStock.id
-          ? { ...s, quantity: s.quantity + quantity, lastMovementAt: Date.now(), updatedAt: Date.now() }
-          : s
-      )
-    )
-  } else {
-    const newStock: StockLevel = {
-      id: generateId(),
-      catalogueItemId,
-      partNumber: catalogueItem.partNumber,
-      name: catalogueItem.name,
-      location,
-      quantity,
-      lastMovementAt: Date.now(),
-      updatedAt: Date.now(),
-    }
-    state.setStockLevels((current) => [...current, newStock])
-  }
-  
+
   const supplierInfo = params.supplier || params.supplierName ? ` from ${params.supplier || params.supplierName}` : ''
   return {
     success: true,
