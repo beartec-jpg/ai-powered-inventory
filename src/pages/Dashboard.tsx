@@ -1714,7 +1714,7 @@ export function Dashboard() {
               if (nextStep <= existingPending.totalSteps) {
                 const nextStepIndex = nextStep - 1
                 const nextStepDef = flow.steps[nextStepIndex]
-                const equipmentName = String(existingPending. context?.name || '')
+                const equipmentName = String(existingPending.context?.name || '')
                 
                 const updatedPending = conversationManager.createPendingCommand(
                   existingPending.action,
@@ -1861,8 +1861,7 @@ export function Dashboard() {
               if (nextStep <= existingPending.totalSteps) {
                 const nextStepIndex = nextStep - 1
                 const nextStepDef = flow.steps[nextStepIndex]
-                const supplierName = String(existingPending. context?.name || '')
-
+                const supplierName = String(existingPending.context?.name || '')
                 
                 const updatedPending = conversationManager.createPendingCommand(
                   existingPending.action,
@@ -1941,6 +1940,285 @@ export function Dashboard() {
               setIsProcessing(false)
               return
             }
+          }
+        } else if (existingPending.pendingAction === 'USE_STOCK') {
+          if (existingPending.currentStep !== undefined && existingPending.totalSteps !== undefined) {
+            // Multi-step flow in progress
+            const flow = getFlow('USE_STOCK')
+            if (!flow) {
+              toast.error('Flow configuration error')
+              conversationManager.clearPendingCommand()
+              setPendingCommand(null)
+              setIsProcessing(false)
+              return
+            }
+            
+            const currentStepIndex = existingPending.currentStep - 1
+            const step = flow.steps[currentStepIndex]
+            
+            if (commandLower === 'cancel') {
+              conversationManager.clearPendingCommand()
+              setPendingCommand(null)
+              toast.info('Operation cancelled')
+              setIsProcessing(false)
+              return
+            }
+            
+            const result = processStepInput(step, command)
+            
+            if (result.error) {
+              toast.error(result.error)
+              setIsProcessing(false)
+              return
+            }
+            
+            const collectedData = { ...(existingPending.collectedData || {}) }
+            if (!result.skipped && result.value !== null) {
+              collectedData[step.field] = result.value
+            }
+            
+            if (result.skipped && step.skipText) {
+              toast.info(step.skipText)
+            }
+            
+            // Move to next step or complete
+            if (existingPending.currentStep < existingPending.totalSteps) {
+              let nextStep = existingPending.currentStep + 1
+              while (nextStep <= existingPending.totalSteps) {
+                const stepField = flow.steps[nextStep - 1].field
+                if (!(stepField in collectedData)) {
+                  break
+                }
+                nextStep++
+              }
+              
+              if (nextStep <= existingPending.totalSteps) {
+                const nextStepIndex = nextStep - 1
+                const nextStepDef = flow.steps[nextStepIndex]
+                const itemName = String(existingPending.context?.item || existingPending.context?.partNumber || '')
+                
+                const updatedPending = conversationManager.createPendingCommand(
+                  existingPending.action,
+                  existingPending.parameters,
+                  [],
+                  nextStepDef.prompt(itemName),
+                  existingPending.pendingAction,
+                  existingPending.context,
+                  nextStepDef.optional ? ['Skip'] : undefined,
+                  nextStep,
+                  existingPending.totalSteps,
+                  collectedData
+                )
+                
+                setPendingCommand(updatedPending)
+                setIsProcessing(false)
+                return
+              }
+            }
+            
+            // All steps completed, execute the action
+            actionToExecute = 'USE_STOCK'
+            paramsToExecute = {
+              ...existingPending.context,
+              ...collectedData,
+              partNumber: existingPending.context?.partNumber || existingPending.context?.item,
+              flowCompleted: true
+            }
+            conversationManager.clearPendingCommand()
+            setPendingCommand(null)
+          } else {
+            // Initial confirmation or direct execution (no confirmation needed for USE_STOCK)
+            conversationManager.clearPendingCommand()
+            setPendingCommand(null)
+            toast.info('Stock removal cancelled')
+            setIsProcessing(false)
+            return
+          }
+        } else if (existingPending.pendingAction === 'RECEIVE_STOCK') {
+          if (existingPending.currentStep !== undefined && existingPending.totalSteps !== undefined) {
+            // Multi-step flow in progress
+            const flow = getFlow('RECEIVE_STOCK')
+            if (!flow) {
+              toast.error('Flow configuration error')
+              conversationManager.clearPendingCommand()
+              setPendingCommand(null)
+              setIsProcessing(false)
+              return
+            }
+            
+            const currentStepIndex = existingPending.currentStep - 1
+            const step = flow.steps[currentStepIndex]
+            
+            if (commandLower === 'cancel') {
+              conversationManager.clearPendingCommand()
+              setPendingCommand(null)
+              toast.info('Operation cancelled')
+              setIsProcessing(false)
+              return
+            }
+            
+            const result = processStepInput(step, command)
+            
+            if (result.error) {
+              toast.error(result.error)
+              setIsProcessing(false)
+              return
+            }
+            
+            const collectedData = { ...(existingPending.collectedData || {}) }
+            if (!result.skipped && result.value !== null) {
+              collectedData[step.field] = result.value
+            }
+            
+            if (result.skipped && step.skipText) {
+              toast.info(step.skipText)
+            }
+            
+            // Move to next step or complete
+            if (existingPending.currentStep < existingPending.totalSteps) {
+              let nextStep = existingPending.currentStep + 1
+              while (nextStep <= existingPending.totalSteps) {
+                const stepField = flow.steps[nextStep - 1].field
+                if (!(stepField in collectedData)) {
+                  break
+                }
+                nextStep++
+              }
+              
+              if (nextStep <= existingPending.totalSteps) {
+                const nextStepIndex = nextStep - 1
+                const nextStepDef = flow.steps[nextStepIndex]
+                const itemName = String(existingPending.context?.item || existingPending.context?.partNumber || '')
+                
+                const updatedPending = conversationManager.createPendingCommand(
+                  existingPending.action,
+                  existingPending.parameters,
+                  [],
+                  nextStepDef.prompt(itemName),
+                  existingPending.pendingAction,
+                  existingPending.context,
+                  nextStepDef.optional ? ['Skip'] : undefined,
+                  nextStep,
+                  existingPending.totalSteps,
+                  collectedData
+                )
+                
+                setPendingCommand(updatedPending)
+                setIsProcessing(false)
+                return
+              }
+            }
+            
+            // All steps completed, execute the action
+            actionToExecute = 'RECEIVE_STOCK'
+            paramsToExecute = {
+              ...existingPending.context,
+              ...collectedData,
+              partNumber: existingPending.context?.partNumber || existingPending.context?.item,
+              flowCompleted: true
+            }
+            conversationManager.clearPendingCommand()
+            setPendingCommand(null)
+          } else {
+            // Initial confirmation or direct execution
+            conversationManager.clearPendingCommand()
+            setPendingCommand(null)
+            toast.info('Stock receiving cancelled')
+            setIsProcessing(false)
+            return
+          }
+        } else if (existingPending.pendingAction === 'TRANSFER_STOCK') {
+          if (existingPending.currentStep !== undefined && existingPending.totalSteps !== undefined) {
+            // Multi-step flow in progress
+            const flow = getFlow('TRANSFER_STOCK')
+            if (!flow) {
+              toast.error('Flow configuration error')
+              conversationManager.clearPendingCommand()
+              setPendingCommand(null)
+              setIsProcessing(false)
+              return
+            }
+            
+            const currentStepIndex = existingPending.currentStep - 1
+            const step = flow.steps[currentStepIndex]
+            
+            if (commandLower === 'cancel') {
+              conversationManager.clearPendingCommand()
+              setPendingCommand(null)
+              toast.info('Operation cancelled')
+              setIsProcessing(false)
+              return
+            }
+            
+            const result = processStepInput(step, command)
+            
+            if (result.error) {
+              toast.error(result.error)
+              setIsProcessing(false)
+              return
+            }
+            
+            const collectedData = { ...(existingPending.collectedData || {}) }
+            if (!result.skipped && result.value !== null) {
+              collectedData[step.field] = result.value
+            }
+            
+            if (result.skipped && step.skipText) {
+              toast.info(step.skipText)
+            }
+            
+            // Move to next step or complete
+            if (existingPending.currentStep < existingPending.totalSteps) {
+              let nextStep = existingPending.currentStep + 1
+              while (nextStep <= existingPending.totalSteps) {
+                const stepField = flow.steps[nextStep - 1].field
+                if (!(stepField in collectedData)) {
+                  break
+                }
+                nextStep++
+              }
+              
+              if (nextStep <= existingPending.totalSteps) {
+                const nextStepIndex = nextStep - 1
+                const nextStepDef = flow.steps[nextStepIndex]
+                const itemName = String(existingPending.context?.item || existingPending.context?.partNumber || '')
+                
+                const updatedPending = conversationManager.createPendingCommand(
+                  existingPending.action,
+                  existingPending.parameters,
+                  [],
+                  nextStepDef.prompt(itemName),
+                  existingPending.pendingAction,
+                  existingPending.context,
+                  nextStepDef.optional ? ['Skip'] : undefined,
+                  nextStep,
+                  existingPending.totalSteps,
+                  collectedData
+                )
+                
+                setPendingCommand(updatedPending)
+                setIsProcessing(false)
+                return
+              }
+            }
+            
+            // All steps completed, execute the action
+            actionToExecute = 'TRANSFER_STOCK'
+            paramsToExecute = {
+              ...existingPending.context,
+              ...collectedData,
+              partNumber: existingPending.context?.partNumber || existingPending.context?.item,
+              flowCompleted: true
+            }
+            conversationManager.clearPendingCommand()
+            setPendingCommand(null)
+          } else {
+            // Initial confirmation or direct execution
+            conversationManager.clearPendingCommand()
+            setPendingCommand(null)
+            toast.info('Stock transfer cancelled')
+            setIsProcessing(false)
+            return
           }
         } else {
           // Try to extract missing parameters from the user's response
