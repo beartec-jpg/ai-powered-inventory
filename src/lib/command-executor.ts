@@ -864,8 +864,7 @@ console.log('[receiveStock] Catalog lookup:', {
         partNumber: catalogueItem.partNumber,
         name: catalogueItem.name,
         location,
-        quantity, -quantity, // Negative to subtract
-        action: 'add' as const, // Add to existing quantity
+        quantity: -quantity, // Negative to subtract        action: 'add' as const, // Add to existing quantity
       }
       
       const result = await apiPost<StockLevel>('/api/stock/levels', userId, stockData)
