@@ -928,10 +928,12 @@ async function receiveStock(params: Record<string, unknown>, state: StateSetters
     state.setStockLevels((current) => [...current, newStock])
   }
   
-  const supplierInfo = params.supplier || params.supplierName ? ` from ${params.supplier || params.supplierName}` : ''
+    const supplierInfo = params.supplier || params.supplierName ? ` from ${params.supplier || params.supplierName}` : ''
   return {
     success: true,
     message: `Received ${quantity} units of ${partNumber}${supplierInfo} into ${location} (local only - not persisted)`
+  }
+}
 
 async function putAwayStock(params: Record<string, unknown>, state: StateSetters, userId?: string | null): Promise<ExecutionResult> {
   return await transferStock(params, state, userId) // Same operation as transfer
