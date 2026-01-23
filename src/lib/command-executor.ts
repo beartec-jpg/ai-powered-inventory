@@ -777,7 +777,7 @@ async function receiveStock(params: Record<string, unknown>, state: StateSetters
   // Handle both 'item' and 'partNumber' parameter names
   const item = String(params.item || params.partNumber || '').trim()
   const quantity = Number(params.quantity || 0)
-  const location = String(params.location || '').trim()
+  let location = String(params.location || '').trim()
   
   // [TRACING] Log receiveStock entry with all relevant info
   console.log('[receiveStock] Entry:', {
@@ -786,69 +786,27 @@ async function receiveStock(params: Record<string, unknown>, state: StateSetters
   })
 
   // Check for missing required parameters
-const missingFields: string[] = []
-if (!item) missingFields.push('item')
-if (!quantity || quantity <= 0) missingFields.push('quantity')
-
-// Special handling for missing location - show available locations
-if (!location && catalogueItem) {
-  const availableStock = state.stockLevels.filter(s => 
-    s.catalogueItemId === catalogueItem.id && s.quantity > 0
-  )
+  const missingFields: string[] = []
+  if (!item) missingFields.push('item')
+  if (!quantity || quantity <= 0) missingFields.push('quantity')
+  if (!location) missingFields.push('location')
   
-  if (availableStock.length === 0) {
+  if (missingFields.length > 0) {
+    const fieldNames = missingFields.join(', ')
     return {
       success: false,
-      message: `No stock available for ${item}`,
-    }
-  }
-  
-  // Auto-select if only one location available
-  if (availableStock.length === 1) {
-    location = availableStock[0].location
-    console.log(`[useStock] Auto-selected only available location: ${location}`)
-    // Don't return - continue with the removal using this location
-  } else {
-    // Show location picker with available quantities
-    const locationList = availableStock
-      .map(s => `${s.location} (${s.quantity} units available)`)
-      .join(', ')
-    
-    return {
-      success: false,
-      message: `Please specify location. Available: ${locationList}`,
+      message: `Missing required information: ${fieldNames}`,
       needsInput: true,
-      missingFields: ['location'],
-      prompt: `From which location? Available: ${locationList}`,
+      missingFields,
+      prompt: `Please provide the ${fieldNames} to complete receiving stock.`,
       context: { 
         item, 
         quantity, 
         location,
-        availableLocations: availableStock.map(s => s.location),
         ...params
       }
     }
   }
-}
-
-if (!location) missingFields.push('location')
-
-if (missingFields.length > 0) {
-  const fieldNames = missingFields.join(', ')
-  return {
-    success: false,
-    message: `Missing required information: ${fieldNames}`,
-    needsInput: true,
-    missingFields,
-    prompt: `Please provide the ${fieldNames} to complete removing stock.`,
-    context: { 
-      item, 
-      quantity, 
-      location,
-      ...params
-    }
-  }
-}
   
   // Search for item in catalogue by part number or name
   // - Exact match (case-insensitive) on part number for precision
@@ -859,15 +817,15 @@ if (missingFields.length > 0) {
   )
   
   // ADD THIS LOGGING: 
-console.log('[receiveStock] Catalog lookup:', {
-  searchTerm: item,
-  foundItem: catalogueItem ? {
-    id: catalogueItem.id,
-    partNumber: catalogueItem.partNumber,
-    name: catalogueItem.name
-  } : null,
-  catalogueSize: state.catalogue.length
-});
+  console.log('[receiveStock] Catalog lookup:', {
+    searchTerm: item,
+    foundItem: catalogueItem ? {
+      id: catalogueItem.id,
+      partNumber: catalogueItem.partNumber,
+      name: catalogueItem.name
+    } : null,
+    catalogueSize: state.catalogue.length
+  });
   
   // If not in catalogue, prompt to create it
   if (!catalogueItem) {
@@ -904,7 +862,8 @@ console.log('[receiveStock] Catalog lookup:', {
         partNumber: catalogueItem.partNumber,
         name: catalogueItem.name,
         location,
-        quantity: -quantity, // Negative to subtract        action: 'add' as const, // Add to existing quantity
+        quantity: quantity, // Positive for receiving
+        action: 'add' as const, // Add to existing quantity
       }
       
       const result = await apiPost<StockLevel>('/api/stock/levels', userId, stockData)
@@ -932,6 +891,49 @@ console.log('[receiveStock] Catalog lookup:', {
         success: true,
         message: `Received ${quantity} units of ${partNumber}${supplierInfo} into ${location}`
       }
+    } catch (error) {
+      console.error('[receiveStock] API error:', error)
+      return { 
+        success: false, 
+        message: error instanceof Error ? error.message : 'Failed to add stock' 
+      }
+    }
+  }
+  
+  // Fallback to local state only (shouldn't happen in normal flow)
+  const existingStock = state.stockLevels.find(s => 
+    s.catalogueItemId === catalogueItemId && 
+    s.location.toLowerCase() === location.toLowerCase()
+  )
+  
+  if (existingStock) {
+    state.setStockLevels((current) =>
+      current.map(s =>
+        s.id === existingStock.id
+          ? { ...s, quantity: s.quantity + quantity, lastMovementAt: Date.now(), updatedAt: Date.now() }
+          : s
+      )
+    )
+  } else {
+    const newStock: StockLevel = {
+      id: generateId(),
+      catalogueItemId,
+      partNumber: catalogueItem.partNumber,
+      name: catalogueItem.name,
+      location,
+      quantity,
+      lastMovementAt: Date.now(),
+      updatedAt: Date.now(),
+    }
+    state.setStockLevels((current) => [...current, newStock])
+  }
+  
+  const supplierInfo = params.supplier || params.supplierName ? ` from ${params.supplier || params.supplierName}` : ''
+  return {
+    success: true,
+    message: `Received ${quantity} units of ${partNumber}${supplierInfo} into ${location} (local only - not persisted)`
+  }
+}
     } catch (error) {
       console.error('[receiveStock] API error:', error)
       return { 
