@@ -785,30 +785,70 @@ async function receiveStock(params: Record<string, unknown>, state: StateSetters
     catalogueState: { itemCount: state.catalogue.length, stockLevelCount: state.stockLevels.length }
   })
 
-  
   // Check for missing required parameters
-  const missingFields: string[] = []
-  if (!item) missingFields.push('item')
-  if (!quantity || quantity <= 0) missingFields.push('quantity')
-  if (!location) missingFields.push('location')
+const missingFields: string[] = []
+if (!item) missingFields.push('item')
+if (!quantity || quantity <= 0) missingFields.push('quantity')
+
+// Special handling for missing location - show available locations
+if (!location && catalogueItem) {
+  const availableStock = state.stockLevels.filter(s => 
+    s.catalogueItemId === catalogueItem.id && s.quantity > 0
+  )
   
-  if (missingFields.length > 0) {
-    const fieldNames = missingFields.join(', ')
+  if (availableStock.length === 0) {
     return {
       success: false,
-      message: `Missing required information: ${fieldNames}`,
+      message: `No stock available for ${item}`,
+    }
+  }
+  
+  // Auto-select if only one location available
+  if (availableStock.length === 1) {
+    location = availableStock[0].location
+    console.log(`[useStock] Auto-selected only available location: ${location}`)
+    // Don't return - continue with the removal using this location
+  } else {
+    // Show location picker with available quantities
+    const locationList = availableStock
+      .map(s => `${s.location} (${s.quantity} units available)`)
+      .join(', ')
+    
+    return {
+      success: false,
+      message: `Please specify location. Available: ${locationList}`,
       needsInput: true,
-      missingFields,
-      prompt: `Please provide the ${fieldNames} to complete adding stock.`,
+      missingFields: ['location'],
+      prompt: `From which location? Available: ${locationList}`,
       context: { 
         item, 
         quantity, 
         location,
-        // Include ALL original parameters to preserve extracted data
+        availableLocations: availableStock.map(s => s.location),
         ...params
       }
     }
   }
+}
+
+if (!location) missingFields.push('location')
+
+if (missingFields.length > 0) {
+  const fieldNames = missingFields.join(', ')
+  return {
+    success: false,
+    message: `Missing required information: ${fieldNames}`,
+    needsInput: true,
+    missingFields,
+    prompt: `Please provide the ${fieldNames} to complete removing stock.`,
+    context: { 
+      item, 
+      quantity, 
+      location,
+      ...params
+    }
+  }
+}
   
   // Search for item in catalogue by part number or name
   // - Exact match (case-insensitive) on part number for precision
