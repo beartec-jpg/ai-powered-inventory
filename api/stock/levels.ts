@@ -172,8 +172,10 @@ export default async function handler(
         );
       }
 
-      if (quantity < 0) {
-        return badRequestResponse(res, 'Quantity cannot be negative');
+      // Allow negative quantities for subtraction (when action === 'add')
+      // The negative quantity will be added to current stock, effectively subtracting
+      if (action === 'set' && quantity < 0) {
+        return badRequestResponse(res, 'Quantity cannot be negative when setting absolute value');
       }
 
       // Verify that the catalogue item belongs to this user
