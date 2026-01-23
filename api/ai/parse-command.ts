@@ -298,38 +298,38 @@ const inventoryTools = [
     },
   },
   {
-    type: 'function' as const,
-    function: {
-      name: 'use_stock',
-      description: 'Decrease stock quantity (for jobs, installations, etc.)',
-      parameters: {
-        type: 'object',
-        properties: {
-          partNumber: {
-            type: 'string',
-            description: 'The part number',
-          },
-          quantity: {
-            type: 'number',
-            description: 'The quantity to use (must be positive)',
-          },
-          location: {
-            type: 'string',
-            description: 'The location where stock is taken from',
-          },
-          reason: {
-            type: 'string',
-            description: 'Reason for using stock (e.g., "job", "installation", "damaged")',
-          },
-          jobNumber: {
-            type: 'string',
-            description: 'Related job number if applicable',
-          },
+  type: 'function' as const,
+  function: {
+    name: 'use_stock',
+    description: 'Decrease stock quantity (for jobs, installations, etc.)',
+    parameters: {
+      type: 'object',
+      properties: {
+        partNumber: {
+          type: 'string',
+          description: 'The part number',
         },
-        required: ['partNumber', 'quantity', 'location', 'reason'],
+        quantity: {
+          type: 'number',
+          description: 'The quantity to use (must be positive)',
+        },
+        location: {
+          type: 'string',
+          description: 'The location where stock is taken from',
+        },
+        reason: {
+          type: 'string',
+          description: 'Reason for using stock (e.g., "job", "installation", "damaged")',
+        },
+        jobNumber: {
+          type: 'string',
+          description: 'Related job number if applicable',
+        },
       },
+      required: ['partNumber', 'quantity', 'location'],  // <- REMOVED 'reason' from required
     },
   },
+},
   {
     type: 'function' as const,
     function: {
