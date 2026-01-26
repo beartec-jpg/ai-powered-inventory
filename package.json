@@ -82,7 +82,7 @@
     "@vitejs/plugin-react": "^4.2.1",
     "@vitejs/plugin-react-swc": "^4.2.2",
     "autoprefixer": "^10.4.16",
-    "drizzle-kit": "^0.30.0",
+    "drizzle-kit": "^0.31.8",
     "eslint": "^8.56.0",
     "jest": "^26.6.0",
     "postcss": "^8.4.32",
